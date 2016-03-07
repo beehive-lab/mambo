@@ -366,6 +366,26 @@ void thumb_b32_cond_helper(uint16_t **write_p, uint32_t dest_addr, enum arm_cond
   }
 }
 
+void thumb_b16_helper(uint16_t *write_p, uint32_t dest_addr, enum arm_cond_codes cond) {
+  int difference = dest_addr -(uint32_t)write_p - 4;
+
+  if (cond >= EQ && cond < AL) {
+    // Use encoding T1 (conditional with 8b imm)
+    assert(difference >= -256 && difference <= 254);
+    thumb_b_cond16(&write_p, cond, (difference >> 1) & 0xFF);
+    write_p++;
+  } else if (cond == AL) {
+    // Use encoding T2 (unconditional with 11b imm)
+    assert(difference >= -2048 && difference <= 2046);
+    thumb_b16(&write_p, (difference >> 1) & 0x7FF);
+    write_p++;
+    while(1); // Check me
+  } else {
+    fprintf(stderr, "Requested invalid B16 condition\n");
+    while(1);
+  }
+}
+
 #define DISP_CALL_SIZE 76
 void branch_save_context(dbm_thread *thread_data, uint16_t **o_write_p) {
   uint16_t *write_p = *o_write_p;
