@@ -729,11 +729,14 @@ int ihl_result_branch(dbm_thread *thread_data, enum ihl_branch type, uint16_t **
       assert((reglist & (1 << r12)) == 0);
       assert(pc_incr > 0 && pc_incr < 128 && (pc_incr & 0x3) == 0);
 
+      // MOV{W,T} sr2, #scratch_regs
       copy_to_reg_32bit(&write_p, sr[2], (uint32_t)thread_data->scratch_regs);
 
+      // STR R12, [sr2, #0]
       thumb_stri32(&write_p, 0, 1, sr[2], r12, 0);
       write_p += 2;
 
+      // STR sr0, [sr2, #4] // CC target
       if (sr[2] <= 7 && sr[0] <= 7) {
         thumb_stri16(&write_p, 1, sr[2], sr[0]);
         write_p++;
@@ -742,17 +745,21 @@ int ihl_result_branch(dbm_thread *thread_data, enum ihl_branch type, uint16_t **
         write_p += 2;
       }
 
+      // MOV r12, sr2
       thumb_movh16(&write_p, r12 >> 3, sr[2], r12 & 0x7);
       write_p++;
 
+      // POP {reglist - PC}
       thumb_ldmfd32(&write_p, 1, sp, reglist & 0x7FFF);
       write_p += 2;
 
       if (reglist & (1 << pc)) {
+        // ADD SP, SP, #4
         thumb_add_sp_i16(&write_p, pc_incr >> 2);
         write_p++;
       }
 
+      // LDM R12, {R12, PC}
       thumb_ldmfd32(&write_p, 0, r12, (1 << r12) | (1 << pc));
       write_p += 2;
       break;
