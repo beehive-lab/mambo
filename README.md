@@ -28,6 +28,10 @@ Build
 
 Prerequisites: an ARM system (physical or virtual) to build and run MAMBO on; dependencies: gcc toolchain, libelf(-dev), ruby (>=1.9.1).
 
+    git clone git@github.com:beehive-lab/mambo.git
+    cd mambo
+    git submodule init
+    git submodule update
     make
 
 
