@@ -210,8 +210,6 @@ extern dbm_global global_data;
 extern dbm_thread *disp_thread_data;
 extern __thread dbm_thread *current_thread;
 
-dbm_thread *get_tps(void);
-
 #ifdef PLUGINS_NEW
 void set_mambo_context(mambo_context *ctx, dbm_thread *thread_data, inst_set inst_type,
                        cc_type fragment_type, int fragment_id, int inst, mambo_cond cond,
