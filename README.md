@@ -2,9 +2,11 @@ MAMBO: A Low-Overhead Dynamic Binary Modification Tool for ARM
 ==============================================================
 
 Publications:
-* [Cosmin Gorgovan, Amanieu d’Antras, and Mikel Luján. 2016. MAMBO: A low-overhead dynamic binary modification tool for ARM. ACM Trans. Archit. Code Optim. 13, 1, Article 14 (April 2016)](http://dl.acm.org/citation.cfm?id=2896451)
+* [Cosmin Gorgovan, Amanieu d’Antras, and Mikel Luján. 2016. MAMBO: A low-overhead dynamic binary modification tool for ARM. ACM Trans. Archit. Code Optim. 13, 1, Article 14 (April 2016)](http://dl.acm.org/citation.cfm?id=2896451). If you use MAMBO for your research, please cite this paper.
 
-Note that the version of MAMBO published in this repository is newer and has significantly lower overhead than the one used in the paper. If you want to reproduce the results in the paper, please get in touch.
+Note that the version of MAMBO published in this repository is newer and has significantly lower overhead than the one used in the paper, mostly due to the implementation of traces. If you want to reproduce the results in the paper, please get in touch.
+
+MAMBO is developed as part of my PhD in the [School of Computer Science](http://www.cs.manchester.ac.uk/) at the [University of Manchester](http://www.manchester.ac.uk/). I am funded by an [EPSRC](https://www.epsrc.ac.uk) studentship.
 
 Status
 ------
