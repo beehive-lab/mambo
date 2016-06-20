@@ -76,20 +76,13 @@ dbm_release_lock:
   BX LR
 .endfunc
 
-# R0 - ptr to {R0-R12, R14} saved by the dispatcher
-# R1 - ptr to {R8, R9, R14} saved by the application
-# R2 - new SP
-# R3 - CC address to branch to
+# R0 - new SP
 .global th_enter
 .func   th_enter
 .type   th_enter, %function
 .thumb_func
 th_enter:
-  MOV SP, R2
-  PUSH {R1, R3}
-  LDM R0, {R0-R12, R14}
-  POP {R0}
-  LDM R0, {R8, R9, R14}
-  MOV R0, #0
+  MOV SP, R0
+  POP {R0-R12, R14}
   POP {PC}
 .endfunc

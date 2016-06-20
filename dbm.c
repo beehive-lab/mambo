@@ -124,12 +124,22 @@ void *dbm_start_thread_pth(void *ptr) {
 		syscall(__NR_set_tid_address, thread_data->clone_args->ctid);
   }
   thread_data->tls = thread_data->clone_args->tls;
-  __asm__ volatile("dmb");
 
+  // Copy the parent's saved register values to the child's stack
+  uint32_t *child_stack = thread_data->clone_args->child_stack;
+  child_stack -= 15; // reserve 15 words on the child's stack
+  mambo_memcpy(child_stack, thread_data->clone_args, sizeof(uint32_t) * 14);
+  child_stack[r0] = 0; // return 0
+  child_stack[r8] = thread_data->scratch_regs[0];
+  child_stack[r9] = thread_data->scratch_regs[1];
+  child_stack[13] = thread_data->scratch_regs[2]; // R14
+  child_stack[14] = addr; // pc
+
+  // Release the lock
+  __asm__ volatile("dmb");
   thread_data->tid = tid;
 
-  th_enter((uint32_t *)thread_data->clone_args, thread_data->scratch_regs,
-           thread_data->clone_args->child_stack, addr);
+  th_enter(child_stack);
   return NULL;
 }
 

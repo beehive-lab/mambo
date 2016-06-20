@@ -186,7 +186,7 @@ extern void dispatcher_trampoline();
 extern void syscall_wrapper();
 extern void* end_of_dispatcher_s;
 extern void th_to_arm();
-extern void th_enter(uint32_t *args, uint32_t *sr_regs, void *stack, uint32_t entry_addr);
+extern void th_enter(void *stack);
 
 bool allocate_thread_data(dbm_thread **thread_data);
 void init_thread(dbm_thread *thread_data);
