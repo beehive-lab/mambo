@@ -76,7 +76,7 @@
 #endif
 
 #define ROUND_UP(input, multiple_of) \
-  (((input / multiple_of) * multiple_of) + (input % multiple_of) ? multiple_of : 0)
+  (((input / multiple_of) * multiple_of) + ((input % multiple_of) ? multiple_of : 0))
 
 #define CC_SZ_ROUND(input) ROUND_UP(input, CC_PAGE_SIZE)
 #define METADATA_SZ_ROUND(input) ROUND_UP(input, CC_PAGE_SIZE)
