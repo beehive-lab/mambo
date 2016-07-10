@@ -39,7 +39,8 @@ void emit_thumb_push_cpsr(mambo_context *ctx, enum reg tmp_reg) {
 }
 
 void emit_arm_push_cpsr(mambo_context *ctx, enum reg tmp_reg) {
-  not_implemented();
+  emit_arm_mrs(ctx, tmp_reg);
+  emit_arm_push(ctx, 1 << tmp_reg);
 }
 
 void emit_thumb_pop_cpsr(mambo_context *ctx, enum reg tmp_reg) {
@@ -56,7 +57,8 @@ void emit_thumb_pop_cpsr(mambo_context *ctx, enum reg tmp_reg) {
 }
 
 void emit_arm_pop_cpsr(mambo_context *ctx, enum reg tmp_reg) {
-  not_implemented();
+  emit_arm_pop(ctx, 1 << tmp_reg);
+  emit_arm_msr(ctx, 3 << 2, tmp_reg);
 }
 
 void emit_thumb_copy_to_reg_32bit(mambo_context *ctx, enum reg reg, uint32_t value) {
@@ -68,9 +70,55 @@ void emit_thumb_copy_to_reg_32bit(mambo_context *ctx, enum reg reg, uint32_t val
 }
 
 void emit_arm_copy_to_reg_32bit(mambo_context *ctx, enum reg reg, uint32_t value) {
-  not_implemented();
+  if (value <= 0xFFFF) {
+    arm_copy_to_reg_16bit((uint32_t **)&ctx->write_p, reg, value);
+  } else {
+    arm_copy_to_reg_32bit((uint32_t **)&ctx->write_p, reg, value);
+  }
 }
 
 void emit_thumb_b16_cond(void *write_p, void *target, mambo_cond cond) {
   thumb_b16_cond_helper((uint16_t *)write_p, (uint32_t)target, cond);
+}
+
+void emit_thumb_push(mambo_context *ctx, uint32_t regs) {
+  uint16_t *write_p = ctx->write_p;
+
+  thumb_push_regs(&write_p, regs);
+
+  ctx->write_p = write_p;
+}
+
+void emit_arm_push(mambo_context *ctx, uint32_t regs) {
+  uint32_t *write_p = ctx->write_p;
+
+  arm_push_regs(regs);
+
+  ctx->write_p = write_p;
+}
+
+void emit_thumb_pop(mambo_context *ctx, uint32_t regs) {
+  uint16_t *write_p = ctx->write_p;
+
+  thumb_pop_regs(&write_p, regs);
+
+  ctx->write_p = write_p;
+}
+
+void emit_arm_pop(mambo_context *ctx, uint32_t regs) {
+  uint32_t *write_p = ctx->write_p;
+
+  arm_pop_regs(regs);
+
+  ctx->write_p = write_p;
+}
+
+void emit_arm_fcall(mambo_context *ctx, void *function_ptr) {
+  emit_arm_copy_to_reg_32bit(ctx, lr, (uint32_t)function_ptr);
+  emit_arm_blx(ctx, lr);
+}
+
+void emit_thumb_fcall(mambo_context *ctx, void *function_ptr) {
+  emit_thumb_copy_to_reg_32bit(ctx, lr, (uint32_t)function_ptr);
+  emit_thumb_blx16(ctx, lr);
 }

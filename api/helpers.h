@@ -27,4 +27,10 @@ void emit_arm_pop_cpsr(mambo_context *ctx, enum reg reg);
 void emit_thumb_copy_to_reg_32bit(mambo_context *ctx, enum reg reg, uint32_t value);
 void emit_arm_copy_to_reg_32bit(mambo_context *ctx, enum reg reg, uint32_t value);
 void emit_thumb_b16_cond(void *write_p, void *target, mambo_cond cond);
+void emit_thumb_push(mambo_context *ctx, uint32_t regs);
+void emit_arm_push(mambo_context *ctx, uint32_t regs);
+void emit_thumb_pop(mambo_context *ctx, uint32_t regs);
+void emit_arm_pop(mambo_context *ctx, uint32_t regs);
+void emit_thumb_fcall(mambo_context *ctx, void *function_ptr);
+void emit_arm_fcall(mambo_context *ctx, void *function_ptr);
 #endif
