@@ -17,6 +17,8 @@
   limitations under the License.
 */
 
+#ifdef PLUGINS_NEW
+
 #include <stdio.h>
 #include "../plugins.h"
 #include "../pie/pie-thumb-encoder.h"
@@ -122,3 +124,5 @@ void emit_thumb_fcall(mambo_context *ctx, void *function_ptr) {
   emit_thumb_copy_to_reg_32bit(ctx, lr, (uint32_t)function_ptr);
   emit_thumb_blx16(ctx, lr);
 }
+
+#endif
