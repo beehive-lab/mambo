@@ -921,7 +921,8 @@ void thumb_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id
 
     mambo_cond cond;
     if (state->cond_inst_after_it > 0) {
-      cond = ((state->it_mask >> 5) & 0x1) ? state->it_cond : arm_inverse_cond_code[state->it_cond];
+      cond = (((state->it_mask >> 5) & 1) == (state->it_cond & 1))
+             ? state->it_cond : arm_inverse_cond_code[state->it_cond];
     } else {
       cond = AL;
     }
