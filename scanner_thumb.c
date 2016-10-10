@@ -918,6 +918,7 @@ void thumb_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id
   if (global_data.free_plugin > 0) {
     uint16_t *write_p = *o_write_p;
     uint32_t *data_p = *o_data_p;
+    bool it_overw = false;
 
     mambo_cond cond;
     if (state->cond_inst_after_it > 0) {
@@ -927,31 +928,48 @@ void thumb_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id
       cond = AL;
     }
 
+    /* If the previous instruction was IT, allow the plugins to overwrite it */
+    if (allow_write && state->cond_inst_after_it > 0) {
+      if (state->it_inst_addr == (write_p -1)) {
+        write_p--;
+        it_overw = true;
+      }
+    }
+
     mambo_context ctx;
     set_mambo_context(&ctx, thread_data, THUMB_INST, type, basic_block, inst, cond, read_address, write_p, NULL);
 
     for (int i = 0; i < global_data.free_plugin; i++) {
       if (global_data.plugins[i].cbs[cb_id] != NULL) {
-        if (allow_write && state->cond_inst_after_it > 0) {
-          create_it_gap(&write_p, state);
-        }
-        ctx.write_p = write_p;
         ctx.plugin_id = i;
         global_data.plugins[i].cbs[cb_id](&ctx);
 
         if (allow_write) {
-          write_p = ctx.write_p;
-
-          if (state->cond_inst_after_it > 0) {
-            close_it_gap(&write_p, state);
-          }
-
-          thumb_check_free_space(thread_data, &write_p, &data_p, state, set_addr_prev_block, 82);
+          thumb_check_free_space(thread_data, (uint16_t **)&ctx.write_p, &data_p, state, set_addr_prev_block, 82);
         } else {
           assert(ctx.write_p == write_p);
         }
       } // global_data.plugins[i].cbs[cb_id] != NULL
     } // plugin iterator
+
+    if (allow_write && state->cond_inst_after_it > 0) {
+      if (ctx.write_p != write_p) {
+        // Code was inserted.
+        if (!it_overw) {
+          // Reduce the length of the IT block
+          create_it_gap((uint16_t **)&ctx.write_p, state);
+        }
+        // Insert an IT instruction for the remaining instructions
+        close_it_gap((uint16_t **)&ctx.write_p, state);
+      } else {
+        // If no code was inserted, keep the IT instruction
+        if (it_overw) {
+          ctx.write_p += 2;
+        }
+      }
+    }
+
+    write_p = ctx.write_p;
 
     *o_write_p = write_p;
     *o_data_p = data_p;
