@@ -1224,7 +1224,7 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
         break;
 
       case ARM_MSR:
-        arm_msr_decode_fields(read_address, &mask, &rn);
+        arm_msr_decode_fields(read_address, &rn, &mask);
 
         assert(rn != pc);
         copy_arm();

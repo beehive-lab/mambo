@@ -2607,16 +2607,15 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
         break;
 
       case THUMB_MSR32:
-      case THUMB_MRS32:
-        thumb_msr32_decode_fields(read_address, &opc1, &rn, &rt);
-
-        if (inst == THUMB_MSR32) {
-          assert(rn != pc);
-        } else {
-          assert(rt != pc);
-        }
+        thumb_msr32_decode_fields(read_address, &rn, &mask);
+        assert(rn != pc);
         copy_thumb_32();
+        break;
 
+      case THUMB_MRS32:
+        thumb_mrs32_decode_fields(read_address, &rdn);
+        assert(rdn != pc);
+        copy_thumb_32();
         break;
         
       case THUMB_LDRD32:

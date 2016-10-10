@@ -31,7 +31,7 @@ void emit_thumb_push_cpsr(mambo_context *ctx, enum reg tmp_reg) {
   uint16_t *write_p = ctx->write_p;
 
   // MRS tmp_reg, CPSR
-  thumb_mrs32(&write_p, 0, tmp_reg);
+  thumb_mrs32(&write_p, tmp_reg);
   write_p += 2;
 
   // PUSH {tmp_reg}
@@ -52,7 +52,7 @@ void emit_thumb_pop_cpsr(mambo_context *ctx, enum reg tmp_reg) {
   thumb_pop_regs(&write_p, 1 << tmp_reg);
 
   // MSR tmp_reg, CPSR_fs
-  thumb_msr32(&write_p, 0, tmp_reg, 3 << 2);
+  thumb_msr32(&write_p, tmp_reg, 3);
   write_p += 2;
 
   ctx->write_p = write_p;
@@ -60,7 +60,7 @@ void emit_thumb_pop_cpsr(mambo_context *ctx, enum reg tmp_reg) {
 
 void emit_arm_pop_cpsr(mambo_context *ctx, enum reg tmp_reg) {
   emit_arm_pop(ctx, 1 << tmp_reg);
-  emit_arm_msr(ctx, 3 << 2, tmp_reg);
+  emit_arm_msr(ctx, tmp_reg, 3);
 }
 
 void emit_thumb_copy_to_reg_32bit(mambo_context *ctx, enum reg reg, uint32_t value) {
