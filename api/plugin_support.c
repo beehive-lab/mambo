@@ -204,4 +204,8 @@ mambo_cond mambo_get_inverted_cond(mambo_context *ctx, mambo_cond cond) {
   return arm_inverse_cond_code[cond & 0xF];
 }
 
+void mambo_replace_inst(mambo_context *ctx) {
+  ctx->replace = true;
+}
+
 #endif

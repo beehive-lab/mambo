@@ -700,6 +700,7 @@ void set_mambo_context(mambo_context *ctx, dbm_thread *thread_data, inst_set ins
   ctx->read_address = read_address;
   ctx->write_p = write_p;
   ctx->regs = regs;
+  ctx->replace = false;
 }
 #endif
 

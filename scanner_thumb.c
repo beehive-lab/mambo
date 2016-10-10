@@ -910,10 +910,19 @@ void pass1_thumb(dbm_thread *thread_data, uint16_t *read_address, branch_type *b
   }
 }
 
-void thumb_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id, thumb_it_state *state,
+void do_it_iter(thumb_it_state *state) {
+  if (state->cond_inst_after_it > 0) {
+    state->cond_inst_after_it--;
+    state->it_mask = (state->it_mask << 1) & 0x3F;
+  }
+}
+
+bool thumb_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id, thumb_it_state *state,
                                      uint16_t *read_address, thumb_instruction inst, uint16_t **o_write_p,
                                      uint32_t **o_data_p, int basic_block, cc_type type,
                                      uint32_t *set_addr_prev_block, bool allow_write) {
+  bool replaced = false;
+  void *prev_write_p;
 #ifdef PLUGINS_NEW
   if (global_data.free_plugin > 0) {
     uint16_t *write_p = *o_write_p;
@@ -942,9 +951,24 @@ void thumb_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id
     for (int i = 0; i < global_data.free_plugin; i++) {
       if (global_data.plugins[i].cbs[cb_id] != NULL) {
         ctx.plugin_id = i;
+        ctx.replace = false;
+        prev_write_p = ctx.write_p;
         global_data.plugins[i].cbs[cb_id](&ctx);
 
         if (allow_write) {
+          if (replaced && (prev_write_p != ctx.write_p || ctx.replace)) {
+            fprintf(stderr, "MAMBO API WARNING: plugin %d added code for overridden "
+                            "instruction (at %p).\n", i, read_address);
+          }
+          if (ctx.replace) {
+            if (cb_id == PRE_INST_C) {
+              replaced = true;
+            } else {
+              fprintf(stderr, "MAMBO API WARNING: plugin %d set replace_inst for "
+                              "a disallowed event (at %p).\n", i, read_address);
+            }
+          }
+
           thumb_check_free_space(thread_data, (uint16_t **)&ctx.write_p, &data_p, state, set_addr_prev_block, 82);
         } else {
           assert(ctx.write_p == write_p);
@@ -958,6 +982,11 @@ void thumb_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id
         if (!it_overw) {
           // Reduce the length of the IT block
           create_it_gap((uint16_t **)&ctx.write_p, state);
+        }
+        if (replaced) {
+          // If the instruction was replaced by a plugin, remove its
+          // condition from the head of the IT block
+          do_it_iter(state);
         }
         // Insert an IT instruction for the remaining instructions
         close_it_gap((uint16_t **)&ctx.write_p, state);
@@ -975,6 +1004,7 @@ void thumb_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id
     *o_data_p = data_p;
   }
 #endif
+  return replaced;
 }
 
 size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_block, cc_type type, uint16_t *write_p) {
@@ -1129,8 +1159,8 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
     it_cond_handled = false;
 
 #ifdef PLUGINS_NEW
-    thumb_scanner_deliver_callbacks(thread_data, PRE_INST_C, &it_state, read_address, inst, &write_p,
-                                    &data_p, basic_block, type, &set_addr_prev_block, true);
+    bool skip_inst = thumb_scanner_deliver_callbacks(thread_data, PRE_INST_C, &it_state, read_address,
+                              inst, &write_p, &data_p, basic_block, type, &set_addr_prev_block, true);
 #endif
 
     addr_prev_block = set_addr_prev_block;
@@ -1143,7 +1173,11 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
     } else {
       inst_pop_regs = NULL;
     }
-
+#ifdef PLUGINS_NEW
+    if (skip_inst) {
+      it_cond_handled = true;
+    } else {
+#endif
     switch(inst) {
       case THUMB_MOVI16:
       case THUMB_LSLI16:
@@ -3255,9 +3289,11 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
         while(1);
         //exit(EXIT_FAILURE);
       }
-      it_state.cond_inst_after_it--;
-      it_state.it_mask = (it_state.it_mask << 1) & 0x3F;
+      do_it_iter(&it_state);
     }
+#ifdef PLUGINS_NEW
+    } // if(!skip_inst)
+#endif
     
     if ((uint16_t *)data_p <= write_p) {
       fprintf(stderr, "%d, inst: %p, :write: %p\n", inst, data_p, write_p);

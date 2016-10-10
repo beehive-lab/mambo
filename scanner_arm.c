@@ -280,9 +280,10 @@ void pass1_arm(dbm_thread *thread_data, uint32_t *read_address, branch_type *bb_
   }
 }
 
-void arm_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id, uint32_t *read_address,
+bool arm_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id, uint32_t *read_address,
                                    arm_instruction inst, uint32_t **o_write_p, uint32_t **o_data_p,
                                    int basic_block, cc_type type, bool allow_write) {
+  bool replaced = false;
 #ifdef PLUGINS_NEW
   if (global_data.free_plugin > 0) {
     uint32_t *write_p = *o_write_p;
@@ -300,8 +301,21 @@ void arm_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id, 
       if (global_data.plugins[i].cbs[cb_id] != NULL) {
         ctx.write_p = write_p;
         ctx.plugin_id = i;
+        ctx.replace = false;
         global_data.plugins[i].cbs[cb_id](&ctx);
         if (allow_write) {
+          if (replaced && (write_p != ctx.write_p || ctx.replace)) {
+            fprintf(stderr, "MAMBO API WARNING: plugin %d added code for overridden"
+                            "instruction (%p).\n", i, read_address);
+          }
+          if (ctx.replace) {
+            if (cb_id == PRE_INST_C) {
+              replaced = true;
+            } else {
+              fprintf(stderr, "MAMBO API WARNING: plugin %d set replace_inst for "
+                              "a disallowed event (at %p).\n", i, read_address);
+            }
+          }
           write_p = ctx.write_p;
           arm_check_free_space(thread_data, &write_p, &data_p, MIN_FSPACE);
         } else {
@@ -314,6 +328,7 @@ void arm_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id, 
     *o_data_p = data_p;
   }
 #endif
+  return replaced;
 }
 
 size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block, cc_type type, uint32_t *write_p) {
@@ -412,9 +427,11 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
     debug("instruction word: 0x%x\n", *read_address); 
 
 #ifdef PLUGINS_NEW
-    arm_scanner_deliver_callbacks(thread_data, PRE_INST_C, read_address, inst, &write_p, &data_p, basic_block, type, true);
+    bool skip_inst = arm_scanner_deliver_callbacks(thread_data, PRE_INST_C, read_address, inst,
+                                                   &write_p, &data_p, basic_block, type, true);
+    if (!skip_inst) {
 #endif
-    
+
     switch(inst) {
       case ARM_B:
       case ARM_BL:
@@ -1320,6 +1337,9 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
         while(1);
         exit(EXIT_FAILURE);
     }
+#ifdef PLUGINS_NEW
+    } // if (!skip_inst)
+#endif
 
     if (write_p >= data_p) {
       printf("w: %p r: %p\n", write_p, data_p);
