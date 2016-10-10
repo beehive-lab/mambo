@@ -1744,6 +1744,7 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
         
       case THUMB_NOP16:
         copy_thumb_16();
+        it_cond_handled = true;
         break;
         
       case THUMB_LDMFD16:
