@@ -6,7 +6,7 @@ LIBS=-lelf -lpthread
 HEADERS=dbm.h common.h api/plugin_support.h api/emit_arm.h api/emit_thumb.h api/helpers.h makefile
 INCLUDES=-I/usr/include/libelf
 SOURCES=elf_loader/elf_loader.o pie/pie-arm-encoder.o pie/pie-arm-decoder.o pie/pie-arm-field-decoder.o pie/pie-thumb-encoder.o pie/pie-thumb-decoder.o pie/pie-thumb-field-decoder.o dispatcher.s scanner_thumb.c scanner_arm.c common.c dbm.c traces.c api/emit_arm.c api/emit_thumb.c api/helpers.c api/plugin_support.c hash.S util.s
-PLUGINS=plugins/tb_count.c
+PLUGINS=plugins/soft_div.c plugins/tb_count.c
 
 all: pie dbm
 
