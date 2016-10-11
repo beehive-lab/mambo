@@ -14,7 +14,8 @@ all: pie dbm
 pie:
 	make --no-print-directory -C pie/ all
 
-%.o: %.h
+%.o: %.c %.h
+	$(CROSS_COMPILE)$(CC) $(CFLAGS) -c -o $@ $<
 
 dbm: $(HEADERS) $(SOURCES) $(PLUGINS)
 	$(CROSS_COMPILE)$(CC) -o $@ $(INCLUDES) $(SOURCES) $(PLUGINS) $(CFLAGS) $(OPTS) $(LDFLAGS) $(LIBS)
