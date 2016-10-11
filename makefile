@@ -22,7 +22,7 @@ dbm: $(HEADERS) $(SOURCES) $(PLUGINS)
 
 .PHONY: clean
 clean:
-	rm dbm dbm-debug
+	rm dbm elf_loader/elf_loader.o
 
 api/emit_%.c: pie/pie-%-encoder.c api/generate_emit_wrapper.rb
 	ruby api/generate_emit_wrapper.rb $< > $@
