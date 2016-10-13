@@ -3268,6 +3268,12 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
         it_cond_handled = true;
         break;
 
+      case THUMB_VFMA_S32:
+      case THUMB_VSEL32:
+        copy_thumb_32();
+        it_cond_handled = true;
+        break;
+
       case THUMB_INVALID:
       default:
         if (read_address != start_scan) {
