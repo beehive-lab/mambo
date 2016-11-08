@@ -437,47 +437,38 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
       case ARM_BL:
         arm_b_decode_fields(read_address, &offset);
 
+        branch_offset = (offset & 0x800000) ? 0xFC000000 : 0;
+        branch_offset |= (offset<<2);
+        target = (uint32_t)read_address + 8 + branch_offset;
+        condition_code = (*read_address >> 28);
+
         if (inst == ARM_BL) {
           arm_copy_to_reg_32bit(&write_p, lr, (uint32_t)read_address + 4);
         }
 
 #ifdef DBM_INLINE_UNCOND_IMM
-        if ((*read_address >> 28) != AL) {
+        if (condition_code == AL) {
+          read_address = (uint32_t *)target - 1; // read_address is incremented this iteration
+          break;
+        }
 #endif
-#ifdef DBM_LINK_COND_IMM
-          branch_offset = (offset & 0x800000) ? 0xFC000000 : 0;
-          branch_offset |= (offset<<2);
-          target = (uint32_t)read_address + 8 + branch_offset;
 
-          // Mark this as the beggining of code emulating B
-          thread_data->code_cache_meta[basic_block].exit_branch_type = cond_imm_arm;
-          thread_data->code_cache_meta[basic_block].exit_branch_addr = (uint16_t *)write_p;
-          thread_data->code_cache_meta[basic_block].branch_taken_addr = target;
-          thread_data->code_cache_meta[basic_block].branch_skipped_addr = (uint32_t)read_address + 4;
-          thread_data->code_cache_meta[basic_block].branch_condition = (*read_address >> 28);
+        thread_data->code_cache_meta[basic_block].exit_branch_type = (condition_code == AL) ? uncond_imm_arm : cond_imm_arm;
+        thread_data->code_cache_meta[basic_block].exit_branch_addr = (uint16_t *)write_p;
+        thread_data->code_cache_meta[basic_block].branch_taken_addr = target;
+        thread_data->code_cache_meta[basic_block].branch_skipped_addr = (uint32_t)read_address + 4;
+        thread_data->code_cache_meta[basic_block].branch_condition = condition_code;
 
+        if (condition_code != AL) {
           // Reserve space for the conditional branch instruction
           arm_nop(&write_p);
           write_p++;
-#endif
-          arm_branch_save_context(thread_data, &write_p);
-#ifdef DBM_INLINE_UNCOND_IMM
         }
-#endif
-        
-#ifdef DBM_INLINE_UNCOND_IMM
-        if ((*read_address >> 28) == AL) {
-          branch_offset = (offset & 0x800000) ? 0xFC000000 : 0;
-          branch_offset |= (offset<<2);
-          read_address = (uint32_t *)((int32_t)read_address + 8 + branch_offset) - 1; // read_address is incremented this iteration
-        } else {
-#endif
-          arm_branch_jump(thread_data, &write_p, basic_block, offset, read_address, (*read_address >> 28), SETUP|REPLACE_TARGET|INSERT_BRANCH);
-          stop = true;
-#ifdef DBM_INLINE_UNCOND_IMM
-        }
-#endif
-        
+
+        arm_branch_save_context(thread_data, &write_p);
+        arm_branch_jump(thread_data, &write_p, basic_block, offset, read_address, condition_code, SETUP|REPLACE_TARGET|INSERT_BRANCH);
+        stop = true;
+
         break;
       case ARM_BX:
       case ARM_BLX:
