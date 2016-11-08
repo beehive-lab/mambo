@@ -1903,14 +1903,13 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
           break;
         }
 #endif
-#ifdef DBM_LINK_UNCOND_IMM
         // Mark this as the beggining of code emulating B
         thread_data->code_cache_meta[basic_block].exit_branch_type = uncond_imm_thumb;
         thread_data->code_cache_meta[basic_block].exit_branch_addr = write_p;
-
+#ifdef DBM_LINK_UNCOND_IMM
         block_address = hash_lookup(&thread_data->entry_address, target);
 
-        if (block_address != UINT_MAX && (target & 0x1)) {
+        if (type == mambo_bb && block_address != UINT_MAX && (target & 0x1)) {
           thumb_cc_branch(thread_data, write_p, block_address);
         } else {
 #endif
