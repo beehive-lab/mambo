@@ -87,7 +87,7 @@ void create_trace(dbm_thread *thread_data, uint32_t bb_source, uint32_t *trace_a
 #ifdef DBM_TRACES
   thread_data->trace_fragment_count = 0;
 
-  if (thread_data->code_cache_meta[bb_source].exit_branch_type == cbz_thumb || thread_data->code_cache_meta[bb_source].exit_branch_type == cond_imm_thumb || thread_data->code_cache_meta[bb_source].exit_branch_type == uncond_imm_thumb || thread_data->code_cache_meta[bb_source].exit_branch_type == uncond_b_to_bl_thumb || thread_data->code_cache_meta[bb_source].exit_branch_type == cond_imm_arm || thread_data->code_cache_meta[bb_source].exit_branch_type == tb_indirect || thread_data->code_cache_meta[bb_source].exit_branch_type == uncond_reg_thumb) {
+  if (thread_data->code_cache_meta[bb_source].exit_branch_type == cbz_thumb || thread_data->code_cache_meta[bb_source].exit_branch_type == cond_imm_thumb || thread_data->code_cache_meta[bb_source].exit_branch_type == uncond_imm_thumb || thread_data->code_cache_meta[bb_source].exit_branch_type == uncond_b_to_bl_thumb || thread_data->code_cache_meta[bb_source].exit_branch_type == cond_imm_arm || thread_data->code_cache_meta[bb_source].exit_branch_type == uncond_imm_arm || thread_data->code_cache_meta[bb_source].exit_branch_type == tb_indirect || thread_data->code_cache_meta[bb_source].exit_branch_type == uncond_reg_thumb) {
     source_addr = thread_data->code_cache_meta[bb_source].source_addr;
     is_thumb = (uint32_t)source_addr & THUMB;
 
@@ -191,6 +191,7 @@ void trace_dispatcher(uint32_t target, uint32_t *next_addr, uint32_t source_inde
       break;
     case uncond_imm_thumb:
     case uncond_b_to_bl_thumb:
+    case uncond_imm_arm:
       break;
 
     case uncond_blxi_thumb:
