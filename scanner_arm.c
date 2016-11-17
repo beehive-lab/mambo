@@ -897,7 +897,7 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
       case ARM_STRD:
         arm_h_data_transfer_decode_fields(read_address, &opcode, &size, &opcode2, &immediate, &rd, &rn, &rm, &imm4h, &prepostindex, &updown, &writeback);
         
-        assert(rd != pc && rm != pc);
+        assert(rd != pc && rn != pc);
         if (immediate == REG_PROC) assert(rm != pc);
         
         copy_arm();
