@@ -161,8 +161,7 @@ void arm_check_free_space(dbm_thread *thread_data, uint32_t **write_p, uint32_t 
   int basic_block;
 
   if ((((uint32_t)*write_p)+size) >= (uint32_t)*data_p) {
-    assert(thread_data->free_block < (CODE_CACHE_SIZE + CODE_CACHE_OVERP - 1));
-    basic_block = thread_data->free_block++;
+    basic_block = allocate_bb(thread_data);
     arm_b(write_p, ((uint32_t)&thread_data->code_cache->blocks[basic_block] - (uint32_t)*write_p - 8) >> 2);
     *write_p = (uint32_t *)&thread_data->code_cache->blocks[basic_block];
     *data_p = (uint32_t *)*write_p;
