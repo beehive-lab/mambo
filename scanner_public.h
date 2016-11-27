@@ -100,7 +100,11 @@ enum reg_alt {
   write_p++;
 
 #define arm_pop_regs(regs) \
-  arm_ldm(&write_p, sp, regs, 0, 1, 1, 0); \
+  if (regs & (1 << sp)) { \
+    arm_ldm(&write_p, sp, regs, 0, 1, 0, 0); \
+  } else { \
+    arm_ldm(&write_p, sp, regs, 0, 1, 1, 0); \
+  } \
   write_p++;
 
 void copy_to_reg_16bit(uint16_t **write_p, enum reg reg, uint32_t value);
