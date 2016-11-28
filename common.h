@@ -61,7 +61,7 @@ ll_entry *linked_list_alloc(ll *list);
 
 uint32_t next_reg_in_list(uint32_t reglist, uint32_t start);
 uint32_t last_reg_in_list(uint32_t reglist, uint32_t start);
-void get_n_regs(uint32_t reglist, uint32_t *regs, int n);
+int get_n_regs(uint32_t reglist, uint32_t *regs, int n);
 int count_bits(uint32_t n);
 #endif
 

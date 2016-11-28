@@ -159,13 +159,19 @@ uint32_t last_reg_in_list(uint32_t reglist, uint32_t start) {
    return reg_invalid;
 }
 
-void get_n_regs(uint32_t reglist, uint32_t *regs, int n) {
-  if (n < 1) return;
-  
-  regs[0] = next_reg_in_list(reglist, 0);
-  for (int i = 1; i < n; i++) {
-    regs[i] = next_reg_in_list(reglist, regs[i-1] + 1);
+int get_n_regs(uint32_t reglist, uint32_t *regs, int n) {
+  int count = 0, prev = -1;
+  if (n < 1) return count;
+
+  for (int i = 0; i < n; i++) {
+    regs[i] = next_reg_in_list(reglist, prev + 1);
+    if (regs[i] < reg_invalid) {
+      count++;
+    }
+    prev = regs[i];
   }
+
+  return count;
 }
 
 int count_bits(uint32_t n) {
