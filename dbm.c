@@ -474,6 +474,12 @@ void dispatcher(uint32_t target, uint32_t *next_addr, uint32_t source_index, dbm
         __clear_cache((char *)branch_addr-7, (char *)branch_addr);
       }
       break;
+
+    case uncond_imm_arm:
+      branch_addr = thread_data->code_cache_meta[source_index].exit_branch_addr;
+      arm_b32_helper((uint32_t *)branch_addr, (uint32_t)block_address, AL);
+      __clear_cache(branch_addr, (char *)branch_addr+5);
+      break;
 #endif
 #ifdef DBM_LINK_COND_IMM
     case cond_imm_arm:
