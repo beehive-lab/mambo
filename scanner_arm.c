@@ -333,6 +333,8 @@ bool arm_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id, 
 void arm_inline_hash_lookup(dbm_thread *thread_data, uint32_t **o_write_p, int basic_block, int reg1, int reg2, int reg3, uint32_t reglist, bool predictor, int pc_incr, uint32_t **ret_branch) {
   uint32_t *write_p = *o_write_p;
 
+  uint32_t *match_eq_br, arm_hash_lookup_loop;
+
   // MOVW+MOVT reg2, hash_table
   arm_copy_to_reg_32bit(&write_p, reg2, (uint32_t)thread_data->entry_address.entries);
   // MOVW+MOVT reg3, hash_mask
@@ -347,6 +349,7 @@ void arm_inline_hash_lookup(dbm_thread *thread_data, uint32_t **o_write_p, int b
   write_p++;
 
   // asm_hash_lookup_loop:
+  arm_hash_lookup_loop = (uint32_t)write_p;
   // LDR reg3, [reg2], #8
   arm_ldr(&write_p, IMM_LDR, reg3, reg2, 8, 0, 1, 0);
   write_p++;
@@ -360,15 +363,14 @@ void arm_inline_hash_lookup(dbm_thread *thread_data, uint32_t **o_write_p, int b
   }
 
   // BEQ arm_hash_lookup_ret
-  arm_b_cond(&write_p, EQ, (reglist & (1 << pc)) ? 13 : 12);
-  write_p++;
+  match_eq_br = write_p++;
 
   // CMP reg3, #0
   arm_cmp(&write_p, IMM_PROC, reg3, 0);
   write_p++;
 
   // BNE asm_hash_lookup_loop
-  arm_b_cond(&write_p, NE, -6);
+  arm_b32_helper(write_p, arm_hash_lookup_loop, NE);
   write_p++;
 
   // arm_hash_lookup_fail:
@@ -399,7 +401,7 @@ void arm_inline_hash_lookup(dbm_thread *thread_data, uint32_t **o_write_p, int b
   arm_copy_to_reg_32bit(&write_p, r1, basic_block);
 
   // if the PC was to be POPed off the stack: ADD SP, SP, #4
-  if (reglist & (1 << pc)) {
+  if ((reglist & (1 << pc)) && !(reglist & (1 << sp))) {
     arm_add(&write_p, IMM_PROC, 0, sp, sp, 4);
     write_p++;
   }
@@ -412,6 +414,7 @@ void arm_inline_hash_lookup(dbm_thread *thread_data, uint32_t **o_write_p, int b
   write_p++;
 
   // arm_hash_lookup_ret:
+  arm_b32_helper(match_eq_br, (uint32_t)write_p, EQ);
   // LDR reg1, [reg2, -4]
   arm_ldr(&write_p, IMM_LDR, reg1, reg2, 4, 1, 0, 0);
   write_p++;
@@ -428,6 +431,7 @@ enum arm_ihl_branch {
 int arm_ihl_result_branch(dbm_thread *thread_data, enum arm_ihl_branch type, uint32_t **o_write_p,
                           uint32_t reglist, uint32_t sr[3], bool ind_p_pred, int pc_incr) {
   uint32_t *write_p = *o_write_p;
+  uint32_t *saved_target = write_p-2;
 
   switch (type) {
     case IHL_BRANCH_LDR_PC_PC:
@@ -436,12 +440,12 @@ int arm_ihl_result_branch(dbm_thread *thread_data, enum arm_ihl_branch type, uin
 
       arm_pop_regs(reglist & 0x7FFF);
 
-      if (reglist & (1 << pc)) {
+      if ((reglist & (1 << pc)) && !(reglist & (1 << sp))) {
         arm_add(&write_p, IMM_PROC, 0, sp, sp, 4);
         write_p++;
       }
 
-      arm_ldr(&write_p, IMM_LDR, pc, pc, (reglist & (1 << pc)) ? 28 : 24, 1, 0, 0);
+      arm_ldr(&write_p, IMM_LDR, pc, pc, (write_p+2-saved_target) << 2, 1, 0, 0);
       write_p++;
       break;
 
@@ -474,7 +478,7 @@ int arm_ihl_result_branch(dbm_thread *thread_data, enum arm_ihl_branch type, uin
       // POP {reglist - PC}
       arm_pop_regs(reglist & 0x7FFF);
 
-      if (reglist & (1 << pc)) {
+      if ((reglist & (1 << pc)) && !(reglist & (1 << sp))) {
         // ADD SP, SP, #4
         arm_add(&write_p, IMM_PROC, 0, sp, sp, 4);
 	      write_p++;
