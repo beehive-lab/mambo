@@ -868,6 +868,16 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
         if (immediate == 1) assert((offset & 0xF) != pc);
         
         condition_code = *read_address & 0xF0000000;
+
+#ifdef LINK_BX_ALT
+        if (rd == pc && (*read_address >> 28) != AL) {
+          target = lookup_or_stub(thread_data, (uint32_t)read_address + 4);
+          arm_cc_branch(thread_data, write_p, target,
+                        arm_inverse_cond_code[*read_address >> 28]);
+          write_p++;
+        }
+#endif
+
         if (rd == pc || rn == pc) {
           if (rd == pc) {
             thread_data->code_cache_meta[basic_block].exit_branch_type = uncond_reg_arm;
