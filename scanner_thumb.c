@@ -2766,19 +2766,16 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
         thread_data->code_cache_meta[basic_block].exit_branch_addr = write_p;
 
 #ifdef DBM_TB_DIRECT
+        if (rn == pc) {
+          debug("TB: w: %p r: %p, BB: %d\n", write_p, read_address, basic_block);
+
   #ifndef DBM_TRACES
-        // Two consecutive BBs are needed
-        if (type == mambo_bb) {
+          // At least two consecutive BBs are needed
           assert(thread_data->free_block == basic_block+1);
           /*basic_block = */thread_data->free_block++;
           data_p += BASIC_BLOCK_SIZE;
-        }
-  #endif
-        if (rn == pc) {
-          debug("TB: w: %p r: %p, BB: %d\n", write_p, read_address, basic_block);
-          // maybe check for space here
-        
-  #ifdef DBM_TRACES
+          thumb_check_free_space(thread_data, &write_p, &data_p, &it_state, &set_addr_prev_block, 472);
+  #else
           if (type == mambo_trace || type == mambo_trace_entry) {
   #endif
             thread_data->code_cache_meta[basic_block].rn = INT_MAX;
