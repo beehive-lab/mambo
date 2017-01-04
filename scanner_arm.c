@@ -331,56 +331,173 @@ bool arm_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id, 
   return replaced;
 }
 
+void arm_inline_hash_lookup(dbm_thread *thread_data, uint32_t **o_write_p, int basic_block, int reg1, int reg2, int reg3, uint32_t reglist, bool predictor, int pc_incr, uint32_t **ret_branch) {
+  uint32_t *write_p = *o_write_p;
+
+  // MOVW+MOVT reg2, hash_table
+  arm_copy_to_reg_32bit(&write_p, reg2, (uint32_t)thread_data->entry_address.entries);
+  // MOVW+MOVT reg3, hash_mask
+  arm_copy_to_reg_32bit(&write_p, reg3, CODE_CACHE_HASH_SIZE);
+
+  // AND reg3, reg1, reg3
+  arm_and(&write_p, REG_PROC, 0, reg3, reg1, reg3);
+  write_p++;
+
+  // ADD reg2, reg2, reg3, LSL #3
+  arm_add(&write_p, REG_PROC, 0, reg2, reg2, reg3 | (LSL << 5) | (3 << 7));
+  write_p++;
+
+  // asm_hash_lookup_loop:
+  // LDR reg3, [reg2], #8
+  arm_ldr(&write_p, IMM_LDR, reg3, reg2, 8, 0, 1, 0);
+  write_p++;
+
+  // CMP reg3, reg1
+  arm_cmp(&write_p, REG_PROC, reg3, reg1);
+  write_p++;
+
+  if (ret_branch) {
+    *ret_branch = write_p;
+  }
+
+  // BEQ arm_hash_lookup_ret
+  arm_b_cond(&write_p, EQ, (reglist & (1 << pc)) ? 13 : 12);
+  write_p++;
+
+  // CMP reg3, #0
+  arm_cmp(&write_p, IMM_PROC, reg3, 0);
+  write_p++;
+
+  // BNE asm_hash_lookup_loop
+  arm_b_cond(&write_p, NE, -6);
+  write_p++;
+
+  // arm_hash_lookup_fail:
+  // MOV reg2, #thread_scratch_regs
+  arm_copy_to_reg_32bit(&write_p, reg2, (uint32_t)thread_data->scratch_regs);
+
+  // STMIA reg2, {R0-R2}
+  arm_stm(&write_p, reg2, (1 << r0)|(1 << r1)|(1 << r2), 0, 1, 0, 0);
+  write_p++;
+
+  // MOV R0, reg1
+  arm_mov(&write_p, REG_PROC, 0, r0, reg1);
+  write_p++;
+
+  // MOV R1, reg2
+  arm_mov(&write_p, REG_PROC, 0, r1, reg2);
+  write_p++;
+
+  // POP {reglist}
+  while((((1 << r0) | (1 << r1)) & reglist) != 0);
+  arm_pop_regs(reglist & 0x7FFF);
+
+  // STR R2, [R1, #8]
+  arm_str(&write_p, IMM_LDR, r2, r1, 8, 1, 1, 0);
+  write_p++;
+
+  // MOV R1, #BB_ID
+  arm_copy_to_reg_32bit(&write_p, r1, basic_block);
+
+  // if the PC was to be POPed off the stack: ADD SP, SP, #4
+  if (reglist & (1 << pc)) {
+    arm_add(&write_p, IMM_PROC, 0, sp, sp, 4);
+    write_p++;
+  }
+
+  // B dispatcher_trampoline
+  arm_b32_helper(write_p, (uint32_t)thread_data->dispatcher_addr, AL);
+  write_p++;
+
+  // saved_pc: .word
+  write_p++;
+
+  // arm_hash_lookup_ret:
+  // LDR reg1, [reg2, -4]
+  arm_ldr(&write_p, IMM_LDR, reg1, reg2, 4, 1, 0, 0);
+  write_p++;
+
+  *o_write_p = write_p;
+}
+
+enum arm_ihl_branch {
+  IHL_BRANCH_LDR_PC_PC,
+  IHL_BRANCH_POP,
+  IHL_BRANCH_LDM
+};
+
+int arm_ihl_result_branch(dbm_thread *thread_data, enum arm_ihl_branch type, uint32_t **o_write_p,
+                          uint32_t reglist, uint32_t sr[3], bool ind_p_pred, int pc_incr) {
+  uint32_t *write_p = *o_write_p;
+
+  switch (type) {
+    case IHL_BRANCH_LDR_PC_PC:
+      arm_str(&write_p, IMM_LDR, sr[0], pc, 16, 1, 0, 0);
+      write_p++;
+
+      arm_pop_regs(reglist & 0x7FFF);
+
+      if (reglist & (1 << pc)) {
+        arm_add(&write_p, IMM_PROC, 0, sp, sp, 4);
+        write_p++;
+      }
+
+      arm_ldr(&write_p, IMM_LDR, pc, pc, (reglist & (1 << pc)) ? 28 : 24, 1, 0, 0);
+      write_p++;
+      break;
+
+    case IHL_BRANCH_POP:
+      arm_str(&write_p, IMM_LDR, sr[0], sp, (count_bits(reglist)-1) << 2, 1, 1, 0);
+      write_p++;
+
+      arm_pop_regs(reglist | (1 << pc));
+      write_p++;
+      break;
+
+    case IHL_BRANCH_LDM:
+      assert((reglist & (1 << r12)) == 0);
+
+      // MOV{W,T} sr2, #scratch_regs
+      arm_copy_to_reg_32bit(&write_p, sr[2], (uint32_t)thread_data->scratch_regs);
+
+      // STR R12, [sr2, #0]
+      arm_str(&write_p, IMM_LDR, r12, sr[2], 0, 1, 1, 0);
+      write_p++;
+
+      // STR sr0, [sr2, #4] // CC target
+      arm_str(&write_p, IMM_LDR, sr[0], sr[2], 4, 1, 1, 0);
+      write_p++;
+
+      // MOV r12, sr2
+      arm_mov(&write_p, REG_PROC, 0, r12, sr[2]);
+      write_p++;
+
+      // POP {reglist - PC}
+      arm_pop_regs(reglist & 0x7FFF);
+
+      if (reglist & (1 << pc)) {
+        // ADD SP, SP, #4
+        arm_add(&write_p, IMM_PROC, 0, sp, sp, 4);
+	      write_p++;
+      }
+
+      // LDM R12, {R12, PC}
+      arm_ldm(&write_p, r12, (1 << r12) | (1 << pc), 0, 1, 0, 0);
+      write_p++;
+      break;
+
+    default:
+      return -1;
+  }
+
+  *o_write_p = write_p;
+
+  return 0;
+}
+
 size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block, cc_type type, uint32_t *write_p) {
   bool stop = false;
-  
-  uint32_t immediate;
-  uint32_t rd;
-  uint32_t rd2;
-  uint32_t rn;
-  uint32_t rm;
-  uint32_t offset;
-  uint32_t prepostindex;
-  uint32_t updown;
-  uint32_t writeback;
-  uint32_t operand2;
-  uint32_t registers;
-  uint32_t psr;
-  uint32_t readonly;
-  uint32_t set_flags;
-  uint32_t d;
-  uint32_t vd;
-  uint32_t opcode;
-  uint32_t p;
-  uint32_t opc1;
-  uint32_t opc2;
-  uint32_t crn;
-  uint32_t crm;
-  uint32_t coproc;
-  uint32_t load_store;
-  uint32_t imm4h;
-  uint32_t imm4l;
-  uint32_t size;
-  uint32_t h;
-  uint32_t rs;
-  uint32_t accumulate;
-  uint32_t crd;
-  uint32_t rdhi;
-  uint32_t rdlo;
-  uint32_t opcode2;
-  uint32_t setting;
-  uint32_t opcode3;
-  uint32_t opcode4;
-  uint32_t params;
-  uint32_t link;
-  uint32_t rotate;
-  uint32_t vn;
-  uint32_t n;
-  uint32_t vm;
-  uint32_t m;
-  uint32_t mask;
-  uint32_t u;
-  
+
   uint32_t *scratch_data;
   uint32_t scratch_offset;
   uint32_t condition_code;
@@ -425,7 +542,6 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
     debug("Instruction enum: %d\n", (inst == ARM_INVALID) ? -1 : inst);
     
     debug("instruction word: 0x%x\n", *read_address); 
-
 #ifdef PLUGINS_NEW
     bool skip_inst = arm_scanner_deliver_callbacks(thread_data, PRE_INST_C, read_address, inst,
                                                    &write_p, &data_p, basic_block, type, true);
@@ -433,122 +549,7 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
 #endif
 
     switch(inst) {
-      case ARM_B:
-      case ARM_BL:
-        arm_b_decode_fields(read_address, &offset);
-
-        branch_offset = (offset & 0x800000) ? 0xFC000000 : 0;
-        branch_offset |= (offset<<2);
-        target = (uint32_t)read_address + 8 + branch_offset;
-        condition_code = (*read_address >> 28);
-
-        if (inst == ARM_BL) {
-          arm_copy_to_reg_32bit(&write_p, lr, (uint32_t)read_address + 4);
-        }
-
-#ifdef DBM_INLINE_UNCOND_IMM
-        if (condition_code == AL) {
-          read_address = (uint32_t *)target - 1; // read_address is incremented this iteration
-          break;
-        }
-#endif
-
-        thread_data->code_cache_meta[basic_block].exit_branch_type = (condition_code == AL) ? uncond_imm_arm : cond_imm_arm;
-        thread_data->code_cache_meta[basic_block].exit_branch_addr = (uint16_t *)write_p;
-        thread_data->code_cache_meta[basic_block].branch_taken_addr = target;
-        thread_data->code_cache_meta[basic_block].branch_skipped_addr = (uint32_t)read_address + 4;
-        thread_data->code_cache_meta[basic_block].branch_condition = condition_code;
-
-        if (condition_code != AL) {
-          // Reserve space for the conditional branch instruction
-          arm_nop(&write_p);
-          write_p++;
-        }
-
-        arm_branch_save_context(thread_data, &write_p);
-        arm_branch_jump(thread_data, &write_p, basic_block, offset, read_address, condition_code, SETUP|REPLACE_TARGET|INSERT_BRANCH);
-        stop = true;
-
-        break;
-      case ARM_BX:
-      case ARM_BLX:
-        arm_bx_t_decode_fields(read_address, &link, &rn);
-        assert(rn != pc);
-
-#ifdef LINK_BX_ALT
-        if ((*read_address >> 28) != AL) {
-          debug("w: %p, r: %p, bb: %d\n", write_p, read_address, basic_block);
-          target = lookup_or_stub(thread_data, (uint32_t)read_address + 4);
-          debug("stub: %p\n", target);
-          arm_cc_branch(thread_data,write_p, target,
-                        arm_inverse_cond_code[(*read_address >> 28)]);
-          write_p++;
-        }
-#endif // LINK_BX_ALT
-
-        if (inst == ARM_BLX) {
-          arm_copy_to_reg_32bit(&write_p, lr, (uint32_t)read_address + 4);
-        }
-        thread_data->code_cache_meta[basic_block].exit_branch_type = uncond_reg_arm;
-        thread_data->code_cache_meta[basic_block].exit_branch_addr = (uint16_t *)write_p;
-        thread_data->code_cache_meta[basic_block].rn = rn;
-        
-#ifdef DBM_INLINE_HASH
-  #ifndef LINK_BX_ALT
-        assert(0);
-  #endif
-
-          arm_check_free_space(thread_data, &write_p, &data_p,
-                               (uint32_t)end_of_inline_hash_lookup - (uint32_t)inline_hash_lookup+4);
-
-          mambo_memcpy(write_p, inline_hash_lookup, (uint32_t)end_of_inline_hash_lookup - (uint32_t)inline_hash_lookup);
-
-          write_p += ((uint32_t)inline_hash_lookup_get_addr - (uint32_t)inline_hash_lookup)/4;
-          arm_mov (&write_p, REG_PROC, 0, r0, rn);
-          write_p += ((uint32_t)end_of_inline_hash_lookup - (uint32_t)inline_hash_lookup_get_addr)/4;
-          
-          *(uint32_t *)((uint32_t)write_p - 4) = basic_block;
-          *(uint32_t *)((uint32_t)write_p - 12) = (uint32_t)thread_data->entry_address.entries;
-          *(uint32_t *)((uint32_t)write_p - 16) = (uint32_t)thread_data->scratch_regs;
-          *(uint32_t *)((uint32_t)write_p - 20) = thread_data->dispatcher_addr;
-#endif // DBM_INLINE_HASH
-
-#if !defined(DBM_INLINE_HASH)
-          arm_branch_save_context(thread_data, &write_p);
-
-          arm_branch_jump(thread_data, &write_p, basic_block, 0, read_address, (*read_address >> 28), SETUP);
-
-          // Branch taken (not taken MOV is inserted by arm_branch_jump(SETUP))
-          arm_mov_cond(&write_p, (*read_address >> 28), REG_PROC, false, r0, rn);
-          write_p++;
-
-          arm_branch_jump(thread_data, &write_p, basic_block, 0, read_address, (*read_address >> 28), INSERT_BRANCH);
-#endif
-        stop = true;
-        
-        break;
-      
-      case ARM_BLXI:
-        arm_blxi_decode_fields(read_address, &h, &offset);
-        
-        branch_offset = ((h << 1) | (offset << 2)) + 1;
-        if (branch_offset & 0x2000000) { branch_offset |= 0xFC000000; }
-
-        arm_copy_to_reg_32bit(&write_p, lr, (uint32_t)read_address + 4);
-        
-        thread_data->code_cache_meta[basic_block].exit_branch_type = uncond_blxi_arm;
-        thread_data->code_cache_meta[basic_block].exit_branch_addr = (uint16_t *)write_p;
-        
-        arm_branch_save_context(thread_data, &write_p);
-        arm_branch_jump(thread_data, &write_p, basic_block, 0, read_address, (*read_address >> 28), SETUP);
-        
-        arm_copy_to_reg_32bit(&write_p, r0, (uint32_t)read_address + 8 + branch_offset);
-        
-        arm_branch_jump(thread_data, &write_p, basic_block, 0, read_address, (*read_address >> 28), INSERT_BRANCH);
-        stop = true;
-        
-        break;
-      
+      /* Instructions which are allowed to use the PC */
       case ARM_ADC:
       case ARM_ADD:
       case ARM_EOR:
@@ -556,11 +557,12 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
       case ARM_ORR:
       case ARM_SBC:
       case ARM_SUB:
-      case ARM_RSC:
+      case ARM_RSC: {
+        uint32_t immediate, opcode, set_flags, rd, rn, operand2, rm;
         arm_data_proc_decode_fields(read_address, &immediate, &opcode, &set_flags, &rd, &rn, &operand2);
         //arm_add_decode_fields(read_address, &immediate, &rd, &rn, &operand2);
         rm = 16;
-        
+
         if(rd != pc && rn != pc && (immediate == IMM_PROC || (operand2 & 0xF) != pc)) {
           copy_arm();
         } else {
@@ -624,14 +626,13 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
 #endif
             /* This is an indirect branch */
             arm_branch_save_context(thread_data, &write_p);
-            
             arm_branch_jump(thread_data, &write_p, basic_block, 0, read_address, (*read_address >> 28), SETUP);
           }
           if (rn == pc && rm == pc) {
             fprintf(stderr, "Unhandled ARM ADD, etc\n");
             while(1);
           }
-          
+
           if (rn == pc || rm == pc) {
             /* If rd != PC and rd != rn && rd != rm, we can use rd as a scratch register */
             if (rd == pc || (rn == pc && rm == rd) || (rm == pc && rn == rd)) {
@@ -667,100 +668,192 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
             arm_branch_jump(thread_data, &write_p, basic_block, 0, read_address, (*read_address >> 28), INSERT_BRANCH);
             stop = true;
           }
-            
-          if (rd != pc && ((*read_address >> 28) != AL)) {
-            fprintf(stderr, "Untested conditional ARM_ADD, etc\n");
-            while(1);
-          }
         }
+        break;
+      }
+
+      case ARM_B:
+      case ARM_BL: {
+        uint32_t offset;
+        arm_b_decode_fields(read_address, &offset);
+
+        branch_offset = (offset & 0x800000) ? 0xFC000000 : 0;
+        branch_offset |= (offset<<2);
+        target = (uint32_t)read_address + 8 + branch_offset;
+        condition_code = (*read_address >> 28);
+
+        if (inst == ARM_BL) {
+          arm_copy_to_reg_32bit(&write_p, lr, (uint32_t)read_address + 4);
+        }
+
+#ifdef DBM_INLINE_UNCOND_IMM
+        if (condition_code == AL) {
+          read_address = (uint32_t *)target - 1; // read_address is incremented this iteration
+          break;
+        }
+#endif
+
+        thread_data->code_cache_meta[basic_block].exit_branch_type = (condition_code == AL) ? uncond_imm_arm : cond_imm_arm;
+        thread_data->code_cache_meta[basic_block].exit_branch_addr = (uint16_t *)write_p;
+        thread_data->code_cache_meta[basic_block].branch_taken_addr = target;
+        thread_data->code_cache_meta[basic_block].branch_skipped_addr = (uint32_t)read_address + 4;
+        thread_data->code_cache_meta[basic_block].branch_condition = condition_code;
+
+        if (condition_code != AL) {
+          // Reserve space for the conditional branch instruction
+          arm_nop(&write_p);
+          write_p++;
+        }
+
+        arm_branch_save_context(thread_data, &write_p);
+        arm_branch_jump(thread_data, &write_p, basic_block, offset, read_address, condition_code, SETUP|REPLACE_TARGET|INSERT_BRANCH);
+        stop = true;
+
+        break;
+      }
+
+      case ARM_BX:
+      case ARM_BLX: {
+        uint32_t link, rn;
+        arm_bx_t_decode_fields(read_address, &link, &rn);
+        assert(rn != pc);
+
+#ifdef LINK_BX_ALT
+        if ((*read_address >> 28) != AL) {
+          debug("w: %p, r: %p, bb: %d\n", write_p, read_address, basic_block);
+          target = lookup_or_stub(thread_data, (uint32_t)read_address + 4);
+          debug("stub: %p\n", target);
+          arm_cc_branch(thread_data,write_p, target,
+                        arm_inverse_cond_code[(*read_address >> 28)]);
+          write_p++;
+        }
+#endif // LINK_BX_ALT
+
+        if (inst == ARM_BLX) {
+          arm_copy_to_reg_32bit(&write_p, lr, (uint32_t)read_address + 4);
+        }
+        thread_data->code_cache_meta[basic_block].exit_branch_type = uncond_reg_arm;
+        thread_data->code_cache_meta[basic_block].exit_branch_addr = (uint16_t *)write_p;
+        thread_data->code_cache_meta[basic_block].rn = rn;
         
+#ifdef DBM_INLINE_HASH
+  #ifndef LINK_BX_ALT
+        assert(0);
+  #endif
+
+          arm_check_free_space(thread_data, &write_p, &data_p,
+                               (uint32_t)end_of_inline_hash_lookup - (uint32_t)inline_hash_lookup+4);
+
+          mambo_memcpy(write_p, inline_hash_lookup, (uint32_t)end_of_inline_hash_lookup - (uint32_t)inline_hash_lookup);
+
+          write_p += ((uint32_t)inline_hash_lookup_get_addr - (uint32_t)inline_hash_lookup)/4;
+          arm_mov (&write_p, REG_PROC, 0, r0, rn);
+          write_p += ((uint32_t)end_of_inline_hash_lookup - (uint32_t)inline_hash_lookup_get_addr)/4;
+          
+          *(uint32_t *)((uint32_t)write_p - 4) = basic_block;
+          *(uint32_t *)((uint32_t)write_p - 12) = (uint32_t)thread_data->entry_address.entries;
+          *(uint32_t *)((uint32_t)write_p - 16) = (uint32_t)thread_data->scratch_regs;
+          *(uint32_t *)((uint32_t)write_p - 20) = thread_data->dispatcher_addr;
+#endif // DBM_INLINE_HASH
+
+#if !defined(DBM_INLINE_HASH)
+          arm_branch_save_context(thread_data, &write_p);
+
+          arm_branch_jump(thread_data, &write_p, basic_block, 0, read_address, (*read_address >> 28), SETUP);
+
+          // Branch taken (not taken MOV is inserted by arm_branch_jump(SETUP))
+          arm_mov_cond(&write_p, (*read_address >> 28), REG_PROC, false, r0, rn);
+          write_p++;
+
+          arm_branch_jump(thread_data, &write_p, basic_block, 0, read_address, (*read_address >> 28), INSERT_BRANCH);
+#endif
+        stop = true;
         break;
-      case ARM_AND:
-        arm_and_decode_fields(read_address, &immediate, &set_flags, &rd, &rn, &operand2);
-        assert(rd != pc && rn != pc);
-        if (immediate == 0) assert((operand2 & 0xF) != pc);
-        copy_arm();
-        break;
+      }
       
-      case ARM_BIC:
-        arm_bic_decode_fields(read_address, &immediate, &set_flags, &rd, &rn, &operand2);
-        assert(rd != pc && rn != pc);
-        if (immediate == 0) assert((operand2 & 0xF) != pc);
-        copy_arm();
-        break;
+      case ARM_BLXI: {
+        uint32_t h, offset;
+        arm_blxi_decode_fields(read_address, &h, &offset);
         
-      case ARM_CMN:
-        arm_cmn_decode_fields(read_address, &immediate, &rn, &operand2);
-        assert(rn != pc);
-        if (immediate == 0) assert((operand2 & 0xF) != pc);
-        
-        copy_arm();
-        break;
-      case ARM_CMP:
-        arm_cmp_decode_fields(read_address, &immediate, &rn, &operand2);
+        branch_offset = ((h << 1) | (offset << 2)) + 1;
+        if (branch_offset & 0x2000000) { branch_offset |= 0xFC000000; }
 
-        assert(rn != pc);
-        if (immediate == 0) assert((operand2 & 0xF) != pc);        
-        copy_arm();
+        arm_copy_to_reg_32bit(&write_p, lr, (uint32_t)read_address + 4);
+        
+        thread_data->code_cache_meta[basic_block].exit_branch_type = uncond_blxi_arm;
+        thread_data->code_cache_meta[basic_block].exit_branch_addr = (uint16_t *)write_p;
+        
+        arm_branch_save_context(thread_data, &write_p);
+        arm_branch_jump(thread_data, &write_p, basic_block, 0, read_address, (*read_address >> 28), SETUP);
+        
+        arm_copy_to_reg_32bit(&write_p, r0, (uint32_t)read_address + 8 + branch_offset);
+        
+        arm_branch_jump(thread_data, &write_p, basic_block, 0, read_address, (*read_address >> 28), INSERT_BRANCH);
+        stop = true;
+        
+        break;
+      }
+      
+      case ARM_LDM: {
+        uint32_t rn, registers, prepostindex, updown, writeback, psr;
+        arm_ldm_decode_fields(read_address, &rn, &registers, &prepostindex, &updown, &writeback, &psr);
 
-        break;
+        if ((registers & (1 << 15)) == 0) {
+          copy_arm();
+        } else {
+          condition_code = *read_address & 0xF0000000;
+#ifdef LINK_BX_ALT
+          if ((condition_code >> 28) != AL) {
+            target = lookup_or_stub(thread_data, (uint32_t)read_address + 4);
+            arm_cc_branch(thread_data, write_p, target,
+                          arm_inverse_cond_code[condition_code >> 28]);
+            write_p++;
+          }
+#else
+          assert((condition_code >> 28) == AL);
+#endif
 
-      case ARM_MOVW:
-      case ARM_MOVT:
-        arm_data_proc_decode_fields(read_address, &immediate, &opcode, &set_flags, &rd, &rn, &operand2);
+          if (registers & 0x7FFF) {
+            arm_ldm_cond(&write_p, (condition_code >> 28), rn, registers & 0x7FFF, prepostindex, updown, writeback, psr);
+            write_p++;
+          }
 
-        // Rn is actually the top 4 bits of the immediate value
-        assert(rd != pc);
-        copy_arm();
-        break;
+          thread_data->code_cache_meta[basic_block].exit_branch_type = uncond_reg_arm;
+          thread_data->code_cache_meta[basic_block].exit_branch_addr = (uint16_t *)write_p;
 
-      case ARM_MVN:
-        arm_mvn_decode_fields(read_address, &immediate, &set_flags, &rd, &operand2);
-        assert(rd != pc);
-        if (immediate == REG_PROC) assert((operand2 & 0xF) != pc);
-        
-        copy_arm();
-        break;
+#ifdef DBM_INLINE_HASH
+            arm_check_free_space(thread_data, &write_p, &data_p,
+                                 (uint32_t)end_of_inline_hash_lookup - (uint32_t)inline_hash_lookup+4);
 
-      case ARM_RSB:
-        arm_rsb_decode_fields(read_address, &immediate, &set_flags, &rd, &rn, &operand2);
-        
-        assert(rd != pc && rn != pc);
-        if (immediate == 0) assert((operand2 & 0xF) != pc);
-        copy_arm();
-        
-        break;
+            mambo_memcpy(write_p, inline_hash_lookup, (uint32_t)end_of_inline_hash_lookup - (uint32_t)inline_hash_lookup);
 
-      case ARM_TEQ:
-        arm_teq_decode_fields(read_address, &immediate, &rn, &operand2);
-        assert(rn != pc);
-        if (immediate == r0) assert((operand2 & 0xF) != pc);
-        
-        copy_arm();
-        
-        break;
-      case ARM_TST:
-        arm_tst_decode_fields(read_address, &immediate, &rn, &operand2);
-        assert(rn != pc);
-        if (immediate == 0) assert((operand2 & 0xF) != pc);
-        copy_arm();
-        break;
-        
-      case ARM_NOP:
-        copy_arm();
-        break;
+            write_p += ((uint32_t)inline_hash_lookup_get_addr - (uint32_t)inline_hash_lookup)/4;
+            arm_ldm_cond(&write_p, (*read_address >> 28), rn, (1 << r0), prepostindex, updown, writeback, psr);
+            write_p += ((uint32_t)end_of_inline_hash_lookup - (uint32_t)inline_hash_lookup_get_addr)/4;
 
-      case ARM_MUL:
-      case ARM_MLA:
-        arm_multiply_decode_fields(read_address, &accumulate, &set_flags, &rd, &rm, &rs, &rn);
-        
-        assert(rd != pc && rm != pc && rs != pc && rn != pc);
-        copy_arm();
-        
+            *(uint32_t *)((uint32_t)write_p - 4) = basic_block;
+            *(uint32_t *)((uint32_t)write_p - 12) = (uint32_t)thread_data->entry_address.entries;
+            *(uint32_t *)((uint32_t)write_p - 16) = (uint32_t)thread_data->scratch_regs;
+            *(uint32_t *)((uint32_t)write_p - 20) = thread_data->dispatcher_addr;
+#endif
+#if !defined(DBM_INLINE_HASH)
+            arm_branch_save_context(thread_data, &write_p);
+            arm_branch_jump(thread_data, &write_p, basic_block, 0, read_address, (*read_address >> 28), SETUP);
+
+            // Branch taken
+            arm_ldm_cond(&write_p, (*read_address >> 28), rn, (1 << r0), prepostindex, updown, writeback, psr);
+            write_p++;
+
+            arm_branch_jump(thread_data, &write_p, basic_block, 0, read_address, (*read_address >> 28), INSERT_BRANCH);
+#endif
+          stop = true;
+        }
         break;
+      }
 
       case ARM_LDRB:
-      case ARM_LDR:
+      case ARM_LDR: {
+        uint32_t immediate, rd, rn, offset, prepostindex, updown, writeback;
         switch (inst) {
           case ARM_LDRB:
             arm_ldrb_decode_fields(read_address, &immediate, &rd, &rn, &offset, &prepostindex, &updown, &writeback);
@@ -830,9 +923,71 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
           copy_arm();
         }
         break;
+      }
+
+      case ARM_STM: {
+        uint32_t rn, registers, prepostindex, updown, writeback, psr, offset;
+        arm_stm_decode_fields(read_address, &rn, &registers, &prepostindex, &updown, &writeback, &psr);
+        assert(rn != pc);
+
+        if (registers & (1 << pc)) {
+          /* Example :            STMFD SP!, {SP, LR, PC}
+
+             is translated to:    STMFD SP!, {SP, LR, PC}
+                                  MOW LR, #(spc & 0xFFFF)
+                                  MOVT LR, #(spc >> 16)
+                                  STR LR, [SP, #8]
+                                  LDR LR, [SP, #4]
+
+             Note that if rn is in the reglist, then its value must be stored first.
+             This example was encountered in libgcc.
+          */
+          condition_code = (*read_address >> 28);
+          if (condition_code != AL) {
+            tr_start = write_p;
+            write_p++;
+          }
+
+          scratch_reg = ~((1 << pc) | (1 << rn)) & registers;
+          assert(scratch_reg);
+          copy_arm();
+
+          // Overwrite the saved TPC
+          scratch_reg = next_reg_in_list(scratch_reg, 0);
+          assert(scratch_reg < pc && scratch_reg != rn);
+          arm_copy_to_reg_32bit(&write_p, scratch_reg, (uint32_t)read_address + 8);
+          if (writeback) {
+            offset = (count_bits(registers) - 1) << 2;
+          }
+          if (!prepostindex) {
+            offset -= 4;
+          }
+          arm_str(&write_p, IMM_LDR, scratch_reg, rn, offset, 1, 1, 0);
+          write_p++;
+
+          // Calculate the offset of the location where the SR was saved
+          offset = (scratch_reg > rn && (registers & (1 << rn))) ? 4 : 0;
+          offset += prepostindex ? 0 : 4;
+
+          arm_ldr(&write_p, IMM_LDR, scratch_reg, rn, offset, 1, updown ? 0 : 1, 0);
+          write_p++;
+
+          while (!writeback || !prepostindex || updown); // implement this
+
+          if (condition_code != AL) {
+            arm_b32_helper(tr_start, (uint32_t)write_p, arm_inverse_cond_code[condition_code]);
+          }
+
+          while(rn != sp); // Check me
+        } else {
+          copy_arm();
+        }
+        break;
+      }
         
       case ARM_STRB:
-      case ARM_STR:
+      case ARM_STR: {
+        uint32_t immediate, rd, rn, offset, prepostindex, updown, writeback;
         switch (inst) {
           case ARM_STRB:
             arm_strb_decode_fields(read_address, &immediate, &rd, &rn, &offset, &prepostindex, &updown, &writeback);
@@ -890,148 +1045,42 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
           copy_arm();
         }
         break;
+      }
+
+      /* Other translated sensitive instructions */
+      case ARM_MCR:
+      case ARM_MRC: {
+        uint32_t opc1, load_store, crn, rd, coproc, opc2, crm;
+        arm_coproc_trans_decode_fields(read_address, &opc1, &load_store, &crn, &rd, &coproc, &opc2, &crm);
         
-      case ARM_LDRH:
-      case ARM_STRH:
-      case ARM_LDRD:
-      case ARM_STRD:
-        arm_h_data_transfer_decode_fields(read_address, &opcode, &size, &opcode2, &immediate, &rd, &rn, &rm, &imm4h, &prepostindex, &updown, &writeback);
-        
-        assert(rd != pc && rn != pc);
-        if (immediate == REG_PROC) assert(rm != pc);
-        
-        copy_arm();
-        
-        break;
-
-      case ARM_LDREX:
-      case ARM_STREX:
-        arm_h_data_transfer_decode_fields(read_address, &opcode, &size, &opcode2, &immediate, &rd, &rn, &rm, &imm4h, &prepostindex, &updown, &writeback);
-
-        if (inst == ARM_LDREX) {
-          assert(rd != pc && rn != pc);
-        } else {
-          assert(rd != pc && rn != pc && rm != pc);
-        }
-        copy_arm();
-
-        break;
-        
-      case ARM_LDRSHI:
-        arm_h_data_transfer_decode_fields(read_address, &opcode, &size, &opcode2, &immediate, &rd, &rn, &imm4l, &imm4h, &prepostindex, &updown, &writeback);
-
-        assert(rd != pc && rn != pc); // rm field is actually imm4l
-
-        break;
-
-      case ARM_REV:
-      case ARM_CLZ:
-        arm_h_data_transfer_decode_fields(read_address, &opcode, &size, &opcode2, &immediate, &rd, &rn, &rm, &imm4h, &prepostindex, &updown, &writeback);
-        
-        assert(rd != pc && rm != pc);
-        
-        copy_arm();
-        
-        break;
-        
-      case ARM_LDM:
-        arm_ldm_decode_fields(read_address, &rn, &registers, &prepostindex, &updown, &writeback, &psr);
-
-        if ((registers & (1 << 15)) == 0) {
-          copy_arm();
-        } else {
-          condition_code = *read_address & 0xF0000000;
-#ifdef LINK_BX_ALT
-          if ((condition_code >> 28) != AL) {
-            target = lookup_or_stub(thread_data, (uint32_t)read_address + 4);
-            arm_cc_branch(thread_data, write_p, target,
-                          arm_inverse_cond_code[condition_code >> 28]);
-            write_p++;
-          }
-#else
-          assert((condition_code >> 28) == AL);
-#endif
-
-          if (registers & 0x7FFF) {
-            arm_ldm_cond(&write_p, (condition_code >> 28), rn, registers & 0x7FFF, prepostindex, updown, writeback, psr);
-            write_p++;
-          }
-          
-          thread_data->code_cache_meta[basic_block].exit_branch_type = uncond_reg_arm;
-          thread_data->code_cache_meta[basic_block].exit_branch_addr = (uint16_t *)write_p;
-
-#ifdef DBM_INLINE_HASH
-            arm_check_free_space(thread_data, &write_p, &data_p,
-                                 (uint32_t)end_of_inline_hash_lookup - (uint32_t)inline_hash_lookup+4);
-
-            mambo_memcpy(write_p, inline_hash_lookup, (uint32_t)end_of_inline_hash_lookup - (uint32_t)inline_hash_lookup);
-
-            write_p += ((uint32_t)inline_hash_lookup_get_addr - (uint32_t)inline_hash_lookup)/4;
-            arm_ldm_cond(&write_p, (*read_address >> 28), rn, (1 << r0), prepostindex, updown, writeback, psr);
-            write_p += ((uint32_t)end_of_inline_hash_lookup - (uint32_t)inline_hash_lookup_get_addr)/4;
-
-            *(uint32_t *)((uint32_t)write_p - 4) = basic_block;
-            *(uint32_t *)((uint32_t)write_p - 12) = (uint32_t)thread_data->entry_address.entries;
-            *(uint32_t *)((uint32_t)write_p - 16) = (uint32_t)thread_data->scratch_regs;
-            *(uint32_t *)((uint32_t)write_p - 20) = thread_data->dispatcher_addr;
-#endif
-
-#if !defined(DBM_INLINE_HASH)
-            arm_branch_save_context(thread_data, &write_p);
-            arm_branch_jump(thread_data, &write_p, basic_block, 0, read_address, (*read_address >> 28), SETUP);
-
-            // Branch taken
-            arm_ldm_cond(&write_p, (*read_address >> 28), rn, (1 << r0), prepostindex, updown, writeback, psr);
-            write_p++;
-
-            arm_branch_jump(thread_data, &write_p, basic_block, 0, read_address, (*read_address >> 28), INSERT_BRANCH);
-#endif
-          stop = true;
-        }
-        
-        break;
-      case ARM_STM:
-        arm_stm_decode_fields(read_address, &rn, &registers, &prepostindex, &updown, &writeback, &psr);
-        assert(rn != pc);
-        
-        if (registers & (1 << pc)) {
+        // thread id
+        if (coproc == 15 && opc1 == 0 && crn == 13 && crm == 0 && opc2 == 3 && load_store == 1 && rd != pc) {
           condition_code = (*read_address >> 28);
           if (condition_code != AL) {
-            tr_start = write_p;
-            write_p++;
+            tr_start = write_p++;
           }
-
-          arm_add_sub_32_bit(&write_p, rn, rn, updown ? 4 : -4);
-          registers &= ~(1 << pc);
-          assert(registers);
-          arm_stm(&write_p, rn, registers, prepostindex, updown, writeback, psr);
+          arm_copy_to_reg_32bit(&write_p, rd, (uint32_t)(&thread_data->tls));
+          arm_ldr(&write_p, IMM_LDR, rd, rd, 0, 1, 1, 0);
           write_p++;
-
-          scratch_reg = next_reg_in_list(registers, 0);
-          assert(scratch_reg < pc && scratch_reg != rn);
-          arm_copy_to_reg_32bit(&write_p, scratch_reg, (uint32_t)read_address + 8);
-          if (writeback) {
-            offset = count_bits(registers) << 2;
-          }
-          if (!prepostindex) {
-            offset -= 4;
-          }
-          arm_str(&write_p, IMM_LDR, scratch_reg, rn, offset, 1, 1, 0);
-          write_p++;
-          arm_ldr(&write_p, IMM_LDR, scratch_reg, rn, prepostindex ? 0 : 4, 1, updown ? 0 : 1, 0);
-          write_p++;
-
-          while (!writeback || !prepostindex || updown); // implement this
-
           if (condition_code != AL) {
-            arm_b32_helper(tr_start, (uint32_t)write_p, arm_inverse_cond_code[condition_code]);
+            arm_b32_helper(tr_start, (uint32_t)write_p, condition_code ^ 1);
           }
-        } else {
+
+        // NEON / FP VMRS/VMSR
+        } else if (coproc == 10 && opc1 == 7 && crn == 1 && rd != pc) {
           copy_arm();
+        // Performance counter
+        // This is used in OpenSSL in OPENSSL_cpuid_setup, a constructor. WTF
+        } else if (coproc == 15 && opc1 == 0 && crn == 9 && crm == 13 && opc2 == 0 && load_store == 1 && rd != pc) {
+          copy_arm();
+        } else {
+          fprintf(stderr, "unknown coproc: %d %d %d %d %d %d\n", opc1, crn, rd, coproc, opc2, crm);
+          while(1);
         }
-        
         break;
-      case ARM_SVC:
+      }
+
+      case ARM_SVC: {
         condition_code = (*read_address >> 28) & 0xF;
 
         if (condition_code != AL) {
@@ -1058,40 +1107,360 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
         if (condition_code != AL) {
           arm_b32_helper(tr_start, (uint32_t)write_p, condition_code);
         }
-
         break;
-      case ARM_PLDI:
-        arm_pldi_decode_fields(read_address, &updown, &readonly, &rn, &offset);
+      }
 
-        if (rn == pc) {
-          /* The cost of obtaining a scratch register and copying the source PC
-             is *probably* too high to be worth translating this. */
-          break;
+      case ARM_UDF: {
+        if (start_address != (uint32_t)write_p) {
+          arm_cc_branch(thread_data, write_p, lookup_or_stub(thread_data, (uint32_t)read_address), AL);
+          write_p++;
+          stop = true;
+        } else {
+          fprintf(stderr, "TODO: generate SIGILL\n");
         }
-        copy_arm();
-
         break;
+      }
+
+      /* Instructions which could access the PC, but shouldn't. */
+      case ARM_AND:
+      case ARM_BIC:
+      case ARM_RSB: {
+        uint32_t immediate, set_flags, rd, rn, operand2;
+        arm_and_decode_fields(read_address, &immediate, &set_flags, &rd, &rn, &operand2);
+        assert(rd != pc && rn != pc);
+        if (immediate == 0) assert((operand2 & 0xF) != pc);
+        copy_arm();
+        break;
+      }
+
+      case ARM_CMN:
+      case ARM_CMP:
+      case ARM_TEQ:
+      case ARM_TST: {
+        uint32_t immediate, rn, operand2;
+        arm_cmn_decode_fields(read_address, &immediate, &rn, &operand2);
+        assert(rn != pc);
+        if (immediate == 0) assert((operand2 & 0xF) != pc);
+        copy_arm();
+        break;
+      }
+
+      case ARM_MOVW:
+      case ARM_MOVT: {
+        uint32_t immediate, opcode, set_flags, rd, rn, operand2;
+        arm_data_proc_decode_fields(read_address, &immediate, &opcode, &set_flags, &rd, &rn, &operand2);
+        // Rn is actually the top 4 bits of the immediate value
+        assert(rd != pc);
+        copy_arm();
+        break;
+      }
+
+      case ARM_MVN: {
+        uint32_t immediate, set_flags, rd, operand2;
+        arm_mvn_decode_fields(read_address, &immediate, &set_flags, &rd, &operand2);
+        assert(rd != pc);
+        if (immediate == REG_PROC) assert((operand2 & 0xF) != pc);
+        copy_arm();
+        break;
+      }
+
+      case ARM_MUL:
+      case ARM_MLA:
+      case ARM_MLS: {
+        uint32_t accumulate, set_flags, rd, rm, rs, rn;
+        arm_multiply_decode_fields(read_address, &accumulate, &set_flags, &rd, &rm, &rs, &rn);
+        assert(rd != pc && rm != pc && rs != pc && rn != pc);
+        copy_arm();
+        break;
+      }
+
+      case ARM_LDRH:
+      case ARM_LDRHT:
+      case ARM_STRH:
+      case ARM_LDRD:
+      case ARM_STRD:
+      case ARM_LDRSH: {
+        uint32_t opcode, size, opcode2, immediate, rd, rn, rm, imm4h, prepostindex, updown, writeback;
+        arm_h_data_transfer_decode_fields(read_address, &opcode, &size, &opcode2, &immediate, &rd, &rn, &rm, &imm4h, &prepostindex, &updown, &writeback);
+        assert(rd != pc && rn != pc);
+        if (immediate == REG_PROC) assert(rm != pc);
+        copy_arm();
+        break;
+      }
+
+      case ARM_LDREX:
+      case ARM_LDREXB:
+      case ARM_LDREXD: {
+        uint32_t rd, rn;
+        arm_ldrex_decode_fields(read_address, &rd, &rn);
+        assert(rd != pc && rn != pc);
+        copy_arm();
+        break;
+      }
+
+      case ARM_STREX:
+      case ARM_STREXB:
+      case ARM_STREXD: {
+        uint32_t rd, rn, rm;
+        arm_strex_decode_fields(read_address, &rd, &rn, &rm);
+        assert(rd != pc && rn != pc && rm != pc);
+        copy_arm();
+        break;
+      }
         
-      case ARM_PLD:
-        arm_pld_decode_fields(read_address, &updown, &readonly, &rn, &offset);
-        rm = offset & 0xF;
-        assert(rn != pc && rm != pc);
+      case ARM_LDRSHI: {
+        uint32_t opcode, size, opcode2, immediate, rd, rn, rm, imm4l, imm4h, prepostindex, updown, writeback;
+        arm_h_data_transfer_decode_fields(read_address, &opcode, &size, &opcode2, &immediate, &rd, &rn, &imm4l, &imm4h, &prepostindex, &updown, &writeback);
+        assert(rd != pc && rn != pc); // rm field is actually imm4l
         copy_arm();
+        break;
+      }
 
+      case ARM_REV:
+      case ARM_REV16:
+      case ARM_CLZ: {
+        uint32_t opcode, size, opcode2, immediate, rd, rn, rm, imm4h, prepostindex, updown, writeback;
+        arm_h_data_transfer_decode_fields(read_address, &opcode, &size, &opcode2, &immediate, &rd, &rn, &rm, &imm4h, &prepostindex, &updown, &writeback);
+        assert(rd != pc && rm != pc);
+        copy_arm();
+        break;
+      }
+
+      case ARM_PLD: {
+        uint32_t imm, updown, readonly, rn, operand2, rm = reg_invalid;
+        arm_pld_decode_fields(read_address, &imm, &updown, &readonly, &rn, &operand2);
+        if (imm == LDR_REG) {
+          rm = operand2 & 0xF;
+        }
+        /* The cost of obtaining a scratch register and copying the source PC
+             is *probably* too high to be worth translating this. */
+        if (rn != pc && rm != pc ) {
+          copy_arm();
+        }
+        break;
+      }
+
+      case ARM_STC: {
+        uint32_t p, updown, d, writeback, load_store, rn, vd, opcode, immediate;
+        arm_vfp_ldm_stm_decode_fields(read_address, &p, &updown, &d, &writeback, &load_store, &rn, &vd, &opcode, &immediate);
+        assert(rn != pc);
+        copy_arm();
+        break;
+      }
+
+      case ARM_CDP: {
+        uint32_t opc1, crn, crd, coproc, opc2, crm;
+        arm_coproc_dp_decode_fields(read_address, &opc1, &crn, &crd, &coproc, &opc2, &crm);
+        copy_arm();
+        fprintf(stderr, "Untested CDP\n");
+        while(1);
+        break;
+      }
+        
+      case ARM_UMLAL:
+      case ARM_UMULL:
+      case ARM_SMULL:
+      case ARM_SMLAL: {
+        uint32_t opcode, set_flags, rdhi, rdlo, rm, opcode2, setting, rn;
+        arm_dsp_long_res_decode_fields(read_address, &opcode, &set_flags, &rdhi, &rdlo, &rm, &opcode2, &setting, &rn);
+        assert(rdhi != pc && rdlo != pc && rm != pc && rn != pc);
+        copy_arm();
+        break;
+      }
+        
+      case ARM_MRS: {
+        uint32_t rd;
+        arm_mrs_decode_fields(read_address, &rd);
+        assert(rd != pc);
+        copy_arm();
+        break;
+      }
+
+      case ARM_MSR: {
+        uint32_t rn, mask;
+        arm_msr_decode_fields(read_address, &rn, &mask);
+        assert(rn != pc);
+        copy_arm();
+        break;
+      }
+
+      case ARM_UDIV:
+      case ARM_SDIV: {
+        uint32_t opcode, rd, rn, rm;
+        arm_divide_decode_fields(read_address, &opcode, &rd, &rn, &rm);
+        assert(rd != pc && rn != pc && rm != pc);
+        copy_arm();
+        break;
+      }
+
+      case ARM_SXTB:
+      case ARM_SXTH:
+      case ARM_SXTAH:
+      case ARM_UXTB:
+      case ARM_UXTB16:
+      case ARM_UXTH:
+      case ARM_UXTAH:
+      case ARM_UXTAB:
+      case ARM_UXTAB16: {
+        uint32_t opcode, rd, rn, rm, rotate;
+        arm_extend_decode_fields(read_address, &opcode, &rd, &rn, &rm, &rotate);
+        // if rn == pc, it's the version without add which doesn't use pc
+        assert(rd != pc && rm != pc);
+        copy_arm();
+        break;
+      }
+
+      case ARM_LDRSB: {
+        uint32_t immediate, rd, rn, rm, imm4h, prepostindex, writeback;
+        arm_ldrsb_decode_fields(read_address, &immediate, &rd, &rn, &rm, &imm4h, &prepostindex, &writeback);
+        assert(rd != pc && rn != pc);
+        if (immediate == REG_PROC) assert(rm != pc);
+        copy_arm();
+        break;
+      }
+
+      case ARM_LDRBT:
+      case ARM_LDRT: {
+        uint32_t immediate, rd, rn, updown, operand2;
+        arm_ldrt_decode_fields(read_address, &immediate, &rd, &rn, &updown, &operand2);
+        assert(rd != pc && rn != pc);
+        if (immediate == LDR_REG) assert((operand2 & 0xF) != pc);
+        copy_arm();
+        break;
+      }
+
+      case ARM_BFI: {
+        uint32_t rd, rn, lsb, msb;
+        arm_bfi_decode_fields(read_address, &rd, &rn, &lsb, &msb);
+        assert(rd != pc && rn != pc);
+        copy_arm();
+        break;
+      }
+
+      case ARM_UBFX:
+      case ARM_SBFX: {
+        uint32_t rd, rn, lsb, width;
+        arm_ubfx_decode_fields(read_address, &rd, &rn, &lsb, &width);
+        assert(rd != pc && rn != pc);
+        copy_arm();
+        break;
+      }
+
+      case ARM_UQSUB8: {
+        uint32_t rd, rn, rm;
+        arm_uqsub8_decode_fields(read_address, &rd, &rn, &rm);
+        assert(rd != pc && rn != pc && rm != pc);
+        copy_arm();
+        break;
+      }
+
+      case ARM_BFC: {
+      //case ARM_BFI: {
+        uint32_t rd, lsb, msb;
+        arm_bfc_decode_fields(read_address, &rd, &lsb, &msb);
+        assert(rd != pc);
+        copy_arm();
+        break;
+      }
+
+      case ARM_MRRC: {
+        uint32_t coproc, opc1, rd, rd2, crm;
+        arm_mrrc_decode_fields(read_address, &coproc, &opc1, &rd, &rd2, &crm);
+        assert(rd != pc && rd2 != pc);
+        copy_arm();
+        break;
+      }
+
+      case ARM_UMAAL: {
+        uint32_t rd, rd2, rn, rm;
+        arm_umaal_decode_fields(read_address, &rd, &rd2, &rn, &rm);
+        assert(rd != pc && rd2 != pc && rn != pc && rm != pc);
+        copy_arm();
+        break;
+      }
+
+      case ARM_SMULBB:
+      case ARM_SMULTT: {
+        uint32_t rd, rn, rm;
+        arm_smulbb_decode_fields(read_address, &rd, &rn, &rm);
+        assert(rd != pc && rn != pc && rm != pc);
+        copy_arm();
+        break;
+      }
+
+      case ARM_RBIT: {
+        uint32_t rd, rm;
+        arm_rbit_decode_fields(read_address, &rd, &rm);
+        assert(rd != pc && rm != pc);
+        copy_arm();
+        break;
+      }
+
+      case ARM_SMLABB: {
+        uint32_t rd, rn, rm, ra;
+        arm_smlabb_decode_fields(read_address, &rd, &rn, &rm, &ra);
+        assert(rd != pc && rn != pc && rm != pc && ra != pc);
+        copy_arm();
+        break;
+      }
+
+      case ARM_SSAT:
+      case ARM_USAT: {
+        uint32_t rd, sat_imm, rn, sh, imm5;
+        arm_usat_decode_fields(read_address, &rd, &sat_imm, &rn, &sh, &imm5);
+        assert(rd != pc && rn != pc);
+        copy_arm();
+        break;
+      }
+
+      case ARM_UADD8:
+      case ARM_UQADD8: {
+        uint32_t rd, rn, rm;
+        arm_uadd8_decode_fields(read_address, &rd, &rn, &rm);
+        assert(rd != pc && rn != pc && rm != pc);
+        copy_arm();
+        break;
+      }
+
+      case ARM_SEL: {
+        uint32_t rd, rn, rm;
+        arm_sel_decode_fields(read_address, &rd, &rn, &rm);
+        assert(rd != pc && rn != pc && rm != pc);
+        copy_arm();
+	      break;
+      }
+
+      case ARM_RRX: {
+        uint32_t set_flags, rd, rm;
+        arm_rrx_decode_fields(read_address, &set_flags, &rd, &rm);
+        assert(rd != pc && rm != pc);
+        copy_arm();
+        break;
+      }
+
+      /* ARM instructions which can be copied directly */
+      case ARM_DMB:
+      case ARM_ISB:
+      case ARM_MSRI:
+      case ARM_NOP:
+        copy_arm();
         break;
 
+      /* Discarded ARM instructions */
       case ARM_PLII:
         /* Discard instruction preload hints, since they would otherwise only pollute our icache */
         break;
 
-      case ARM_VSTM_D:
-      case ARM_VSTM_S:
-      case ARM_VLDM_S:
-      case ARM_VLDM_D:
-      case ARM_VSTR_D:
-      case ARM_VSTR_S:
-      case ARM_VLDR_D:
-      case ARM_VLDR_S:
+      /* NEON and VFP instructions which might access the PC */
+      case ARM_VFP_VSTM_DP:
+      case ARM_VFP_VSTM_SP:
+      case ARM_VFP_VLDM_SP:
+      case ARM_VFP_VLDM_DP:
+      case ARM_VFP_VSTR_DP:
+      case ARM_VFP_VSTR_SP:
+      case ARM_VFP_VLDR_DP:
+      case ARM_VFP_VLDR_SP: {
+        uint32_t p, updown, d, writeback, load_store, rn, vd, opcode, immediate;
         arm_vfp_ldm_stm_decode_fields(read_address, &p, &updown, &d, &writeback, &load_store, &rn, &vd, &opcode, &immediate);
 
         if (rn == pc) {
@@ -1108,218 +1477,180 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
         } else {
           copy_arm();
         }
+        break;
+      }
 
-        break;
-        
-      case ARM_STC:
-        arm_vfp_ldm_stm_decode_fields(read_address, &p, &updown, &d, &writeback, &load_store, &rn, &vd, &opcode, &immediate);
-        assert(rn != pc);
-        copy_arm();
-        
-        break;
-        
-      case ARM_MRC:
-      case ARM_MCR:
-        arm_coproc_trans_decode_fields(read_address, &opc1, &load_store, &crn, &rd, &coproc, &opc2, &crm);
-        
-        // thread id
-        if (coproc == 15 && opc1 == 0 && crn == 13 && crm == 0 && opc2 == 3 && load_store == 1 && rd != pc) {
-          assert((((uint32_t)*read_address) >> 28) == AL);
-          arm_copy_to_reg_32bit(&write_p, rd, (uint32_t)(&thread_data->tls));
-          arm_ldr(&write_p, IMM_LDR, rd, rd, 0, 1, 1, 0);
-          write_p++;
-        // NEON / FP VMRS/VMSR
-        } else if (coproc == 10 && opc1 == 7 && crn == 1 && rd != pc) {
-          copy_arm();
-        // Performance counter
-        // This is used in OpenSSL in OPENSSL_cpuid_setup, a constructor. WTF
-        } else if (coproc == 15 && opc1 == 0 && crn == 9 && crm == 13 && opc2 == 0 && load_store == 1 && rd != pc) {
-          copy_arm();
-        } else {
-          fprintf(stderr, "unknown coproc: %d %d %d %d %d %d\n", opc1, crn, rd, coproc, opc2, crm);
-          while(1);
-        }
-        
-        break;
-        
-      case ARM_CDP:
-        arm_coproc_dp_decode_fields(read_address, &opc1, &crn, &crd, &coproc, &opc2, &crm);
-        
-        copy_arm();
-        
-        fprintf(stderr, "Untested CDP\n");
-        while(1);
-        
-        break;
-        
-      case ARM_UMLAL:
-      case ARM_UMULL:
-      case ARM_SMULL:
-      case ARM_SMLAL:
-        arm_dsp_long_res_decode_fields(read_address, &opcode, &set_flags, &rdhi, &rdlo, &rm, &opcode2, &setting, &rn);
-        
-        assert(rdhi != pc && rdlo != pc && rm != pc && rn != pc);
-        
-        copy_arm();
-        
-        break;
-        
-      case ARM_VMULI:
-      case ARM_VMULLI:
-      case ARM_VRADDHN:
-      case ARM_VQADD:
-      case ARM_VORR:
-      case ARM_VSUBI:
-      case ARM_VQDMULHS:
-      case ARM_VADDI:
-      case ARM_VMLSL_S:
-      case ARM_VMLAL_S:
-      case ARM_VMULL_S:
-        copy_arm(); // no access to general purpose registers
-        break;
-        
-      case ARM_VLDX_M:
-      case ARM_VLDX_S_O:
-      case ARM_VLDX_S_A:
-      case ARM_VSTX_M:
-      case ARM_VSTX_S_O:
+      case ARM_NEON_VLDX_M:
+      case ARM_NEON_VLDX_S_O:
+      case ARM_NEON_VLDX_S_A:
+      case ARM_NEON_VSTX_M:
+      case ARM_NEON_VSTX_S_O: {
+        uint32_t opcode, opcode2, opcode3, opcode4, params, d, vd, rn, rm;
         arm_v_trans_mult_decode_fields(read_address, &opcode, &opcode2, &opcode3, &opcode4, &params, &d, &vd, &rn, &rm);
-        
         assert(rn != pc); // rm is guaranteed not to be pc
         copy_arm();
-        
         break;
-        
-      case ARM_VUZP:
-      case ARM_VZIP:
-      case ARM_VMVN:
-      case ARM_VTRN:
-      case ARM_VSWP:
-      case ARM_VQMOVUN:
-      	copy_arm();
-      	break;
-        
-      case ARM_VRSHR:
-      case ARM_VRSHRN:
-      case ARM_VSLI:
-      case ARM_VRSRA:
-      case ARM_VSHLI:
-      case ARM_VSHLL:
-      case ARM_VSHRN:
-      case ARM_VSRI:
-        copy_arm(); // doesn't involve general purpose registers
-        break;
+      }
 
-      case ARM_VMOVI_I:
+      case ARM_VFP_VMOV_2CORE_DP: {
+        uint32_t opcode, rd, rd2, m, vm;
+        arm_vfp_vmov_2core_dp_decode_fields(read_address, &opcode, &rd, &rd2, &m, &vm);
+        assert(rd != pc && rd2 != pc); // rm is guaranteed not to be pc
         copy_arm();
         break;
+      }
 
-      case ARM_VMOV_F:
-      case ARM_VCVT_F:
-      case ARM_VCMP:
-      case ARM_VCMPE:
-      case ARM_VCMP_ZERO:
-      case ARM_VCMPE_ZERO:
-        copy_arm();
+      case ARM_VFP_VMOV_CORE_SCAL: {
+        uint32_t d, vd, opcode, opcode2, rd;
+        arm_vfp_vmov_core_scal_decode_fields(read_address, &d, &vd, &opcode, &opcode2, &rd);
+	      assert(rd != pc);
+	      copy_arm();
         break;
-        
-      case ARM_MRS:
-        arm_mrs_decode_fields(read_address, &rd);
-        
+      }
+
+      case ARM_VFP_VMOV_CORE_SP: {
+        uint32_t opcode, rd, n, vn;
+        arm_vfp_vmov_core_sp_decode_fields(read_address, &opcode, &rd, &n, &vn);
         assert(rd != pc);
         copy_arm();
-        
         break;
+      }
 
-      case ARM_MSR:
-        arm_msr_decode_fields(read_address, &rn, &mask);
-
-        assert(rn != pc);
-        copy_arm();
-
-        break;
-
-      case ARM_MSRI:
-        copy_arm();
-        break;
-
-      case ARM_UDIV:
-      case ARM_SDIV:
-        arm_divide_decode_fields(read_address, &opcode, &rd, &rn, &rm);
-
-        assert(rd != pc && rn != pc && rm != pc);
-        copy_arm();
-
-        break;
-
-      case ARM_DMB:
-        copy_arm();
-        break;
-        
-      case ARM_UXTB:
-      case ARM_UXTB16:
-      case ARM_UXTH:
-        arm_extend_decode_fields(read_address, &opcode, &rd, &rn, &rm, &rotate);
-
-        // if rn == pc, it's the version without add which doesn't use pc
-        assert(rd != pc && rm != pc);
-        copy_arm();
-
-        break;
-
-      case ARM_VMUL_F32:
-      case ARM_VMUL_F64:
-      case ARM_VMLS_F64:
-      case ARM_VMLA_F32:
-      case ARM_VMLA_F64:
-        copy_arm();
-        break;
-
-      case ARM_VMOV_ARM_S:
-        arm_vmov_arm_s_decode_fields(read_address, &opcode, &vn, &rd, &n);
-
+      case ARM_NEON_VDUP_CORE: {
+        uint32_t b, e, q, d, vd, rd;
+        arm_neon_vdup_core_decode_fields(read_address, &b, &e, &q, &d, &vd, &rd);
         assert(rd != pc);
         copy_arm();
-
         break;
-
-      case ARM_VMOV_SCAL_ARM:
-        arm_vmov_scal_arm_decode_fields(read_address, &opc1, &opc2, &d, &vd, &rd);
-
+      }
+        
+      case ARM_VFP_VMOV_SCAL_CORE: {
+        uint32_t opcode, rd, n, vn, opcode2, opcode3;
+        arm_vfp_vmov_scal_core_decode_fields(read_address, &opcode, &rd, &n, &vn, &opcode2, &opcode3);
         assert(rd != pc);
         copy_arm();
-
         break;
+      }
 
-      case ARM_VMOV_ARM_SCAL:
-        arm_vmov_arm_scal_decode_fields(read_address, &u, &opc1, &opc2, &rd, &n, &vn);
-
+      case ARM_VFP_VMSR: {
+        uint32_t rd;
+        arm_vfp_vmsr_decode_fields(read_address, &rd);
         assert(rd != pc);
         copy_arm();
-
         break;
+      }
 
-      case ARM_VMOVI_F32:
-      case ARM_VMOVI_F64:
-      case ARM_VMOVI_D:
-      case ARM_VMOVI_Q:
-        copy_arm();
-        break;
-
-      case ARM_VMRS:
-        copy_arm();
-        break;
-        
-      case ARM_VMOV_2ARM_D:
-        arm_vmov_2arm_d_decode_fields(read_address, &opcode, &rd2, &rd, &m, &vm);
-        
-        assert(rd != pc && rd2 != pc);
-        copy_arm();
-        
-        break;
-
-      case ARM_VREV:
-      case ARM_VPADD:
+      /* NEON and VFP instructions which can't access the PC */
+      case ARM_NEON_VABD_I:
+      case ARM_NEON_VABS:
+      case ARM_NEON_VADD_F:
+      case ARM_NEON_VADD_I:
+      case ARM_NEON_VADDL:
+      case ARM_NEON_VADDW:
+      case ARM_NEON_VAND:
+      case ARM_NEON_VBIC:
+      case ARM_NEON_VBICI:
+      case ARM_NEON_VBSL:
+      case ARM_NEON_VCEQ_I:
+      case ARM_NEON_VCEQZ:
+      case ARM_NEON_VCGE_F:
+      case ARM_NEON_VCGE_I:
+      case ARM_NEON_VCGEZ:
+      case ARM_NEON_VCGT_F:
+      case ARM_NEON_VCGT_I:
+      case ARM_NEON_VCGTZ:
+      case ARM_NEON_VCLEZ:
+      case ARM_NEON_VCLTZ:
+      case ARM_NEON_VCVT_F_FP:
+      case ARM_NEON_VCVT_F_I:
+      case ARM_NEON_VDUP_SCAL:
+      case ARM_NEON_VEOR:
+      case ARM_NEON_VEXT:
+      case ARM_NEON_VHADD:
+      case ARM_NEON_VMAX_I:
+      case ARM_NEON_VMIN_I:
+      case ARM_NEON_VMLA_F:
+      case ARM_NEON_VMLA_I:
+      case ARM_NEON_VMLAL_I:
+      case ARM_NEON_VMLAL_SCAL:
+      case ARM_NEON_VMLA_SCAL:
+      case ARM_NEON_VMLS_F:
+      case ARM_NEON_VMLSL_SCAL:
+      case ARM_NEON_VMLS_SCAL:
+      case ARM_NEON_VMOVI:
+      case ARM_NEON_VMOVL:
+      case ARM_NEON_VMOVN:
+      case ARM_NEON_VMUL_F:
+      case ARM_NEON_VMUL_I:
+      case ARM_NEON_VMULL_I:
+      case ARM_NEON_VMULL_SCAL:
+      case ARM_NEON_VMUL_SCAL:
+      case ARM_NEON_VMVN:
+      case ARM_NEON_VMVNI:
+      case ARM_NEON_VNEG:
+      case ARM_NEON_VORN:
+      case ARM_NEON_VORR:
+      case ARM_NEON_VORRI:
+      case ARM_NEON_VPADD_F:
+      case ARM_NEON_VPADD_I:
+      case ARM_NEON_VPADDL:
+      case ARM_NEON_VQADD:
+      case ARM_NEON_VQDMULH_I:
+      case ARM_NEON_VQDMULH_SCAL:
+      case ARM_NEON_VQMOVUN:
+      case ARM_NEON_VQRSHRN:
+      case ARM_NEON_VQRSHRUN:
+      case ARM_NEON_VQSHRN:
+      case ARM_NEON_VQSHRUN:
+      case ARM_NEON_VQSUB:
+      case ARM_NEON_VREV32:
+      case ARM_NEON_VREV64:
+      case ARM_NEON_VRHADD:
+      case ARM_NEON_VRSHL:
+      case ARM_NEON_VRSHR:
+      case ARM_NEON_VRSHRN:
+      case ARM_NEON_VSHL:
+      case ARM_NEON_VSHLI:
+      case ARM_NEON_VSHLL:
+      case ARM_NEON_VSHLL2:
+      case ARM_NEON_VSHR:
+      case ARM_NEON_VSHRN:
+      case ARM_NEON_VSLI:
+      case ARM_NEON_VSRA:
+      case ARM_NEON_VSUB_F:
+      case ARM_NEON_VSUB_I:
+      case ARM_NEON_VSUBL:
+      case ARM_NEON_VSUBW:
+      case ARM_NEON_VSWP:
+      case ARM_NEON_VTRN:
+      case ARM_NEON_VTST:
+      case ARM_NEON_VUZP:
+      case ARM_NEON_VZIP:
+      case ARM_VFP_VABS:
+      case ARM_VFP_VADD:
+      case ARM_VFP_VCMP:
+      case ARM_VFP_VCMPE:
+      case ARM_VFP_VCMPEZ:
+      case ARM_VFP_VCMPZ:
+      case ARM_VFP_VCVT_DP_SP:
+      case ARM_VFP_VCVT_F_FP:
+      case ARM_VFP_VCVT_F_I:
+      case ARM_VFP_VDIV:
+      case ARM_VFP_VFMA:
+      case ARM_VFP_VMLA_F:
+      case ARM_VFP_VMLS_F:
+      case ARM_VFP_VMOV:
+      case ARM_VFP_VMOVI:
+      case ARM_VFP_VMRS:
+      case ARM_VFP_VMUL_F:
+      case ARM_VFP_VNEG:
+      case ARM_VFP_VNMLA:
+      case ARM_VFP_VNMLS:
+      case ARM_VFP_VNMUL:
+      case ARM_VFP_VPOP_DP:
+      case ARM_VFP_VPUSH_DP:
+      case ARM_VFP_VSQRT:
+      case ARM_VFP_VSUB_F:
         copy_arm();
         break;
 

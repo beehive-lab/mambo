@@ -242,7 +242,7 @@ void copy_to_reg_16bit(uint16_t **write_p, enum reg reg, uint32_t value) {
 void copy_to_reg_32bit(uint16_t **write_p, enum reg reg, uint32_t value) {
   thumb_movwi32 (write_p, (value >> 11) & 0x1, (value >> 12) & 0xF, (value >> 8) & 0x7, reg, (value >> 0) & 0xFF);
   *write_p += 2;
-  thumb_movwti32 (write_p, (value >> 27) & 0x1, (value >> 28) & 0xF, (value >> 24) & 0x7, reg, (value >> 16) & 0xFF);
+  thumb_movti32 (write_p, (value >> 27) & 0x1, (value >> 28) & 0xF, (value >> 24) & 0x7, reg, (value >> 16) & 0xFF);
   *write_p += 2;
 }
 
@@ -326,7 +326,7 @@ void thumb_b16_cond_helper(uint16_t *write_p, uint32_t dest_addr, mambo_cond con
   int difference = dest_addr -(uint32_t)write_p - 4;
   assert(difference >= -256 && difference < 256);
 
-  thumb_bi_cond16(&write_p, cond, (difference >> 1) & 0xFF);
+  thumb_b_cond16(&write_p, cond, (difference >> 1) & 0xFF);
 }
 
 void thumb_b32_helper(uint16_t *write_p, uint32_t dest_addr) {
@@ -351,7 +351,7 @@ void thumb_b32_cond_helper(uint16_t **write_p, uint32_t dest_addr, enum arm_cond
   int difference = dest_addr -(uint32_t)(*write_p) - 4;
   if (difference < -(1*1024*1024) || difference >= (1*1024*1024)) {
     assert(condition < 14);
-    thumb_bi_cond16(write_p, arm_inverse_cond_code[condition], 1);
+    thumb_b_cond16(write_p, arm_inverse_cond_code[condition], 1);
     (*write_p)++;
     thumb_b32_helper(*write_p, dest_addr);
     (*write_p) += 2;
@@ -491,7 +491,7 @@ void thumb_encode_cond_imm_branch(dbm_thread *thread_data,
       if (!taken_in_cache && !skipped_in_cache) {
         debug("Writing cond branch at: %p\n", write_p);
         // Branch to branch taken trampoline
-        thumb_bi_cond16(&write_p, condition, 0x05);
+        thumb_b_cond16(&write_p, condition, 0x05);
         write_p++;
       }
 
@@ -634,7 +634,7 @@ void thumb_inline_hash_lookup(dbm_thread *thread_data, uint16_t **o_write_p, int
   write_p += 2;
 
   // BEQ arm_hash_lookup_ret
-  thumb_bi_cond16(&write_p, EQ, (reglist & (1 << pc)) ? 24 : 22);
+  thumb_b_cond16(&write_p, EQ, (reglist & (1 << pc)) ? 24 : 22);
   write_p++;
 
   // CMP reg2, #0
@@ -642,7 +642,7 @@ void thumb_inline_hash_lookup(dbm_thread *thread_data, uint16_t **o_write_p, int
   write_p += 2;
 
   // BNE asm_hash_lookup_loop
-  thumb_bi_cond16(&write_p, NE, -9 & 0xFF);
+  thumb_b_cond16(&write_p, NE, -9 & 0xFF);
   write_p++;
 
   // arm_hash_lookup_fail:
@@ -839,7 +839,7 @@ void pass1_thumb(dbm_thread *thread_data, uint16_t *read_address, branch_type *b
         }
         break;
 
-      case THUMB_BI_COND16:
+      case THUMB_B_COND16:
         *bb_type = cond_imm_thumb;
         break;
 
@@ -1075,6 +1075,7 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
   uint32_t p;
   uint32_t double_single;
   uint32_t n;
+  uint32_t vn;
   uint32_t f2;
   uint32_t n_high;
   uint32_t m_swap;
@@ -1805,8 +1806,8 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
         it_cond_handled = true;
         break;
         
-      case THUMB_BI_COND16:
-        thumb_bi_cond16_decode_fields(read_address, &condition, &imm8);
+      case THUMB_B_COND16:
+        thumb_b_cond16_decode_fields(read_address, &condition, &imm8);
         branch_offset = ((int8_t)imm8) << 1;
         debug("Branch offset: %d\n", branch_offset);
         
@@ -1973,9 +1974,9 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
         
         break;
         
-      case THUMB_MOVWTI32:
+      case THUMB_MOVTI32:
         // check if dest is pc
-        thumb_movwti32_decode_fields(read_address, &imm1, &imm4, &imm3, &rdn, &imm8);
+        thumb_movti32_decode_fields(read_address, &imm1, &imm4, &imm3, &rdn, &imm8);
  
         assert(rdn != pc); 
         copy_thumb_32();
@@ -2402,7 +2403,7 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
       case THUMB_QSUB32:
       case THUMB_RBIT32:
       case THUMB_REV32:
-      case THUMB_REVH32:
+      case THUMB_REV1632:
       case THUMB_REVSH32:
       case THUMB_SEL32:
         thumb_data_proc_other_3reg_decode_fields(read_address, &opcode, &rn, &rdn, &opcode2, &rm);
@@ -2434,12 +2435,11 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
         
         break;
 
-      case THUMB_SMLA_B_OR_T32:
       case THUMB_SMLAD32:
-      case THUMB_SMLAW_B_OR_T32:
       case THUMB_SMLSD32:
       case THUMB_USADA832:
-        thumb_smla_b_or_t32_decode_fields(read_address, &rn, &racc, &rdn, &opcode2, &rm);
+      case THUMB_SMLABB32:
+        thumb_data_proc_rd_rn_rm_ra_decode_fields(read_address, &rdn, &rn, &rm, &racc);
 
         assert(rn != pc && rdn != pc && rm != pc && racc != pc);
         copy_thumb_32();
@@ -2447,14 +2447,15 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
 
         break;
 
-      // data_proc_32_mult with rd, rn, rm
+      // data proc with rd, rn, rm
       case THUMB_SMUSD32:
       case THUMB_USAD832:
-      case THUMB_SMUL_B_OR_T32:
-      case THUMB_SMULW_B_OR_T32:
       case THUMB_SMMUL32:
       case THUMB_SMUAD32:
-        thumb_data_proc_32_mult_decode_fields(read_address, &opcode, &rn, &racc, &rdn, &opcode2, &rm);
+      case THUMB_UADD832:
+      case THUMB_UQSUB832:
+      case THUMB_SMULBB32:
+        thumb_data_proc_rd_rn_rm_decode_fields(read_address, &rdn, &rn, &rm);
         
         assert(rdn != pc && rn != pc && rm != pc);
         copy_thumb_32();
@@ -2491,7 +2492,6 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
         break;
 
       case THUMB_SMLAL32:
-      case THUMB_SMLAL_B_OR_T32:
       case THUMB_SMLALD32:
       case THUMB_SMLSLD32:
       case THUMB_UMLAL32:
@@ -3025,43 +3025,21 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
         
         break;
         
-      case THUMB_VMOV_F6432:
-      case THUMB_VMOV_F3232:
+      /* NEON and VFP instructions which might access the PC */
+      case THUMB_VFP_VLDM_DP:
+      case THUMB_VFP_VLDM_SP:
+      case THUMB_VFP_VSTM_DP:
+      case THUMB_VFP_VSTM_SP:
+        thumb_vfp_ld_st_m_decode_fields(read_address, &p, &upwards, &writeback, &rn, &d, &vd, &imm8);
+        assert(rn != pc);
         copy_thumb_32();
-        it_cond_handled = true;
         break;
         
-      case THUMB_VMOV_PAIR_DOUBLE32:
-      case THUMB_VMOV_PAIR_SINGLE32:
-        thumb_vmov_arm_decode_fields(read_address, &opcode, &to_arm, &rt2, &rt, &double_single, &n, &f2, &m, &vm);
-        
-        assert(rt != pc && rt2 != pc);
-        copy_thumb_32();
-        it_cond_handled = true;
-        
-        break;
-        
-      case THUMB_VMOV_SINGLE32:
-        thumb_vmov_single32_decode_fields(read_address, &to_arm, &rt2, &rt, &n);
-        // rt2 is actually vn
-        assert(rt != pc);
-        copy_thumb_32();
-        it_cond_handled = true;
-        
-        break;
-        
-      case THUMB_VMOVI_F32:
-      case THUMB_VMOVI_F64:
-      case THUMB_VMOVI32:
-        copy_thumb_32();
-        it_cond_handled = true;
-        break;
-        
-      case THUMB_VLDR6432:
-      case THUMB_VLDR3232:
-      case THUMB_VSTR6432:
-      case THUMB_VSTR3232:
-        thumb_vfp_ldr_str_decode_fields(read_address, &upwards, &d, &load_store, &rn, &vd, &double_reg, &imm8);
+      case THUMB_VFP_VLDR_DP:
+      case THUMB_VFP_VLDR_SP:
+      case THUMB_VFP_VSTR_DP:
+      case THUMB_VFP_VSTR_SP:
+        thumb_vfp_vldr_vstr_decode_fields(read_address, &upwards, &rn, &d, &vd, &imm8);
         
         if(rn == pc) {
           modify_in_it_pre(7);
@@ -3072,11 +3050,11 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
           copy_to_reg_32bit(&write_p, r0, get_original_pc());
 
           switch(inst) {
-            case THUMB_VLDR6432:
-              thumb_vldr6432 (&write_p, upwards, d,	r0, vd, imm8);
+            case THUMB_VFP_VLDR_DP:
+              thumb_vfp_vldr_dp(&write_p, upwards, r0, d, vd, imm8);
               break;
-            case THUMB_VLDR3232:
-              thumb_vldr3232 (&write_p, upwards, d,	r0, vd, imm8);
+            case THUMB_VFP_VLDR_SP:
+              thumb_vfp_vldr_sp(&write_p, upwards, r0, d, vd, imm8);
               break;
             default:
               fprintf(stderr, "inst: %d unimplemented\n", inst);
@@ -3088,187 +3066,59 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
           write_p++;
 
           modify_in_it_post();
-
-          it_cond_handled = true;
         } else {
           copy_thumb_32();
-          it_cond_handled = true;
         }
-        
-        break;
-        
-      case THUMB_VCMP32:
-      case THUMB_VCMPE32:
-        copy_thumb_32();
+
         it_cond_handled = true;
-        
-        break;
-        
-      case THUMB_VLDM_F3232:
-      case THUMB_VLDM_F6432:
-      case THUMB_VSTM_F3232:
-      case THUMB_VSTM_F6432:
-        thumb_v_s_ldm_decode_fields(read_address, &p, &upwards, &d, &writeback, &load_store, &rn, &vd, &double_single, &imm8);
-        
-        assert(rn != pc);
-        copy_thumb_32();
-        
         break;
 
-      case THUMB_VSUB_F32:
-      case THUMB_VBIC32:
+      case THUMB_VFP_VMOV_CORE_SP:
+        thumb_vfp_vmov_core_sp_decode_fields(read_address, &opcode, &rt, &n, &vn);
+        assert(rt != pc);
         copy_thumb_32();
         it_cond_handled = true;
         break;
 
-      case THUMB_VADD_I32:
-      case THUMB_VADD_F32:
-      case THUMB_VADD_F3232:
-      case THUMB_VADD_F6432:
-      case THUMB_VSUB_I32:
-      case THUMB_VSUB_F3232:
-      case THUMB_VSUB_F6432:
-      case THUMB_VORR32:
-      case THUMB_VAND32:
-      case THUMB_VEOR32:
-      case THUMB_VORN32:
-      case THUMB_VSHL32:
-      case THUMB_VADDL32:
-      case THUMB_VADDW32:
-        copy_thumb_32();
-        it_cond_handled = true;
-        break;
-        
-      case THUMB_VNEG_I32:
-      case THUMB_VNEG_F32:
-      case THUMB_VNEG_F64:
-      case THUMB_VSWP32:
-      case THUMB_VTRN32:
-      case THUMB_VQMOVN32:
-      case THUMB_VQMOVUN32:
-      case THUMB_VPADDL32:
-      case THUMB_VREV32:
-      case THUMB_VZIP32:
-      case THUMB_VCLTI32:
-        copy_thumb_32();
-        it_cond_handled = true;
-        break;
-        
-      case THUMB_VMLA_F3232:
-      case THUMB_VMLA_F6432:
-      case THUMB_VMLS_F3232:
-      case THUMB_VMLS_F6432:
-      case THUMB_VNMLA_F3232:
-      case THUMB_VNMLA_F6432:
-      case THUMB_VNMLS_F3232:
-      case THUMB_VNMLS_F6432:
-      case THUMB_VMUL_F3232:
-      case THUMB_VMUL_F6432:
-      case THUMB_VNMUL_F3232:
-      case THUMB_VNMUL_F6432:
-      case THUMB_VPADDI32:
-      case THUMB_VSUBL32:
-      case THUMB_VSUBW32:
-      case THUMB_VMULI32:
-      case THUMB_VMULS32:
-      case THUMB_VMULLI32:
-      case THUMB_VMLAL_I32:
-      case THUMB_VMLSL_I32:
-      case THUMB_VMUL_NEON_F32:
-      case THUMB_VMLA_S32:
-      case THUMB_VMLS_S32:
-      case THUMB_VMLA_NEON_F32:
-      case THUMB_VMLS_NEON_F32:
-      case THUMB_VABD_I32:
-      case THUMB_VCGT_I32:
-      case THUMB_VRHADD32:
-      case THUMB_VQADD32:
-      case THUMB_VHADD32:
-      case THUMB_VMAX_I32:
-      case THUMB_VMIN_I32:
-      case THUMB_VQSUB32:
-      case THUMB_VBSL32:
-      case THUMB_VMLAL_S32:
-      case THUMB_VMLSL_S32:
-      case THUMB_VMULL_S32:
-      case THUMB_VADDHN32:
-      case THUMB_VSUBHN32:
-        copy_thumb_32();
-        it_cond_handled = true;
-        break;
-        
-      case THUMB_VCVT_S32_F6432:
-      case THUMB_VCVT_S32_F3232:
-      case THUMB_VCVT_U32_F6432:
-      case THUMB_VCVT_U32_F3232:
-      case THUMB_VCVT_F6432:
-      case THUMB_VCVT_F3232:
-      case THUMB_VCVT_F32_F6432:
-      case THUMB_VCVT_F64_F3232:
-        copy_thumb_32();
-        it_cond_handled = true;
-        break;
-        
-      case THUMB_VDIV_F64:
-      case THUMB_VDIV_F32:
-        copy_thumb_32();
-        it_cond_handled = true;
-        break;
-        
-      case THUMB_VABS_F6432:
-      case THUMB_VABS_F3232:
-        copy_thumb_32();
-        it_cond_handled = true;
-        break;
-        
-      case THUMB_VSHRI32:
-      case THUMB_VSHLI32:
-      case THUMB_VRSHRI32:
-      case THUMB_VRSHRNI32:
-      case THUMB_VSHLLI32:
-      case THUMB_VQSHRN32:
-      case THUMB_VQSHRUN32:
-      case THUMB_VSLI32:
-      case THUMB_VQRSHRUN32:
+      case THUMB_VFP_VMOV_2CORE_DP:
+        thumb_vfp_vmov_2core_dp_decode_fields(read_address, &to_arm, &rt, &rt2, &m, &vm);
+        assert(rt != pc && rt2 != pc);
         copy_thumb_32();
         it_cond_handled = true;
         break;
 
-      case THUMB_VLD_MULTIPLE_EL32:
-      case THUMB_VLD_SINGLE_TO_ONE32:
-      case THUMB_VLD_SINGLE_TO_ALL32:
-      case THUMB_VST_MULTIPLE_EL32:
-      case THUMB_VST_SINGLE_FROM_ONE32:
-        thumb_neon_trans_mult_lane_decode_fields(read_address, &opcode, &d, &opcode2, &rn, &vd, &size, &element_size, &sz, &align, &rm);
-
-        assert(rn != pc);
-        copy_thumb_32();
-        it_cond_handled = true;
-
-        break;
-
-      case THUMB_VDUPS32:
+      case THUMB_VFP_VMSR:
+        thumb_vfp_vmsr_decode_fields(read_address, &rt);
+        assert(rt != pc);
         copy_thumb_32();
         it_cond_handled = true;
         break;
 
-      case THUMB_VEXT32:
-        copy_thumb_32();
-        it_cond_handled = true;
-        break;
-
-      case THUMB_VTST32:
-        copy_thumb_32();
-        it_cond_handled = true;
-        break;
-
-      case THUMB_VRSHL32:
-        copy_thumb_32();
-        it_cond_handled = true;
-        break;
-
-      case THUMB_VFMA_S32:
-      case THUMB_VSEL32:
+      /* NEON and VFP instructions which can't access the PC */
+      case THUMB_VFP_VPUSH:
+      case THUMB_VFP_VPOP:
+      case THUMB_VFP_VCVT_F_I:
+      case THUMB_VFP_VDIV:
+      case THUMB_VFP_VMOVI:
+      case THUMB_VFP_VADD:
+      case THUMB_VFP_VCVT_F_FP:
+      case THUMB_VFP_VMUL:
+      case THUMB_VFP_VSUB:
+      case THUMB_VFP_VCMPZ:
+      case THUMB_VFP_VMRS: // rt=0xF is CPSR
+      case THUMB_VFP_VCVT_DP_SP:
+      case THUMB_VFP_VMOV:
+      case THUMB_VFP_VMLA_F:
+      case THUMB_VFP_VNMLS:
+      case THUMB_VFP_VNEG:
+      case THUMB_VFP_VCMPE:
+      case THUMB_VFP_VCMP:
+      case THUMB_VFP_VCMPEZ:
+      case THUMB_VFP_VABS:
+      case THUMB_VFP_VMLS_F:
+      case THUMB_VFP_VNMUL:
+      case THUMB_VFP_VSQRT:
+      case THUMB_VFP_VNMLA:
         copy_thumb_32();
         it_cond_handled = true;
         break;
@@ -3314,7 +3164,7 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
                                     &data_p, basic_block, type, &set_addr_prev_block, !stop);
 #endif
 
-    if (inst < THUMB_ADCI32) {
+    if (inst < THUMB_ADC32) {
       read_address++;
     } else {
       read_address+= 2;
