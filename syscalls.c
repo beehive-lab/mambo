@@ -196,6 +196,24 @@ int syscall_handler_pre(uint32_t syscall_no, uint32_t *args, uint16_t *next_inst
       args[0] = 0;
       return 0;
       break;
+    case __NR_readlinkat:
+      if (strcmp((char *)args[1], "/proc/self/exe") == 0 ||
+          strcmp((char *)args[1], "/proc/thread-self/exe") == 0) {
+        char path[PATH_MAX];
+        char *rp = realpath(global_data.argv[1], path);
+        size_t path_len = strlen(rp);
+        assert(rp != NULL);
+
+       /* realpath() null-terminates strings, while readlinkat shouldn't.
+          Therefore, if PATH_MAX has been filled and bufsize == PATH_MAX, then it's possible
+          that we've lost a valid last character which realpath set to null. */
+        assert((args[3] < PATH_MAX) || (strlen(path) < (PATH_MAX - 1)));
+
+        strncpy((char *)args[2], path, args[3]);
+        args[0] = min(path_len, args[3]);
+        return 0;
+      }
+      break;
     /* Remove the execute permission from application mappings. At this point, this mostly acts
        as a safeguard in case a translation bug causes a branch to unmodified application code.
        Page permissions happen to be passed in the third argument both for mmap and mprotect. */

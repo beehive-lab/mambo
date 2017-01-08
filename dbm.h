@@ -221,6 +221,9 @@ void mambo_deliver_callbacks(unsigned cb_id, dbm_thread *thread_data, inst_set i
                              void *read_address, void *write_p, unsigned long *regs);
 #endif
 
+#define min(a, b) (((a) < (b)) ? (a) : (b))
+#define max(a, b) (((a) > (b)) ? (a) : (b))
+
 /* Constants */
 
 #define SYSCALL_EXIT         1
