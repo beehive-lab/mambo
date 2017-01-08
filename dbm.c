@@ -371,6 +371,9 @@ void main(int argc, char **argv, char **envp) {
     printf("Syntax: dbm elf_file arguments\n");
     exit(EXIT_FAILURE);
   }
+
+  global_data.argc = argc;
+  global_data.argv = argv;
   
   load_elf(argv[1], &elf, &has_interp, &phdr, &phnum);
 

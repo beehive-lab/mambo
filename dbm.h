@@ -174,6 +174,8 @@ typedef enum {
 
 typedef struct {
   uint32_t disp_thread_data_off;
+  int argc;
+  char **argv;
 #ifdef PLUGINS_NEW
   int free_plugin;
   mambo_plugin plugins[MAX_PLUGIN_NO];
