@@ -56,11 +56,18 @@
   #define info(...)
 #endif
 
+#define dispatcher_thread_data_offset ((uintptr_t)&disp_thread_data - (uintptr_t)&start_of_dispatcher_s)
+#define dispatcher_wrapper_offset     ((uintptr_t)dispatcher_trampoline - (uintptr_t)&start_of_dispatcher_s)
+#define syscall_wrapper_offset        ((uintptr_t)syscall_wrapper - (uintptr_t)&start_of_dispatcher_s)
+#define trampolines_size_bytes         ((uintptr_t)&end_of_dispatcher_s - (uintptr_t)&start_of_dispatcher_s)
+#define trampolines_size_bbs           ((trampolines_size_bytes / sizeof(dbm_block)) \
+                                      + ((trampolines_size_bytes % sizeof(dbm_block)) ? 1 : 0))
+
 dbm_global global_data;
 __thread dbm_thread *current_thread;
 
 void flush_code_cache(dbm_thread *thread_data) {
-  thread_data->free_block = 2;
+  thread_data->free_block = trampolines_size_bbs;
   hash_init(&thread_data->entry_address, CODE_CACHE_HASH_SIZE + CODE_CACHE_HASH_OVERP);
 #ifdef DBM_TRACES
   thread_data->trace_cache_next = thread_data->code_cache->traces;
@@ -293,16 +300,12 @@ void init_thread(dbm_thread *thread_data) {
 
   // Initialize the hash table and basic block allocator, mark all BBs as unknown type
   flush_code_cache(thread_data);
- 
-  // Check that the thread private functions fit in the first basic block
-  assert((uintptr_t)&end_of_dispatcher_s - (uintptr_t)th_to_arm < sizeof(dbm_block)*2);
-  // Copy trampolines to the code cache
-  /* GCC BUG?: if -O3 is enabled when doing arithmetic on a pointer
-     to Thumb function (so addr[0] == 1), it seems the result is
-     always a odd address. Use dispatcher_trampoline (ARM) instead
-     of th_to_arm (Thumb). */
-  memcpy(&thread_data->code_cache->blocks[0], (uint8_t *)dispatcher_trampoline-4, sizeof(dbm_block)*2);
-  dispatcher_thread_data = (dbm_thread **)((uintptr_t)&thread_data->code_cache->blocks[0] + global_data.disp_thread_data_off);
+
+  // Copy the trampolines to the code cache
+  memcpy(&thread_data->code_cache->blocks[0], &start_of_dispatcher_s, trampolines_size_bytes);
+
+  dispatcher_thread_data = (dbm_thread **)((uintptr_t)&thread_data->code_cache->blocks[0]
+                                           + dispatcher_thread_data_offset);
   *dispatcher_thread_data = thread_data;
   thread_data->code_cache->blocks[0].words[20] = (uint32_t)thread_data->scratch_regs;
   debug("*thread_data in dispatcher at: %p\n", dispatcher_thread_data);
@@ -317,9 +320,8 @@ void init_thread(dbm_thread *thread_data) {
 
   __clear_cache((char *)&thread_data->code_cache->blocks[0], (char *)&thread_data->code_cache->blocks[thread_data->free_block]);
  
-  thread_data->dispatcher_addr = (uintptr_t)&thread_data->code_cache[0] + 4;
-  thread_data->syscall_wrapper_addr = thread_data->dispatcher_addr
-                                      + ((uintptr_t)syscall_wrapper - (uintptr_t)dispatcher_trampoline);
+  thread_data->dispatcher_addr = (uintptr_t)&thread_data->code_cache[0] + dispatcher_wrapper_offset;
+  thread_data->syscall_wrapper_addr = (uintptr_t)&thread_data->code_cache[0] + syscall_wrapper_offset;
 
   thread_data->is_vfork_child = false;
                         
@@ -383,8 +385,6 @@ void main(int argc, char **argv, char **envp) {
   if (ehdr->e_type == ET_DYN) entry_address += DYN_OBJ_OFFSET;
   uintptr_t block_address;
   debug("entry address: 0x%x\n", entry_address);
-  
-  global_data.disp_thread_data_off = (uintptr_t)&disp_thread_data - (uintptr_t)th_to_arm+1;
   
   dbm_thread *thread_data;
   if (!allocate_thread_data(&thread_data)) {

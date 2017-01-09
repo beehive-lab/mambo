@@ -16,6 +16,8 @@
   See the License for the specific language governing permissions and
   limitations under the License.
 */
+.global start_of_dispatcher_s
+start_of_dispatcher_s:
 
 .syntax unified
 
@@ -186,6 +188,9 @@ dbm_start_thread:
 thread_s_addr:
 .word 0
 .endfunc
+
+# place the literal pool before the end_of_dispatcher_s symbol
+.ltorg
 
 .global end_of_dispatcher_s
 end_of_dispatcher_s:
