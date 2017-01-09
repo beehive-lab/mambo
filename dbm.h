@@ -226,13 +226,6 @@ void mambo_deliver_callbacks(unsigned cb_id, dbm_thread *thread_data, inst_set i
 
 /* Constants */
 
-#define SYSCALL_EXIT         1
-#define SYSCALL_CLOSE        6
-#define SYSCALL_CLONE        120
-#define SYSCALL_RT_SIGACTION 174
-#define SYSCALL_EXIT_GROUP   248
-#define SYSCALL_SET_TLS      0xF0005
-
 #define ALLOCATE_BB 0
 
 #ifdef CC_HUGETLB

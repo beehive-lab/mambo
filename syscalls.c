@@ -127,7 +127,7 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
 #endif
 
   switch(syscall_no) {
-    case SYSCALL_CLONE:
+    case __NR_clone:
       clone_args = (sys_clone_args *)args;
 
       if (clone_args->flags & CLONE_VM) {
@@ -148,7 +148,7 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
         thread_data->clone_vm = false;
       }
       break;
-    case SYSCALL_EXIT:
+    case __NR_exit:
       debug("thread exit\n");
 #ifdef PLUGINS_NEW
       mambo_deliver_callbacks(POST_THREAD_C, thread_data, -1, -1, -1, -1, -1, NULL, NULL, NULL);
@@ -164,7 +164,7 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
       pthread_exit(NULL); // this should never return
       while(1); 
       break;
-    case SYSCALL_RT_SIGACTION:
+    case __NR_rt_sigaction:
       debug("sigaction %d\n", args[0]);
       debug("struct sigaction at 0x%x\n", args[1]);
       sig_action = (struct sigaction *)args[1];
@@ -176,10 +176,10 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
         sig_action->sa_handler = (void *)lookup_or_scan(thread_data, (uintptr_t)sig_action->sa_handler, NULL);
       }
       break;
-    case SYSCALL_EXIT_GROUP:
+    case __NR_exit_group:
       dbm_exit(thread_data, args[0]);
       break;
-    case SYSCALL_CLOSE:
+    case __NR_close:
       if (args[0] <= 2) { // stdin, stdout, stderr
         args[0] = 0;
         return 0;
@@ -254,7 +254,7 @@ uintptr_t syscall_handler_post(uintptr_t syscall_no, uintptr_t *args, uint16_t *
   debug("syscall post %d\n", syscall_no);
 
   switch(syscall_no) {
-    case SYSCALL_CLONE:
+    case __NR_clone:
       debug("r0 (tid): %d\n", args[0]);
       if (args[0] == 0) { // the child
         if (thread_data->clone_vm) {
