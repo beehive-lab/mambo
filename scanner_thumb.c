@@ -121,6 +121,7 @@ typedef struct {
   uint32_t it_cond;
   uint32_t it_mask;
   uint32_t it_initial_mask;
+  bool is_overwritten;
 } thumb_it_state;
 
 int it_get_no_of_inst(uint32_t mask) {
@@ -178,13 +179,14 @@ void it_clip_from_offset(uint16_t *write_p, uint32_t *cond, uint32_t *mask, int 
 }
 
 bool create_it_gap(uint16_t **write_p, thumb_it_state *it_state) {
-  if (it_state->cond_inst_after_it > 0) {
+  if (it_state->cond_inst_after_it > 0 && it_state->is_overwritten == false) {
     if ((it_get_no_of_inst(it_state->it_initial_mask) - it_state->cond_inst_after_it) > 0) {
       it_clip_len(it_state->it_inst_addr, it_state->it_cond, it_state->it_initial_mask,
                   it_get_no_of_inst(it_state->it_initial_mask) - it_state->cond_inst_after_it);
     } else {
       assert(it_state->it_inst_addr == *write_p - 1);
       *write_p = it_state->it_inst_addr;
+      it_state->is_overwritten = true;
     }
     return true;
   }
@@ -196,6 +198,7 @@ bool close_it_gap(uint16_t **write_p, thumb_it_state *it_state) {
     it_clip_from_offset(*write_p, &it_state->it_cond, &it_state->it_initial_mask,
                         it_get_no_of_inst(it_state->it_initial_mask) - it_state->cond_inst_after_it);
     it_state->it_inst_addr = *write_p;
+    it_state->is_overwritten = false;
     *write_p += 1;
     return true;
   }
@@ -954,7 +957,6 @@ bool thumb_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id
   if (global_data.free_plugin > 0) {
     uint16_t *write_p = *o_write_p;
     uint32_t *data_p = *o_data_p;
-    bool it_overw = false;
 
     mambo_cond cond;
     if (state->cond_inst_after_it > 0) {
@@ -968,7 +970,7 @@ bool thumb_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id
     if (allow_write && state->cond_inst_after_it > 0) {
       if (state->it_inst_addr == (write_p -1)) {
         write_p--;
-        it_overw = true;
+        state->is_overwritten = true;
       }
     }
 
@@ -1006,10 +1008,8 @@ bool thumb_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id
     if (allow_write && state->cond_inst_after_it > 0) {
       if (ctx.write_p != write_p) {
         // Code was inserted.
-        if (!it_overw) {
-          // Reduce the length of the IT block
-          create_it_gap((uint16_t **)&ctx.write_p, state);
-        }
+        // Reduce the length of the IT block
+        create_it_gap((uint16_t **)&ctx.write_p, state);
         if (replaced) {
           // If the instruction was replaced by a plugin, remove its
           // condition from the head of the IT block
@@ -1019,8 +1019,9 @@ bool thumb_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id
         close_it_gap((uint16_t **)&ctx.write_p, state);
       } else {
         // If no code was inserted, keep the IT instruction
-        if (it_overw) {
+        if (state->is_overwritten) {
           ctx.write_p += 2;
+          state->is_overwritten = false;
         }
       }
     }
@@ -1139,6 +1140,7 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
   bool it_cond_handled = false;
   thumb_it_state it_state;
   it_state.cond_inst_after_it = 0;
+  it_state.is_overwritten = false;
 
   bool ldrex = false;
   bool insert_inline = false;
