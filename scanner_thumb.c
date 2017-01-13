@@ -1879,28 +1879,17 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
         break;
         
       case THUMB_SVC16:
-        modify_in_it_pre(15);
-
-        thumb_push16(&write_p, (1 << r0));
+        thumb_sub_sp_i16(&write_p, 1);
         write_p++;
 
-        copy_to_reg_32bit(&write_p, r0, (uint32_t)thread_data->scratch_regs);
-        thumb_stmea32(&write_p, 0, r0, (1 << r8) | (1 << r9) | (1 << r14));
-        write_p += 2;
-
-        thumb_mov32(&write_p, 0, r9, r0);
-        write_p += 2;
-
-        thumb_pop16(&write_p, (1 << r0));
-        write_p++;
+        // PUSH {R0-R12, R14}
+        thumb_push_regs(&write_p, 0x5FFF);
         
-        copy_to_reg_32bit(&write_p, r8, (uint32_t)read_address + 2+1);
+        copy_to_reg_32bit(&write_p, r8, (uint32_t)read_address + 2 + 1);
         
         thumb_blx32_helper(write_p, thread_data->syscall_wrapper_addr);
-        write_p+=2;
-        
-        modify_in_it_post();
-        it_cond_handled = true;
+        write_p += 2;
+
         break;
       
       case THUMB_B16:

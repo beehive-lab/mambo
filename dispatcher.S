@@ -112,61 +112,49 @@ create_trace_trampoline:
 .func   syscall_wrapper
 .code 32
 syscall_wrapper:
-  # R8 is native address of the following instruction
-  # R9 is address where the contents of R8, R9 and R14 are saved
-  # R14 is address where to return in the code cache
-          PUSH {r0- r12, r14}
+  # R8 is the SPC of the following instruction
+  # R14 is the address where to return in the code cache
+  STR LR, [SP, #56]
 
-          MOV R0, R7
-          MOV R1, SP
-          MOV R2, R8
-          LDR r3, disp_thread_data
+  MOV R0, R7 // syscall id
+  MOV R1, SP // pointer to saved regs
+  MOV R2, R8 // SPC of the next instr.
+  LDR R3, disp_thread_data
 
-          LDR r4, syscall_handler_pre_addr
-          # provide 8-byte alignment of the SP
-          MOV R5, SP
-          BIC SP, #0x7
-          BLX r4
-          MOV SP, R5
-          
-          # don't execute the syscall if pre handler returns 0
-          CMP R0, #0
-          BEQ s_w_r
-          
-          POP {r0-r12, r14}
+  LDR R4, syscall_handler_pre_addr
+  // provide 8-byte alignment of the SP
+  MOV R5, SP
+  BIC SP, #0x7
+  BLX R4
+  MOV SP, R5
 
-          SVC 0
+  // don't execute the syscall if pre handler returns 0
+  CMP R0, #0
+  BEQ s_w_r
 
-          PUSH {r0-r12, r14}
-                    
-          MOV R0, R7
-          MOV R1, SP
-          MOV R2, R8
-          LDR r3, disp_thread_data
-          
-          LDR r4, syscall_handler_post_addr
-          # provide 8-byte alignment of the SP
-          MOV R5, SP
-          BIC SP, #0x7
-          BLX r4
-          MOV SP, R5
-          
-          CMP R0, #0
-          BEQ s_w_r
+  // only allow overriding R0-R7
+  // the value of R8 must be preserved
+  LDM SP, {R0-R7}
 
-          ADD SP, #4
-          POP {r1-r12, r14}
-          B dbm_start_thread
+  // Balance the stack on sigreturn, which doesn't return here
+  CMP R7, #119
+  ADDEQ SP, SP, #60
 
-s_w_r:    POP {r0-r12, r14}
-          
-          LDR R8, [R9, #0]
-          STR R14, sys_r_addr
-          LDR R14, [R9, #8]
-          LDR R9, [R9, #4]
-          LDR PC, sys_r_addr
-sys_r_addr:
-.word 0
+  SVC 0
+  STM SP, {R0-R7}
+
+  MOV R0, R7
+  MOV R1, SP
+  MOV R2, R8
+  LDR R3, disp_thread_data
+
+  LDR R4, syscall_handler_post_addr
+  // provide 8-byte alignment of the SP
+  MOV R5, SP
+  BIC SP, #0x7
+  BLX R4
+  MOV SP, R5
+s_w_r: POP {R0-R12, R14, PC}
 
 syscall_handler_pre_addr: .word syscall_handler_pre
 syscall_handler_post_addr: .word syscall_handler_post
@@ -175,19 +163,6 @@ syscall_handler_post_addr: .word syscall_handler_post
 .global disp_thread_data
 disp_thread_data:
 .word 0
-
-.global dbm_start_thread
-.func dbm_start_thread
-dbm_start_thread: 
-  STR R0, thread_s_addr
-  LDR R14, [R9, #8]
-  LDR R8, [R9, #0]
-  LDR R9, [R9, #4]
-  MOV R0, #0
-  LDR PC, thread_s_addr
-thread_s_addr:
-.word 0
-.endfunc
 
 # place the literal pool before the end_of_dispatcher_s symbol
 .ltorg

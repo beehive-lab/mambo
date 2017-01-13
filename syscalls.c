@@ -60,9 +60,6 @@ void *dbm_start_thread_pth(void *ptr) {
   child_stack -= 15; // reserve 15 words on the child's stack
   mambo_memcpy(child_stack, thread_data->clone_args, sizeof(uintptr_t) * 14);
   child_stack[r0] = 0; // return 0
-  child_stack[r8] = thread_data->scratch_regs[0];
-  child_stack[r9] = thread_data->scratch_regs[1];
-  child_stack[13] = thread_data->scratch_regs[2]; // R14
   child_stack[14] = addr; // pc
 
   // Release the lock
@@ -85,9 +82,6 @@ dbm_thread *dbm_create_thread(dbm_thread *thread_data, void *next_inst, sys_clon
   new_thread_data->clone_ret_addr = next_inst;
   new_thread_data->tid = 0;
   new_thread_data->clone_args = args;
-  for (int i = 0; i < 3; i++) {
-    new_thread_data->scratch_regs[i] = thread_data->scratch_regs[i];
-  }
 
   pthread_attr_t attr;
   pthread_attr_init(&attr);
@@ -247,9 +241,8 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
   return 1;
 }
 
-uintptr_t syscall_handler_post(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_inst, dbm_thread *thread_data) {
+void syscall_handler_post(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_inst, dbm_thread *thread_data) {
   dbm_thread *new_thread_data;
-  uintptr_t addr = 0;
   
   debug("syscall post %d\n", syscall_no);
 
@@ -257,29 +250,10 @@ uintptr_t syscall_handler_post(uintptr_t syscall_no, uintptr_t *args, uint16_t *
     case __NR_clone:
       debug("r0 (tid): %d\n", args[0]);
       if (args[0] == 0) { // the child
-        if (thread_data->clone_vm) {
-          debug("target: %p\n", next_inst);
-          if (!allocate_thread_data(&new_thread_data)) {
-            fprintf(stderr, "Failed to allocate thread data\n");
-            while(1);
-          }
-          init_thread(new_thread_data);
-          addr = scan(new_thread_data, next_inst, ALLOCATE_BB);
-          new_thread_data->tls = thread_data->child_tls;
-          /* There are a few race conditions in this implementation, which should be addressed.
-             However, this code path is not used at the moment. We are using ptrace_create.
-             TODO:
-             * block the parent
-             * copy all shared state to the child's private data (sr_regs, next_inst, th->child_tls)
-               * args should be safe, they're pushed on the thread's stack
-             * unblock the parent
-          */
-          assert(0);
-        } else {
-          /* Without CLONE_VM, the child runs in a separate memory space,
-             no synchronisation is needed.*/
-          thread_data->tls = thread_data->child_tls;
-        }
+        assert(!thread_data->clone_vm);
+        /* Without CLONE_VM, the child runs in a separate memory space,
+           no synchronisation is needed.*/
+        thread_data->tls = thread_data->child_tls;
       }
       break;
 
@@ -296,6 +270,4 @@ uintptr_t syscall_handler_post(uintptr_t syscall_no, uintptr_t *args, uint16_t *
 #ifdef PLUGINS_NEW
   mambo_deliver_callbacks(POST_SYSCALL_C, thread_data, -1, -1, -1, -1, -1, NULL, NULL, (unsigned long *)args);
 #endif
-
-  return addr;
 }

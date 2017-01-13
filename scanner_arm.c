@@ -1267,16 +1267,11 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
           write_p++;
         }
 
-        arm_push_reg(r0);
-
-        arm_copy_to_reg_32bit(&write_p, r0, (uint32_t)thread_data->scratch_regs);
-        arm_stm(&write_p, r0, (1 << r8) | (1 << r9) | (1 << r14), 0, 1, 0, 0);
+        arm_sub(&write_p, IMM_PROC, 0, sp, sp, 4);
         write_p++;
 
-        arm_mov(&write_p, REG_PROC, 0, r9, r0);
-        write_p++;
-
-        arm_pop_reg(r0);
+        // PUSH {R0-R12, R14}
+        arm_push_regs(0x5FFF);
 
         arm_copy_to_reg_32bit(&write_p, r8, (uint32_t)read_address + 4);
 
