@@ -3,6 +3,7 @@
       https://github.com/beehive-lab/mambo
 
   Copyright 2013-2017 Cosmin Gorgovan <cosmin at linux-geek dot org>
+  Copyright 2015-2017 Guillermo Callaghan <guillermocallaghan at hotmail dot com>
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -24,6 +25,7 @@
 #include "scanner_common.h"
 #include "pie/pie-thumb-encoder.h"
 #include "pie/pie-arm-encoder.h"
+#include "pie/pie-a64-encoder.h"
 
 #ifdef DEBUG
   #define debug(...) fprintf(stderr, __VA_ARGS__)
@@ -35,7 +37,6 @@ void dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_index, d
   uintptr_t block_address;
   uintptr_t other_target;
   uintptr_t pred_target;
-  uint16_t *branch_addr; 
   uint32_t *branch_table;
   bool     cached;
   bool     other_target_in_cache;
@@ -44,10 +45,16 @@ void dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_index, d
   branch_type source_branch_type;
   uint8_t  sr[2];
   uint32_t reglist;
-  uint32_t *ras;
   bool use_bx_lr;
-  int unwind_len;
   bool is_taken;
+#ifdef __arm__
+  uint16_t *branch_addr;
+#endif // __arm__
+#ifdef __aarch64__
+  uint32_t *branch_addr;
+  bool insert_cond_br = false;
+  uint32_t cond;
+#endif // __arch64__
 
 /* It's essential to copy exit_branch_type before calling lookup_or_scan
      because when scanning a stub basic block the source block and its
@@ -55,7 +62,7 @@ void dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_index, d
   debug("Source block index: %d\n", source_index);
   source_branch_type = thread_data->code_cache_meta[source_index].exit_branch_type;
 
-#ifdef DBM_TRACES
+#if defined(DBM_TRACES) && defined(__arm__)
   // Handle trace exits separately
   if (source_index >= CODE_CACHE_SIZE && source_branch_type != tbb && source_branch_type != tbh) {
     return trace_dispatcher(target, next_addr, source_index, thread_data);
@@ -71,35 +78,36 @@ void dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_index, d
   }
   
   switch (source_branch_type) {
+#ifdef __arm__
 #ifdef DBM_TB_DIRECT
     case tbb:
     case tbh:
       /* the index is invalid only when the inline hash lookup is called for a new BB,
          no linking is required */
-#ifdef FAST_BT
+  #ifdef FAST_BT
       if (thread_data->code_cache_meta[source_index].rn >= TB_CACHE_SIZE) {
         break;
       }
-#else
+    #else
       if (thread_data->code_cache_meta[source_index].rn >= MAX_TB_INDEX) {
         break;
       }
-#endif
+    #endif
       //thread_data->code_cache_meta[source_index].count++;
       branch_addr = thread_data->code_cache_meta[source_index].exit_branch_addr;
-#ifdef FAST_BT
+    #ifdef FAST_BT
       branch_table = (uint32_t *)(((uint32_t)branch_addr + 20 + 2) & 0xFFFFFFFC);
       branch_table[thread_data->code_cache_meta[source_index].rn] = block_address;
-#else
+    #else
       branch_addr += 7;
       table = (uint8_t *)branch_addr;
       if (thread_data->code_cache_meta[source_index].free_b == TB_CACHE_SIZE) {
         // if the list of linked blocks is full, link this index to the inline hash lookup
-  #ifdef DBM_D_INLINE_HASH
+      #ifdef DBM_D_INLINE_HASH
         table[thread_data->code_cache_meta[source_index].rn] = MAX_TB_INDEX / 2 + TB_CACHE_SIZE * 2 + 1;
-  #else
+      #else
         table[thread_data->code_cache_meta[source_index].rn] = MAX_TB_INDEX / 2 + TB_CACHE_SIZE * 2;
-  #endif
+      #endif
       } else {
         // allocate a branch slot and link it
         cache_index = thread_data->code_cache_meta[source_index].free_b++;
@@ -110,14 +118,14 @@ void dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_index, d
         thumb_cc_branch(thread_data, branch_addr, (uint32_t)block_address);
         __clear_cache(branch_addr, branch_addr + 5);
       }
-  #endif
+    #endif
       
       // invalidate the saved rm value - required to detect calls from the inline hash lookup
       thread_data->code_cache_meta[source_index].rn = INT_MAX;
 
       break;
-#endif
-#ifdef DBM_LINK_UNCOND_IMM
+  #endif // DBM_TB_DIRECT
+  #ifdef DBM_LINK_UNCOND_IMM
     case uncond_imm_thumb:
     case uncond_b_to_bl_thumb:
       branch_addr = thread_data->code_cache_meta[source_index].exit_branch_addr;
@@ -147,8 +155,8 @@ void dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_index, d
       arm_b32_helper((uint32_t *)branch_addr, (uint32_t)block_address, AL);
       __clear_cache(branch_addr, (char *)branch_addr+5);
       break;
-#endif
-#ifdef DBM_LINK_COND_IMM
+  #endif
+  #ifdef DBM_LINK_COND_IMM
     case cond_imm_arm:
       branch_addr = thread_data->code_cache_meta[source_index].exit_branch_addr;
       is_taken = target == thread_data->code_cache_meta[source_index].branch_taken_addr;
@@ -222,8 +230,8 @@ void dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_index, d
         while(1);
       }
       break;
-#endif
-#ifdef DBM_LINK_CBZ
+  #endif // DBM_LINK_COND_IMM
+  #ifdef DBM_LINK_CBZ
     case cbz_thumb:
       branch_addr = thread_data->code_cache_meta[source_index].exit_branch_addr;
       debug("Target is: 0x%x, b taken addr: 0x%x, b skipped addr: 0x%x\n",
@@ -257,7 +265,7 @@ void dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_index, d
       // tthumb_encode_cbz_branch updates branch_addr to point to the next free word
       __clear_cache((char *)(branch_addr)-100, (char *)branch_addr);
       break;
-#endif
+  #endif // DBM_LINK_CBZ
 
     case uncond_blxi_thumb:
       branch_addr = thread_data->code_cache_meta[source_index].exit_branch_addr;
@@ -272,6 +280,88 @@ void dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_index, d
 	    record_cc_link(thread_data, (uint32_t)branch_addr|FULLADDR, block_address);
 
       break;
+#endif // __arm__
+#ifdef __aarch64__
+  #ifdef DBM_LINK_UNCOND_IMM
+    case uncond_imm_a64:
+      branch_addr = thread_data->code_cache_meta[source_index].exit_branch_addr;
+      a64_b_helper(branch_addr, (uint64_t)block_address + 4);
+      __clear_cache((void *)branch_addr, (void *)branch_addr + 4 + 1);
+      break;
+  #endif
+  #ifdef DBM_LINK_COND_IMM
+    case cond_imm_a64:
+  #endif
+  #ifdef DBM_LINK_CBZ
+    case cbz_a64:
+  #endif
+  #ifdef DBM_LINK_TBZ
+    case tbz_a64:
+  #endif
+  #if defined(DBM_LINK_COND_IMM) || defined(DBM_LINK_CBZ) || defined(DBM_LINK_TBZ)
+      branch_addr = thread_data->code_cache_meta[source_index].exit_branch_addr;
+      is_taken = target == thread_data->code_cache_meta[source_index].branch_taken_addr;
+      if (is_taken) {
+        other_target = hash_lookup(&thread_data->entry_address,
+                                   thread_data->code_cache_meta[source_index].branch_skipped_addr);
+        other_target_in_cache = (other_target != UINT_MAX);
+
+        if (thread_data->code_cache_meta[source_index].branch_cache_status == 0) {
+          insert_cond_br = true;
+          cond = invert_cond(thread_data->code_cache_meta[source_index].branch_condition);
+        } else if (thread_data->code_cache_meta[source_index].branch_cache_status & 1) {
+          branch_addr += 2;
+        }
+      } else {
+        other_target = hash_lookup(&thread_data->entry_address,
+                                   thread_data->code_cache_meta[source_index].branch_taken_addr);
+        other_target_in_cache = (other_target != UINT_MAX);
+
+        if (thread_data->code_cache_meta[source_index].branch_cache_status == 0) {
+          insert_cond_br = true;
+          cond = thread_data->code_cache_meta[source_index].branch_condition;
+        } else if (thread_data->code_cache_meta[source_index].branch_cache_status & 2) {
+          branch_addr += 2;
+        }
+      }
+
+      if (insert_cond_br) {
+        switch(source_branch_type) {
+          case cond_imm_a64:
+            a64_b_cond_helper(branch_addr, (uint64_t)branch_addr + 8, cond);
+            break;
+          case cbz_a64:
+            a64_cbz_cbnz_helper(branch_addr, cond, (uint64_t)branch_addr + 8,
+                                thread_data->code_cache_meta[source_index].rn >> 5,
+                                thread_data->code_cache_meta[source_index].rn & 0x1FF);
+            break;
+          case tbz_a64:
+            a64_tbz_tbnz_helper(branch_addr, cond, (uint64_t)branch_addr + 8,
+                                thread_data->code_cache_meta[source_index].rn & 0x1FF,
+                                thread_data->code_cache_meta[source_index].rn >> 5);
+            break;
+        }
+        branch_addr++;
+      }
+
+      a64_b_helper(branch_addr, block_address + 4);
+      branch_addr++;
+
+      thread_data->code_cache_meta[source_index].branch_cache_status |= is_taken ? 2 : 1;
+
+      if (other_target_in_cache &&
+          (thread_data->code_cache_meta[source_index].branch_cache_status != 3)) {
+        a64_b_helper(branch_addr, other_target + 4);
+        branch_addr++;
+
+        thread_data->code_cache_meta[source_index].branch_cache_status = 3;
+      }
+
+      __clear_cache((void *)thread_data->code_cache_meta[source_index].exit_branch_addr,
+                    (void *)branch_addr);
+      break;
+  #endif
+#endif // __arch64__
   }
   
   *next_addr = block_address;

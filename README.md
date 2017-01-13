@@ -2,6 +2,7 @@ MAMBO: A Low-Overhead Dynamic Binary Modification Tool for ARM
 ==============================================================
 
 News:
+* 2017-04-03: The AArch64 port of MAMBO is officially released. The initial AArch64 porting was done by Guillermo Callaghan <guillermocallaghan at hotmail dot com>.
 * We have presented the TACO paper at [HiPEAC](https://www.hipeac.net/events/activities/7477/session-9-binary-translation/) 2017, on 25th of January. The slides are available [here](http://www.cs.man.ac.uk/~gorgovc9/slides_hipeac.pdf).
 
 Publications:
@@ -14,7 +15,7 @@ MAMBO was created as part of Cosmin's [EPSRC](https://www.epsrc.ac.uk)-funded Ph
 Status
 ------
 
-MAMBO's compatibility with applications is continuously being improved as needed. We are using it on ARMv7 and ARMv8 systems running 32-bit (AAarch32) userlands.  Our systems run the *armhf* build of Debian and Ubuntu. Most simple GNU/Linux applications work correctly. The following more complex applications and benchmark suites are working correctly under MAMBO on our systems (this is not an exhaustive list):
+MAMBO's compatibility with applications is continuously being improved as needed. We are using it on ARMv7 and ARMv8 systems. Our systems run the *armhf* / *arm64* builds of Debian, Ubuntu and Arch Linux ARM. Most GNU/Linux applications work correctly. The following more complex applications and benchmark suites are working correctly under MAMBO on our systems (this is not an exhaustive list):
 
 * [SPEC CPU2006](https://www.spec.org/cpu2006/)
 * [PARSEC 3.0](http://parsec.cs.princeton.edu/)

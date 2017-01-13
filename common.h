@@ -26,7 +26,12 @@
 #define CODE_CACHE_HASH_OVERP 10
 
 /* Warning, size MUST be (a power of 2) */
+#ifdef __arm__
 #define GET_INDEX(key) ((key) & (table->size - CODE_CACHE_HASH_OVERP))
+#endif
+#ifdef __aarch64__
+#define GET_INDEX(key) ((key >> 2) & (table->size - CODE_CACHE_HASH_OVERP))
+#endif
 typedef struct {
   uintptr_t key;
   uintptr_t value;

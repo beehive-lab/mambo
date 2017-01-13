@@ -2,7 +2,7 @@
   This file is part of MAMBO, a low-overhead dynamic binary modification tool:
       https://github.com/beehive-lab/mambo
 
-  Copyright 2013-2016 Cosmin Gorgovan <cosmin at linux-geek dot org>
+  Copyright 2013-2017 Cosmin Gorgovan <cosmin at linux-geek dot org>
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -40,6 +40,10 @@
 #endif
 
 #ifdef DBM_TRACES
+  #ifdef __aarch64__
+    #error "There is no support for traces on AArch64 at the moment. Remove the -DDBM_TRACES CFLAG to build."
+  #endif
+  #ifdef __arm__
 uint32_t scan_trace(dbm_thread *thread_data, uint16_t *address, cc_type type) {
   uint8_t *write_p = thread_data->trace_cache_next;
   size_t  fragment_len;
@@ -72,6 +76,7 @@ uint32_t scan_trace(dbm_thread *thread_data, uint16_t *address, cc_type type) {
 
   return fragment_len;
 }
+  #endif // __arm__
 #endif
 
 /* This is called from trace_head_incr, which is called by trace heads */
@@ -84,7 +89,7 @@ void create_trace(dbm_thread *thread_data, uint32_t bb_source, uint32_t *trace_a
   ll_entry *cc_link;
   uint32_t orig_addr;
   
-#ifdef DBM_TRACES
+#if defined(DBM_TRACES) && defined(__arm__)
   thread_data->trace_fragment_count = 0;
 
   if (thread_data->code_cache_meta[bb_source].exit_branch_type == cbz_thumb || thread_data->code_cache_meta[bb_source].exit_branch_type == cond_imm_thumb || thread_data->code_cache_meta[bb_source].exit_branch_type == uncond_imm_thumb || thread_data->code_cache_meta[bb_source].exit_branch_type == uncond_b_to_bl_thumb || thread_data->code_cache_meta[bb_source].exit_branch_type == cond_imm_arm || thread_data->code_cache_meta[bb_source].exit_branch_type == uncond_imm_arm || thread_data->code_cache_meta[bb_source].exit_branch_type == tb_indirect || thread_data->code_cache_meta[bb_source].exit_branch_type == uncond_reg_thumb) {
@@ -299,6 +304,6 @@ void trace_dispatcher(uint32_t target, uint32_t *next_addr, uint32_t source_inde
     }
     
   }
-#endif
+#endif // DBM_TRACES
 }
 

@@ -167,12 +167,17 @@ uintptr_t stub_bb(dbm_thread *thread_data, uintptr_t target) {
     fprintf(stderr, "Failed to add hash table entry for newly created stub basic block\n");
     while(1);
   }
-  
+
+#ifdef __arm__
   if (thumb) {
     thumb_encode_stub_bb(thread_data, basic_block, target);
   } else {
     arm_encode_stub_bb(thread_data, basic_block, target);
   }
+#endif
+#ifdef __aarch64__
+  assert(0); // TODO
+#endif
   
   return block_address + thumb;
 }
@@ -243,12 +248,17 @@ uintptr_t scan(dbm_thread *thread_data, uint16_t *address, int basic_block) {
 
   // Build a basic block
   // Scan functions return size of the generated basic block, in bytes
+#ifdef __arm__
   if (thumb) {
     debug("scan address: %p\n", address);
     block_size = scan_thumb(thread_data, (uint16_t *)((uint32_t)address & 0xFFFFFFFE), basic_block, mambo_bb, NULL);
   } else {
     block_size = scan_arm(thread_data, (uint32_t *)address, basic_block, mambo_bb, NULL);
   }
+#endif
+#ifdef __aarch64__
+  block_size = scan_a64(thread_data, (uint32_t *)address, basic_block, mambo_bb, NULL);
+#endif
 
   mambo_deliver_callbacks(POST_FRAGMENT_C, thread_data, thumb ? THUMB_INST : ARM_INST, mambo_bb,
                           basic_block, -1, -1, address, (void *)(block_address & (~THUMB)), NULL);
@@ -307,16 +317,18 @@ void init_thread(dbm_thread *thread_data) {
   dispatcher_thread_data = (dbm_thread **)((uintptr_t)&thread_data->code_cache->blocks[0]
                                            + dispatcher_thread_data_offset);
   *dispatcher_thread_data = thread_data;
+#ifdef __arm__
   thread_data->code_cache->blocks[0].words[20] = (uint32_t)thread_data->scratch_regs;
   debug("*thread_data in dispatcher at: %p\n", dispatcher_thread_data);
 
-#ifdef DBM_TRACES
+  #ifdef DBM_TRACES
   write_p = (uint16_t *)&thread_data->code_cache->blocks[0].words[23];
   thread_data->trace_head_incr_addr = ((uintptr_t)write_p) + 1 - 4;
   copy_to_reg_32bit(&write_p, r1, (uint32_t)thread_data->exec_count);
 
   info("Traces start at: %p\n", &thread_data->code_cache->traces);
-#endif
+  #endif // DBM_TRACES
+#endif // __arm__
 
   __clear_cache((char *)&thread_data->code_cache->blocks[0], (char *)&thread_data->code_cache->blocks[thread_data->free_block]);
  

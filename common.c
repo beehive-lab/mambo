@@ -138,8 +138,14 @@ ll_entry *linked_list_alloc(ll *list) {
 
 
 /* Other useful functions*/
-#define first_reg r0
-#define last_reg pc
+#ifdef __arm__
+  #define first_reg r0
+  #define last_reg pc
+#endif
+#ifdef __aarch64__
+  #define first_reg x0
+  #define last_reg sp
+#endif
 
 uint32_t next_reg_in_list(uint32_t reglist, uint32_t start) {
   for (; start <= last_reg; start++) {

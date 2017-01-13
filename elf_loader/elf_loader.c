@@ -312,7 +312,12 @@ void elf_run(uintptr_t entry_address, uintptr_t orig_entry_addr, char *filename,
         break;
   
       default:
-        printf("Unhandled auxv entry type: %d\n", s_aux->a_type);
+        #ifdef __arm__
+          #define auxv_type "%d"
+        #elif __aarch64__
+          #define auxv_type "%ld"
+        #endif
+        printf("Unhandled auxv entry type: " auxv_type "\n", s_aux->a_type);
         exit(EXIT_FAILURE);
         break;
     }

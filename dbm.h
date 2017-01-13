@@ -72,6 +72,9 @@ typedef enum {
 
 typedef enum {
   unknown,
+  stub,
+  trace_inline_max,
+#ifdef __arm__
   uncond_b_to_bl_thumb,
   uncond_imm_thumb,
   uncond_reg_thumb,
@@ -89,7 +92,6 @@ typedef enum {
   tbb,
   tbh,
   tb_indirect,
-  stub,
   pred_bxlr,
   pred_pop16pc,
   pred_ldmfd32pc,
@@ -97,7 +99,13 @@ typedef enum {
   pred_ldrpcsp,
   pred_armldmpc,
   pred_bad,
-  trace_inline_max,
+#endif //__arm__
+#ifdef __aarch64__
+  uncond_imm_a64,
+  cond_imm_a64,
+  cbz_a64,
+  tbz_a64,
+#endif // __aarch64__
 } branch_type;
 
 typedef struct {
@@ -112,7 +120,12 @@ typedef struct {
 typedef struct {
   uint16_t *source_addr;
   branch_type exit_branch_type;
+#ifdef __arm__
   uint16_t *exit_branch_addr;
+#endif // __arm__
+#ifdef __aarch64__
+  uint32_t *exit_branch_addr;
+#endif // __arch64__
   uintptr_t branch_taken_addr;
   uintptr_t branch_skipped_addr;
   uintptr_t branch_condition;
@@ -134,8 +147,10 @@ typedef struct {
   int free_block;
   uintptr_t dispatcher_addr;
   uintptr_t syscall_wrapper_addr;
+#ifdef __arm__
   uintptr_t scratch_regs[3];
   uintptr_t parent_scratch_regs[3];
+#endif
   bool is_vfork_child;
 
   dbm_code_cache *code_cache;
@@ -167,7 +182,8 @@ typedef struct {
 
 typedef enum {
   ARM_INST,
-  THUMB_INST
+  THUMB_INST,
+  A64_INST,
 } inst_set;
 
 #include "api/plugin_support.h"
@@ -188,7 +204,7 @@ extern void syscall_wrapper();
 extern void* start_of_dispatcher_s;
 extern void* end_of_dispatcher_s;
 extern void th_to_arm();
-extern void th_enter(void *stack);
+extern void th_enter(void *stack, uintptr_t cc_addr);
 
 bool allocate_thread_data(dbm_thread **thread_data);
 void init_thread(dbm_thread *thread_data);
@@ -197,6 +213,7 @@ uintptr_t lookup_or_stub(dbm_thread *thread_data, uintptr_t target);
 uintptr_t scan(dbm_thread *thread_data, uint16_t *address, int basic_block);
 uint32_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block, cc_type type, uint32_t *write_p);
 uint32_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_block, cc_type type, uint16_t *write_p);
+size_t   scan_a64(dbm_thread *thread_data, uint32_t *read_address, int basic_block, cc_type type, uint32_t *write_p);
 int allocate_bb(dbm_thread *thread_data);
 void trace_dispatcher(uintptr_t target, uint32_t *next_addr, uint32_t source_index, dbm_thread *thread_data);
 void flush_code_cache(dbm_thread *thread_data);

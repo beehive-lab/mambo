@@ -2,7 +2,7 @@
   This file is part of MAMBO, a low-overhead dynamic binary modification tool:
       https://github.com/beehive-lab/mambo
 
-  Copyright 2013-2016 Cosmin Gorgovan <cosmin at linux-geek dot org>
+  Copyright 2013-2017 Cosmin Gorgovan <cosmin at linux-geek dot org>
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
   limitations under the License.
 */
 
+#ifdef __arm__
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -3290,3 +3291,4 @@ void thumb_encode_stub_bb(dbm_thread *thread_data, int basic_block, uint32_t tar
   branch_jump(thread_data, &write_p, basic_block, target, SETUP|REPLACE_TARGET|INSERT_BRANCH);
 }
 
+#endif // __arm__
