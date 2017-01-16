@@ -230,5 +230,27 @@ void mambo_deliver_callbacks(unsigned cb_id, dbm_thread *thread_data, inst_set i
 
 #define ALLOCATE_BB 0
 
+#ifdef CC_HUGETLB
+  #define CC_PAGE_SIZE (2*1024*1024)
+  #define CC_MMAP_OPTS (MAP_PRIVATE|MAP_ANONYMOUS|MAP_HUGETLB)
+#else
+  #define CC_PAGE_SIZE 4096
+  #define CC_MMAP_OPTS (MAP_PRIVATE|MAP_ANONYMOUS)
+#endif
+
+#ifdef METADATA_HUGETLB
+  #define METADATA_PAGE_SIZE (2*1024*1024)
+  #define METADATA_MMAP_OPTS (MAP_PRIVATE|MAP_ANONYMOUS|MAP_HUGETLB)
+#else
+  #define METADATA_PAGE_SIZE 4096
+  #define METADATA_MMAP_OPTS (MAP_PRIVATE|MAP_ANONYMOUS)
+#endif
+
+#define ROUND_UP(input, multiple_of) \
+  (((input / multiple_of) * multiple_of) + ((input % multiple_of) ? multiple_of : 0))
+
+#define CC_SZ_ROUND(input) ROUND_UP(input, CC_PAGE_SIZE)
+#define METADATA_SZ_ROUND(input) ROUND_UP(input, CC_PAGE_SIZE)
+
 #endif
 
