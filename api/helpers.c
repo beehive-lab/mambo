@@ -20,13 +20,17 @@
 #ifdef PLUGINS_NEW
 
 #include <stdio.h>
+#include <assert.h>
 #include "../plugins.h"
 #include "../pie/pie-thumb-encoder.h"
+#include "../pie/pie-a64-encoder.h"
+#include "../api/emit_a64.h"
 
 #define not_implemented() \
   fprintf(stderr, "%s: Implement me\n", __PRETTY_FUNCTION__); \
   while(1);
 
+#ifdef __arm__
 void emit_thumb_push_cpsr(mambo_context *ctx, enum reg tmp_reg) {
   uint16_t *write_p = ctx->write_p;
 
@@ -124,5 +128,64 @@ void emit_thumb_fcall(mambo_context *ctx, void *function_ptr) {
   emit_thumb_copy_to_reg_32bit(ctx, lr, (uint32_t)function_ptr);
   emit_thumb_blx16(ctx, lr);
 }
+#endif // __arm__
 
+#ifdef __aarch64__
+void emit_a64_push(mambo_context *ctx, uint32_t regs) {
+  uint32_t *write_p = ctx->write_p;
+  uint32_t to_push[2];
+  int reg_no;
+
+  while (regs != 0) {
+    reg_no = get_n_regs(regs, to_push, 2);
+    assert(reg_no == 1 || reg_no == 2);
+    if (reg_no == 2) {
+      a64_push_pair_reg(to_push[0], to_push[1]);
+      regs &= ~((1 << to_push[0]) | (1 << to_push[1]));
+    } else if (reg_no == 1) {
+      a64_push_reg(to_push[0]);
+      regs &= ~(1 << to_push[0]);
+    }
+  }
+
+  ctx->write_p = write_p;
+}
+
+void emit_a64_pop(mambo_context *ctx, uint32_t regs) {
+  uint32_t *write_p = ctx->write_p;
+  uint32_t to_pop[2];
+  int reg_no;
+
+  while (regs != 0) {
+    reg_no = get_n_regs(regs, to_pop, 2);
+    assert(reg_no == 1 || reg_no == 2);
+    if (reg_no == 2) {
+      a64_pop_pair_reg(to_pop[0], to_pop[1]);
+      regs &= ~((1 << to_pop[0]) | (1 << to_pop[1]));
+    } else if (reg_no == 1) {
+      a64_pop_reg(to_pop[0]);
+      regs &= ~(1 << to_pop[0]);
+    }
+  }
+
+  ctx->write_p = write_p;
+}
+#endif
+
+void emit_counter64_incr(mambo_context *ctx, void *counter, uint64_t incr) {
+#ifdef __arm__
+  fprintf(stderr, "emit_counter64_incr()make not yet implemented for ARM\n");
+  exit(EXIT_FAILURE);
+#endif
+#ifdef __aarch64__
+  emit_a64_push(ctx, (1 << x0) | (1 << x1));
+  a64_copy_to_reg_64bits((uint32_t **)&ctx->write_p, x0, (uintptr_t)counter);
+  emit_a64_LDR_STR_immed(ctx, 3, 0, 1, 0, 3, x0, x1);
+  emit_a64_LDR_STR_unsigned_immed(ctx, 3, 0, 1, 0, x0, x1);
+  assert(incr <= 0xFFF);
+  emit_a64_ADD_SUB_immed(ctx, 1, 0, 0, 0, incr, x1, x1);
+  emit_a64_LDR_STR_unsigned_immed(ctx, 3, 0, 0, 0, x0, x1);
+  emit_a64_pop(ctx, (1 << x0) | (1 << x1));
+#endif
+}
 #endif
