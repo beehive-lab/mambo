@@ -52,6 +52,19 @@ typedef enum {
   CALLBACK_MAX_IDX,
 } mambo_cb_idx;
 
+typedef enum {
+  BRANCH_NONE = (1 << 0),
+  BRANCH_DIRECT = (1 << 1),
+  BRANCH_INDIRECT = (1 << 2),
+  BRANCH_RETURN = (1 << 3),
+  BRANCH_COND = (1 << 4),
+  BRANCH_COND_PSR = (1 << 5),
+  BRANCH_COND_CBZ = (1 << 6),
+  BRANCH_COND_TBZ = (1 << 7), // A64-only
+  BRANCH_COND_IT = (1 << 8),  // T32-only
+  BRANCH_CALL = (1 << 9),
+} mambo_branch_type;
+
 typedef struct {
   mambo_callback cbs[CALLBACK_MAX_IDX];
   void *data;
@@ -102,5 +115,7 @@ bool mambo_is_cond(mambo_context *ctx);
 mambo_cond mambo_get_cond(mambo_context *ctx);
 mambo_cond mambo_get_inverted_cond(mambo_context *ctx, mambo_cond cond);
 void mambo_replace_inst(mambo_context *ctx);
+
+mambo_branch_type mambo_get_branch_type(mambo_context *ctx);
 
 #endif
