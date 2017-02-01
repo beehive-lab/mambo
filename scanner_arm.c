@@ -1533,6 +1533,14 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
         break;
       }
 
+      case ARM_SMULWB: {
+        uint32_t rd, rn, rm;
+        arm_smulwb_decode_fields(read_address, &rd, &rn, &rm);
+        assert(rd != pc && rn != pc && rm != pc);
+        copy_arm();
+        break;
+      }
+
       case ARM_RBIT: {
         uint32_t rd, rm;
         arm_rbit_decode_fields(read_address, &rd, &rm);
