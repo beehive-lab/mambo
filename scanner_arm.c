@@ -1558,7 +1558,8 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
         break;
       }
 
-      case ARM_SMLAWB: {
+      case ARM_SMLAWB:
+      case ARM_SMLAWT: {
         uint32_t rd, rn, rm, ra;
         arm_smlawb_decode_fields(read_address, &rd, &rn, &rm, &ra);
         assert(rd != pc && rn != pc && rm != pc && ra != pc);
