@@ -1584,6 +1584,14 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
         break;
       }
 
+      case ARM_USAT16: {
+        uint32_t rd, sat_imm, rn;
+        arm_usat16_decode_fields(read_address, &rd, &sat_imm, &rn);
+        assert(rd != pc && rn != pc);
+        copy_arm();
+        break;
+      }
+
       case ARM_UADD8:
       case ARM_UQADD8: {
         uint32_t rd, rn, rm;
