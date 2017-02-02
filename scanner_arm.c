@@ -1567,6 +1567,14 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
         break;
       }
 
+      case ARM_PKH: {
+        uint32_t rd, rn, rm, tb, imm5;
+        arm_pkh_decode_fields(read_address, &rd, &rn, &rm, &tb, &imm5);
+        assert(rd != pc && rn != pc && rm != pc);
+        copy_arm();
+        break;
+      }
+
       case ARM_SSAT:
       case ARM_USAT: {
         uint32_t rd, sat_imm, rn, sh, imm5;
