@@ -2,7 +2,7 @@ MAMBO: A Low-Overhead Dynamic Binary Modification Tool for ARM
 ==============================================================
 
 News:
-* We will present the TACO paper at [HiPEAC](https://www.hipeac.net/events/activities/7477/session-9-binary-translation/) 2017, on 25th of January.
+* We have presented the TACO paper at [HiPEAC](https://www.hipeac.net/events/activities/7477/session-9-binary-translation/) 2017, on 25th of January. The slides are available [here](http://www.cs.man.ac.uk/~gorgovc9/slides_hipeac.pdf).
 
 Publications:
 * [Cosmin Gorgovan, Amanieu d’Antras, and Mikel Luján. 2016. MAMBO: A low-overhead dynamic binary modification tool for ARM. ACM Trans. Archit. Code Optim. 13, 1, Article 14 (April 2016)](http://dl.acm.org/citation.cfm?id=2896451). If you use MAMBO for your research, please cite this paper.
