@@ -103,6 +103,7 @@ int mambo_set_plugin_data(mambo_context *ctx, void *data) {
   if (p_id >= global_data.free_plugin) {
     return MAMBO_INVALID_PLUGIN_ID;
   }
+  global_data.plugins[p_id].data = data;
   return MAMBO_SUCCESS;
 }
 
