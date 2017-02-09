@@ -211,10 +211,33 @@ void arm_bl32_helper(uint32_t *write_p, uint32_t target, uint32_t cond) {
 
 #define MIN_FSPACE 72
 
+bool inline_uncond_imm(dbm_thread *thread_data, bool insert_branch, uint32_t **write_p,
+                       uint32_t **read_addr, uint32_t target,  int *inlined_back_count) {
+  if (target <= (uint32_t)*read_addr) {
+    if (*inlined_back_count >= MAX_BACK_INLINE) {
+      if (insert_branch) {
+        uint32_t cc_addr = lookup_or_stub(thread_data, target);
+        arm_cc_branch(thread_data, *write_p, cc_addr, AL);
+        *write_p += 1;
+      }
+
+      return false;
+    } else {
+      *inlined_back_count += 1;
+    }
+  }
+
+  // Assummes the read pointer is incremented at the end of the current scanner iteration
+  *read_addr = (uint32_t *)(target - 4);
+
+  return true;
+}
+
 void pass1_arm(dbm_thread *thread_data, uint32_t *read_address, branch_type *bb_type) {
   uint32_t null, reglist, rd, dn, imm, offset;
   int32_t branch_offset;
   *bb_type = unknown;
+  int inlined_back_count = 0;
 
   while(*bb_type == unknown) {
     arm_instruction inst = arm_decode(read_address);
@@ -228,7 +251,11 @@ void pass1_arm(dbm_thread *thread_data, uint32_t *read_address, branch_type *bb_
 #ifdef DBM_INLINE_UNCOND_IMM
           branch_offset = (offset & 0x800000) ? 0xFC000000 : 0;
           branch_offset |= (offset<<2);
-          read_address = (uint32_t *)((int32_t)read_address + 8 + branch_offset) - 1; // read_address is incremented this iteration
+          uint32_t target = (int32_t)read_address + 8 + branch_offset;
+
+          if(!inline_uncond_imm(thread_data, false, NULL, &read_address, target, &inlined_back_count)) {
+            *bb_type = uncond_imm_arm;
+          }
 #else
           *bb_type = uncond_imm_arm;
 #endif
@@ -552,6 +579,8 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
   uint32_t target;
   uint32_t return_addr;
   uint32_t *tr_start;
+
+  int inlined_back_count = 0;
   
   if (write_p == NULL) {
     write_p = (uint32_t *)&thread_data->code_cache->blocks[basic_block];
@@ -713,7 +742,12 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
 
 #ifdef DBM_INLINE_UNCOND_IMM
         if (condition_code == AL) {
-          read_address = (uint32_t *)target - 1; // read_address is incremented this iteration
+          thread_data->code_cache_meta[basic_block].exit_branch_addr = (uint16_t *)write_p;
+          if (!inline_uncond_imm(thread_data, true, &write_p, &read_address, target, &inlined_back_count)) {
+            thread_data->code_cache_meta[basic_block].exit_branch_type = trace_inline_max;
+            thread_data->code_cache_meta[basic_block].branch_taken_addr = target;
+            stop = true;
+          }
           break;
         }
 #endif
