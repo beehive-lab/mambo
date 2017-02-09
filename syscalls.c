@@ -41,8 +41,8 @@ void *dbm_start_thread_pth(void *ptr) {
   assert(thread_data->clone_args->child_stack);
 
   current_thread = thread_data;
-  uint32_t addr = scan(thread_data, thread_data->clone_ret_addr, ALLOCATE_BB);
-  uint32_t tid = syscall(__NR_gettid);
+  uintptr_t addr = scan(thread_data, thread_data->clone_ret_addr, ALLOCATE_BB);
+  pid_t tid = syscall(__NR_gettid);
 
   if (thread_data->clone_args->flags & CLONE_PARENT_SETTID) {
     *thread_data->clone_args->ptid = tid;
@@ -56,9 +56,9 @@ void *dbm_start_thread_pth(void *ptr) {
   thread_data->tls = thread_data->clone_args->tls;
 
   // Copy the parent's saved register values to the child's stack
-  uint32_t *child_stack = thread_data->clone_args->child_stack;
+  uintptr_t *child_stack = thread_data->clone_args->child_stack;
   child_stack -= 15; // reserve 15 words on the child's stack
-  mambo_memcpy(child_stack, thread_data->clone_args, sizeof(uint32_t) * 14);
+  mambo_memcpy(child_stack, thread_data->clone_args, sizeof(uintptr_t) * 14);
   child_stack[r0] = 0; // return 0
   child_stack[r8] = thread_data->scratch_regs[0];
   child_stack[r9] = thread_data->scratch_regs[1];
@@ -105,7 +105,7 @@ dbm_thread *dbm_create_thread(dbm_thread *thread_data, void *next_inst, sys_clon
 
 
 // return 0 to skip the syscall
-int syscall_handler_pre(uint32_t syscall_no, uint32_t *args, uint16_t *next_inst, dbm_thread *thread_data) {
+int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_inst, dbm_thread *thread_data) {
   struct sigaction *sig_action;
   sys_clone_args *clone_args;
   debug("syscall pre %d\n", syscall_no);
@@ -173,7 +173,7 @@ int syscall_handler_pre(uint32_t syscall_no, uint32_t *args, uint16_t *next_inst
       if (sig_action
           && sig_action->sa_handler != SIG_IGN
           && sig_action->sa_handler != SIG_DFL) {
-        sig_action->sa_handler = (void *)lookup_or_scan(thread_data, (uint32_t)sig_action->sa_handler, NULL);
+        sig_action->sa_handler = (void *)lookup_or_scan(thread_data, (uintptr_t)sig_action->sa_handler, NULL);
       }
       break;
     case SYSCALL_EXIT_GROUP:
@@ -247,9 +247,9 @@ int syscall_handler_pre(uint32_t syscall_no, uint32_t *args, uint16_t *next_inst
   return 1;
 }
 
-uint32_t syscall_handler_post(uint32_t syscall_no, uint32_t *args, uint16_t *next_inst, dbm_thread *thread_data) {
+uintptr_t syscall_handler_post(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_inst, dbm_thread *thread_data) {
   dbm_thread *new_thread_data;
-  uint32_t addr = 0;
+  uintptr_t addr = 0;
   
   debug("syscall post %d\n", syscall_no);
 

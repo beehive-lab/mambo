@@ -2,7 +2,7 @@
   This file is part of MAMBO, a low-overhead dynamic binary modification tool:
       https://github.com/beehive-lab/mambo
 
-  Copyright 2013-2016 Cosmin Gorgovan <cosmin at linux-geek dot org>
+  Copyright 2013-2017 Cosmin Gorgovan <cosmin at linux-geek dot org>
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -113,10 +113,10 @@ typedef struct {
   uint16_t *source_addr;
   branch_type exit_branch_type;
   uint16_t *exit_branch_addr;
-  uint32_t branch_taken_addr;
-  uint32_t branch_skipped_addr;
-  uint32_t branch_condition;
-  uint32_t branch_cache_status;
+  uintptr_t branch_taken_addr;
+  uintptr_t branch_skipped_addr;
+  uintptr_t branch_condition;
+  uintptr_t branch_cache_status;
   uint32_t rn;
   uint32_t free_b;
   ll_entry *linked_from;
@@ -125,17 +125,17 @@ typedef struct {
 typedef struct {
   unsigned long flags;
   void *child_stack;
-  unsigned long *ptid;
-  unsigned long tls;
-  unsigned long *ctid;
+  pid_t *ptid;
+  uintptr_t tls;
+  pid_t *ctid;
 } sys_clone_args;
 
 typedef struct {
   int free_block;
-  uint32_t dispatcher_addr;
-  uint32_t syscall_wrapper_addr;
-  uint32_t scratch_regs[3];
-  uint32_t parent_scratch_regs[3];
+  uintptr_t dispatcher_addr;
+  uintptr_t syscall_wrapper_addr;
+  uintptr_t scratch_regs[3];
+  uintptr_t parent_scratch_regs[3];
   bool is_vfork_child;
 
   dbm_code_cache *code_cache;
@@ -145,7 +145,7 @@ typedef struct {
   hash_table trace_entry_address;
 
   uint8_t   exec_count[CODE_CACHE_SIZE];
-  uint32_t  trace_head_incr_addr;
+  uintptr_t trace_head_incr_addr;
   uint8_t  *trace_cache_next;
   int       trace_id;
   int       trace_fragment_count;
@@ -153,14 +153,14 @@ typedef struct {
 
   ll *cc_links;
 
-  uint32_t tls;
-  uint32_t child_tls;
+  uintptr_t tls;
+  uintptr_t child_tls;
 
 #ifdef PLUGINS_NEW
   void *plugin_priv[MAX_PLUGIN_NO];
 #endif
   void *clone_ret_addr;
-  volatile int tid;
+  volatile pid_t tid;
   sys_clone_args *clone_args;
   bool clone_vm;
 } dbm_thread;
@@ -192,21 +192,21 @@ extern void th_enter(void *stack);
 
 bool allocate_thread_data(dbm_thread **thread_data);
 void init_thread(dbm_thread *thread_data);
-uint32_t lookup_or_scan(dbm_thread *thread_data, uint32_t target, bool *cached);
-uint32_t lookup_or_stub(dbm_thread *thread_data, uint32_t target);
-uint32_t scan(dbm_thread *thread_data, uint16_t *address, int basic_block);
+uintptr_t lookup_or_scan(dbm_thread *thread_data, uintptr_t target, bool *cached);
+uintptr_t lookup_or_stub(dbm_thread *thread_data, uintptr_t target);
+uintptr_t scan(dbm_thread *thread_data, uint16_t *address, int basic_block);
 uint32_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block, cc_type type, uint32_t *write_p);
 uint32_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_block, cc_type type, uint16_t *write_p);
 int allocate_bb(dbm_thread *thread_data);
-void trace_dispatcher(uint32_t target, uint32_t *next_addr, uint32_t source_index, dbm_thread *thread_data);
+void trace_dispatcher(uintptr_t target, uint32_t *next_addr, uint32_t source_index, dbm_thread *thread_data);
 void flush_code_cache(dbm_thread *thread_data);
 
 void thumb_encode_stub_bb(dbm_thread *thread_data, int basic_block, uint32_t target);
 void arm_encode_stub_bb(dbm_thread *thread_data, int basic_block, uint32_t target);
 
-int addr_to_bb_id(dbm_thread *thread_data, uint32_t addr);
-void record_cc_link(dbm_thread *thread_data, uint32_t linked_from, uint32_t linked_to_addr);
-bool is_bb(dbm_thread *thread_data, uint32_t addr);
+int addr_to_bb_id(dbm_thread *thread_data, uintptr_t addr);
+void record_cc_link(dbm_thread *thread_data, uintptr_t linked_from, uintptr_t linked_to_addr);
+bool is_bb(dbm_thread *thread_data, uintptr_t addr);
 
 extern dbm_global global_data;
 extern dbm_thread *disp_thread_data;

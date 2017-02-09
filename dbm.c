@@ -2,7 +2,7 @@
   This file is part of MAMBO, a low-overhead dynamic binary modification tool:
       https://github.com/beehive-lab/mambo
 
-  Copyright 2013-2016 Cosmin Gorgovan <cosmin at linux-geek dot org>
+  Copyright 2013-2017 Cosmin Gorgovan <cosmin at linux-geek dot org>
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -102,10 +102,10 @@ void mambo_deliver_callbacks(unsigned cb_id, dbm_thread *thread_data, inst_set i
 #endif
 }
 
-uint32_t lookup_or_scan(dbm_thread *thread_data, uint32_t target, bool *cached) {
-  uint32_t block_address;
+uintptr_t lookup_or_scan(dbm_thread *thread_data, uintptr_t target, bool *cached) {
+  uintptr_t block_address;
   bool from_cache = true;
-  uint32_t basic_block;
+  uintptr_t basic_block;
   
   debug("Thread_data: %p\n", thread_data);
   
@@ -115,7 +115,7 @@ uint32_t lookup_or_scan(dbm_thread *thread_data, uint32_t target, bool *cached) 
     from_cache = false;
     block_address = scan(thread_data, (uint16_t *)target, ALLOCATE_BB);
   } else {
-    basic_block = ((uint32_t)block_address - (uint32_t)(thread_data->code_cache)) >> 8;
+    basic_block = ((uintptr_t)block_address - (uintptr_t)(thread_data->code_cache)) >> 8;
     if (thread_data->code_cache_meta[basic_block].exit_branch_type == stub) {
       block_address = scan(thread_data, (uint16_t *)target, basic_block);
     }
@@ -145,13 +145,13 @@ int allocate_bb(dbm_thread *thread_data) {
    Stub BBs are used when a basic block can be optimised by directly linking
    to a target, but it's not clear if the target will ever be reached, e.g.:
    branch-not-taken path for conditional branches, RAS prediction */
-uint32_t stub_bb(dbm_thread *thread_data, uint32_t target) {
+uintptr_t stub_bb(dbm_thread *thread_data, uintptr_t target) {
   unsigned int basic_block;
-  uint32_t block_address;
-  uint32_t thumb = target & THUMB;
+  uintptr_t block_address;
+  uintptr_t thumb = target & THUMB;
   
   basic_block = allocate_bb(thread_data);
-  block_address = (uint32_t)&thread_data->code_cache->blocks[basic_block];
+  block_address = (uintptr_t)&thread_data->code_cache->blocks[basic_block];
   
   debug("Stub BB: 0x%x\n", block_address + thumb);
   
@@ -170,8 +170,8 @@ uint32_t stub_bb(dbm_thread *thread_data, uint32_t target) {
   return block_address + thumb;
 }
 
-uint32_t lookup_or_stub(dbm_thread *thread_data, uint32_t target) {
-  uint32_t block_address;
+uintptr_t lookup_or_stub(dbm_thread *thread_data, uintptr_t target) {
+  uintptr_t block_address;
   
   debug("Stub(0x%x)\n", target);
   debug("Thread_data: %p\n", thread_data);
@@ -202,9 +202,9 @@ void set_mambo_context(mambo_context *ctx, dbm_thread *thread_data, inst_set ins
 }
 #endif
 
-uint32_t scan(dbm_thread *thread_data, uint16_t *address, int basic_block) {
-  uint32_t thumb = (uint32_t)address & THUMB;
-  uint32_t block_address;
+uintptr_t scan(dbm_thread *thread_data, uint16_t *address, int basic_block) {
+  uintptr_t thumb = (uintptr_t)address & THUMB;
+  uintptr_t block_address;
   size_t block_size;
   bool stub = false;
 
@@ -217,7 +217,7 @@ uint32_t scan(dbm_thread *thread_data, uint16_t *address, int basic_block) {
     stub = true;
   }
   thread_data->code_cache_meta[basic_block].source_addr = address;
-  block_address = (uint32_t)&thread_data->code_cache->blocks[basic_block];
+  block_address = (uintptr_t)&thread_data->code_cache->blocks[basic_block];
   //fprintf(stderr, "scan(%p): 0x%x (bb %d)\n", address, block_address, basic_block);
 
   // Add entry into the code cache hash table
@@ -225,7 +225,7 @@ uint32_t scan(dbm_thread *thread_data, uint16_t *address, int basic_block) {
   // from scan_x could result in duplicate BBS or an infinite recursive call
   block_address |= thumb;
   if (!stub) {
-    if (!hash_add(&thread_data->entry_address, (uint32_t)address, block_address)) {
+    if (!hash_add(&thread_data->entry_address, (uintptr_t)address, block_address)) {
       fprintf(stderr, "Failed to add hash table entry for newly created basic block\n");
       while(1);
     }
@@ -295,21 +295,21 @@ void init_thread(dbm_thread *thread_data) {
   flush_code_cache(thread_data);
  
   // Check that the thread private functions fit in the first basic block
-  assert((uint32_t)&end_of_dispatcher_s - (uint32_t)th_to_arm < sizeof(dbm_block)*2);
+  assert((uintptr_t)&end_of_dispatcher_s - (uintptr_t)th_to_arm < sizeof(dbm_block)*2);
   // Copy trampolines to the code cache
   /* GCC BUG?: if -O3 is enabled when doing arithmetic on a pointer
      to Thumb function (so addr[0] == 1), it seems the result is
      always a odd address. Use dispatcher_trampoline (ARM) instead
      of th_to_arm (Thumb). */
   memcpy(&thread_data->code_cache->blocks[0], (uint8_t *)dispatcher_trampoline-4, sizeof(dbm_block)*2);
-  dispatcher_thread_data = (dbm_thread **)((uint32_t)&thread_data->code_cache->blocks[0] + global_data.disp_thread_data_off);
+  dispatcher_thread_data = (dbm_thread **)((uintptr_t)&thread_data->code_cache->blocks[0] + global_data.disp_thread_data_off);
   *dispatcher_thread_data = thread_data;
   thread_data->code_cache->blocks[0].words[20] = (uint32_t)thread_data->scratch_regs;
   debug("*thread_data in dispatcher at: %p\n", dispatcher_thread_data);
 
 #ifdef DBM_TRACES
   write_p = (uint16_t *)&thread_data->code_cache->blocks[0].words[23];
-  thread_data->trace_head_incr_addr = ((uint32_t)write_p) + 1 - 4;
+  thread_data->trace_head_incr_addr = ((uintptr_t)write_p) + 1 - 4;
   copy_to_reg_32bit(&write_p, r1, (uint32_t)thread_data->exec_count);
 
   info("Traces start at: %p\n", &thread_data->code_cache->traces);
@@ -317,9 +317,9 @@ void init_thread(dbm_thread *thread_data) {
 
   __clear_cache((char *)&thread_data->code_cache->blocks[0], (char *)&thread_data->code_cache->blocks[thread_data->free_block]);
  
-  thread_data->dispatcher_addr = (uint32_t)&thread_data->code_cache[0] + 4;
+  thread_data->dispatcher_addr = (uintptr_t)&thread_data->code_cache[0] + 4;
   thread_data->syscall_wrapper_addr = thread_data->dispatcher_addr
-                                      + ((uint32_t)syscall_wrapper - (uint32_t)dispatcher_trampoline);
+                                      + ((uintptr_t)syscall_wrapper - (uintptr_t)dispatcher_trampoline);
 
   thread_data->is_vfork_child = false;
                         
@@ -328,26 +328,26 @@ void init_thread(dbm_thread *thread_data) {
   mambo_deliver_callbacks(PRE_THREAD_C, thread_data, -1, -1, -1, -1, -1, NULL, NULL, NULL);
 }
 
-bool is_bb(dbm_thread *thread_data, uint32_t addr) {
-  uint32_t min = (uint32_t)thread_data->code_cache->blocks;
-  uint32_t max = (uint32_t)thread_data->code_cache->traces;
+bool is_bb(dbm_thread *thread_data, uintptr_t addr) {
+  uintptr_t min = (uintptr_t)thread_data->code_cache->blocks;
+  uintptr_t max = (uintptr_t)thread_data->code_cache->traces;
 
   return addr >= min && addr < max;
 }
 
-int addr_to_bb_id(dbm_thread *thread_data, uint32_t addr) {
-  uint32_t min = (uint32_t)thread_data->code_cache->blocks;
-  uint32_t max = (uint32_t)thread_data->code_cache->traces;
+int addr_to_bb_id(dbm_thread *thread_data, uintptr_t addr) {
+  uintptr_t min = (uintptr_t)thread_data->code_cache->blocks;
+  uintptr_t max = (uintptr_t)thread_data->code_cache->traces;
 
   if (addr < min || addr > max) {
     return -1;
   }
 
-  return (addr - (uint32_t)thread_data->code_cache->blocks) / sizeof(dbm_block);
+  return (addr - (uintptr_t)thread_data->code_cache->blocks) / sizeof(dbm_block);
 }
 
 // TODO: handle links to traces
-void record_cc_link(dbm_thread *thread_data, uint32_t linked_from, uint32_t linked_to_addr) {
+void record_cc_link(dbm_thread *thread_data, uintptr_t linked_from, uintptr_t linked_to_addr) {
   int linked_to = addr_to_bb_id(thread_data, linked_to_addr);
 
   debug("Linked 0x%x (%d) from 0x%x\n", linked_to_addr, linked_to, linked_from);
@@ -365,7 +365,8 @@ void main(int argc, char **argv, char **envp) {
   Elf *elf = NULL;
   int has_interp = 0;
   int arg_diff;
-  uint32_t phdr, phnum;
+  uintptr_t phdr;
+  size_t phnum;
   
   if (argc < 2) {
     printf("Syntax: dbm elf_file arguments\n");
@@ -377,14 +378,13 @@ void main(int argc, char **argv, char **envp) {
   
   load_elf(argv[1], &elf, &has_interp, &phdr, &phnum);
 
-  Elf32_Ehdr *ehdr = elf32_getehdr(elf);
-
-  uint32_t entry_address = ehdr->e_entry;
+  ELF_EHDR *ehdr = ELF_GETEHDR(elf);
+  uintptr_t entry_address = ehdr->e_entry;
   if (ehdr->e_type == ET_DYN) entry_address += DYN_OBJ_OFFSET;
-  uint32_t block_address;
+  uintptr_t block_address;
   debug("entry address: 0x%x\n", entry_address);
   
-  global_data.disp_thread_data_off = (uint32_t)&disp_thread_data - (uint32_t)th_to_arm+1;
+  global_data.disp_thread_data_off = (uintptr_t)&disp_thread_data - (uintptr_t)th_to_arm+1;
   
   dbm_thread *thread_data;
   if (!allocate_thread_data(&thread_data)) {

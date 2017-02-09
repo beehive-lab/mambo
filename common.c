@@ -2,7 +2,7 @@
   This file is part of MAMBO, a low-overhead dynamic binary modification tool:
       https://github.com/beehive-lab/mambo
 
-  Copyright 2013-2016 Cosmin Gorgovan <cosmin at linux-geek dot org>
+  Copyright 2013-2017 Cosmin Gorgovan <cosmin at linux-geek dot org>
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -38,12 +38,12 @@
 /* Hash table */
 
 // Breaks linear probing, don't use
-void hash_delete(hash_table *table, uint32_t key) {
+void hash_delete(hash_table *table, uintptr_t key) {
   assert(false);
   int index = GET_INDEX(key);
   int end = index - 1;
   bool found = false;
-  uint32_t c_key;
+  uintptr_t c_key;
   
   do {
     c_key = table->entries[index].key;
@@ -59,11 +59,11 @@ void hash_delete(hash_table *table, uint32_t key) {
 /* To simplify the inline hash lookup code, we avoid looping around for linear probing.
    A few slots are overprovisioned at the end of the table and the last one is reserved
    empty to mark the end of the structure. */
-uint32_t hash_lookup(hash_table *table, uint32_t key) {
+uintptr_t hash_lookup(hash_table *table, uintptr_t key) {
   int index = GET_INDEX(key);
   bool found = false;
-  uint32_t entry = UINT_MAX;
-  uint32_t c_key;
+  uintptr_t entry = UINT_MAX;
+  uintptr_t c_key;
   
   do {
     c_key = table->entries[index].key;
@@ -78,7 +78,7 @@ uint32_t hash_lookup(hash_table *table, uint32_t key) {
   return entry;
 }
 
-bool hash_add(hash_table *table, uint32_t key, uint32_t value) {
+bool hash_add(hash_table *table, uintptr_t key, uintptr_t value) {
   int index = GET_INDEX(key);
   int prev_index;
   bool done = false;
@@ -138,9 +138,11 @@ ll_entry *linked_list_alloc(ll *list) {
 
 
 /* Other useful functions*/
+#define first_reg r0
+#define last_reg pc
 
 uint32_t next_reg_in_list(uint32_t reglist, uint32_t start) {
-  for (; start <= pc; start++) {
+  for (; start <= last_reg; start++) {
     if (reglist & (1 << start)) {
       return start;
      }
@@ -150,7 +152,7 @@ uint32_t next_reg_in_list(uint32_t reglist, uint32_t start) {
 }
 
 uint32_t last_reg_in_list(uint32_t reglist, uint32_t start) {
-  for (; start >= r0; start--) {
+  for (; start >= first_reg; start--) {
     if (reglist & (1 << start)) {
       return start;
      }

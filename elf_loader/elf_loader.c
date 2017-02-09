@@ -2,7 +2,7 @@
   This file is part of MAMBO, a low-overhead dynamic binary modification tool:
       https://github.com/beehive-lab/mambo
 
-  Copyright 2013-2016 Cosmin Gorgovan <cosmin at linux-geek dot org>
+  Copyright 2013-2017 Cosmin Gorgovan <cosmin at linux-geek dot org>
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -42,15 +42,15 @@
 
 extern void *_start;
 
-uint32_t align_lower(uint32_t address, uint32_t alignment) {
-  uint32_t aligned_address = address / alignment * alignment;
+uintptr_t align_lower(uintptr_t address, uintptr_t alignment) {
+  uintptr_t aligned_address = address / alignment * alignment;
   debug("lower: 0x%x 0x%x 0x%x\n", address, alignment, aligned_address);
   
   return aligned_address;
 }
 
-uint32_t align_higher(uint32_t address, uint32_t alignment) {
-  uint32_t aligned_address = align_lower(address, alignment);
+uintptr_t align_higher(uintptr_t address, uintptr_t alignment) {
+  uintptr_t aligned_address = align_lower(address, alignment);
   if (aligned_address != address) {
     aligned_address += alignment;
   }
@@ -61,14 +61,14 @@ uint32_t align_higher(uint32_t address, uint32_t alignment) {
 #define STARTUP_STACK_LEN 200
 
 struct startup_stack {
-  uint32_t e[STARTUP_STACK_LEN];
+  uintptr_t e[STARTUP_STACK_LEN];
 };
 
-void load_segment(Elf32_Phdr *phdr, int fd, Elf32_Half type, uint32_t *auxv_phdr) {
+void load_segment(ELF_PHDR *phdr, int fd, Elf32_Half type, uintptr_t *auxv_phdr) {
   uint32_t *mem;
   int prot = 0;
   unsigned long pos;
-  uint32_t aligned_vaddr, aligned_fsize, aligned_msize, page_offset, map_file_end;
+  uintptr_t aligned_vaddr, aligned_fsize, aligned_msize, page_offset, map_file_end;
 
   /*if (phdr->p_flags & PF_X) {
     prot |= PROT_EXEC;
@@ -121,20 +121,20 @@ void load_segment(Elf32_Phdr *phdr, int fd, Elf32_Half type, uint32_t *auxv_phdr
 }
 
 //void main(int argc, char **argv, char **envp) {
-int load_elf(char *filename, Elf **ret_elf, int *has_interp, uint32_t *auxv_phdr, uint32_t *phnum) {
+int load_elf(char *filename, Elf **ret_elf, int *has_interp, uintptr_t *auxv_phdr, size_t *phnum) {
   int fd;
   FILE *file;
   Elf *elf;
   Elf_Kind kind;
-  Elf32_Ehdr *ehdr;
-  Elf32_Phdr *phdr;
+  ELF_EHDR *ehdr;
+  ELF_PHDR *phdr;
   char interp[256];
   *auxv_phdr = 0;
   errno = 0;
   char *tmpmem;
   
   // Reserve the area below MAMBO's image for the application. libelf uses the heap.
-  tmpmem = mmap((void *)0x8000, ((uint32_t)&_start-0x8000) & (~0x7FFF), PROT_NONE, MAP_PRIVATE|MAP_ANONYMOUS|MAP_FIXED, -1, 0);
+  tmpmem = mmap((void *)0x8000, ((uintptr_t)&_start-0x8000) & (~0x7FFF), PROT_NONE, MAP_PRIVATE|MAP_ANONYMOUS|MAP_FIXED, -1, 0);
   assert(tmpmem !=  MAP_FAILED);
 
   fd = open(filename, O_RDONLY);
@@ -161,18 +161,18 @@ int load_elf(char *filename, Elf **ret_elf, int *has_interp, uint32_t *auxv_phdr
     exit(EXIT_FAILURE);
   }
   
-  ehdr = elf32_getehdr(elf);
+  ehdr = ELF_GETEHDR(elf);
   if (ehdr == NULL) {
     printf("Error reading the ELF executable header: %s\n", elf_errmsg(-1));
     exit(EXIT_FAILURE);
   }
   
-  if (ehdr->e_ident[EI_CLASS] != ELFCLASS32) {
+  if (ehdr->e_ident[EI_CLASS] != ELF_CLASS) {
     printf("Not a 32-bit ELF file\n");
     exit(EXIT_FAILURE);
   }
-  
-  if (ehdr->e_machine != EM_ARM) {
+
+  if (ehdr->e_machine != EM_MACHINE) {
     printf("Not compiled for ARM\n");
     exit(EXIT_FAILURE);
   }
@@ -182,9 +182,9 @@ int load_elf(char *filename, Elf **ret_elf, int *has_interp, uint32_t *auxv_phdr
   file = fdopen(fd, "r");
   
   elf_getphdrnum(elf, phnum);
-  phdr = elf32_getphdr(elf);
-  
-  munmap(tmpmem, ((uint32_t)&_start-0x8000) & (~0x7FFF));
+  phdr = ELF_GETPHDR(elf);
+
+  munmap(tmpmem, ((uintptr_t)&_start-0x8000) & (~0x7FFF));
   
   // Look for an INTERP header
   for (int i = 0; i < *phnum; i++) {
@@ -243,29 +243,29 @@ int load_elf(char *filename, Elf **ret_elf, int *has_interp, uint32_t *auxv_phdr
   stack->e[stack_i++] = (val); \
   assert(stack_i < STARTUP_STACK_LEN) \
 
-void elf_run(uint32_t entry_address, uint32_t orig_entry_addr, char *filename, uint32_t auxv_phdr, uint32_t phnum, int argc, char **argv, char **envp) {
+void elf_run(uintptr_t entry_address, uintptr_t orig_entry_addr, char *filename, uintptr_t auxv_phdr, size_t phnum, int argc, char **argv, char **envp) {
   // alloca is required, otherwise our translated stack can get optimised away
   struct startup_stack *stack = alloca(sizeof(struct startup_stack));
   int stack_i = 0;
 
   // Copy args
   stack_push(argc + 1);
-  stack_push((uint32_t)filename);
+  stack_push((uintptr_t)filename);
   for (int i = 0; i < argc; i++) {
-    stack_push((uint32_t)argv[i]);
+    stack_push((uintptr_t)argv[i]);
   }
-  stack_push((uint32_t)NULL);
+  stack_push((uintptr_t)NULL);
   
   // Copy env
   while (*envp != NULL) {
-    stack_push((uint32_t)*envp);
+    stack_push((uintptr_t)*envp);
     envp++;
   }
-  stack_push((uint32_t)NULL);
+  stack_push((uintptr_t)NULL);
   
   // Copy the Auxiliary Vector
-  Elf32_auxv_t *s_aux = (Elf32_auxv_t *)(envp + 1);
-  Elf32_auxv_t *d_aux = (Elf32_auxv_t *)&stack->e[stack_i];
+  ELF_AUXV_T *s_aux = (ELF_AUXV_T *)(envp + 1);
+  ELF_AUXV_T *d_aux = (ELF_AUXV_T *)&stack->e[stack_i];
   while(s_aux->a_type != AT_NULL) {
     switch(s_aux->a_type) {
       case AT_PAGESZ:
@@ -308,7 +308,7 @@ void elf_run(uint32_t entry_address, uint32_t orig_entry_addr, char *filename, u
   
       case AT_EXECFN:
         d_aux->a_type = s_aux->a_type;
-        d_aux->a_un.a_val = (uint32_t)filename;
+        d_aux->a_un.a_val = (uintptr_t)filename;
         break;
   
       default:

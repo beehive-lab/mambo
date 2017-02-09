@@ -2,7 +2,7 @@
   This file is part of MAMBO, a low-overhead dynamic binary modification tool:
       https://github.com/beehive-lab/mambo
 
-  Copyright 2013-2016 Cosmin Gorgovan <cosmin at linux-geek dot org>
+  Copyright 2013-2017 Cosmin Gorgovan <cosmin at linux-geek dot org>
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -19,6 +19,14 @@
 
 #define DYN_OBJ_OFFSET 0xa0000000
 
-int load_elf(char *filename, Elf **ret_elf, int *has_interp, uint32_t *auxv_phdr, uint32_t *phnum);
-void elf_run(uint32_t entry_address, uint32_t orig_entry_addr, char *filename, uint32_t auxv_phdr, uint32_t phnum, int argc, char **argv, char **envp);
+#define ELF_CLASS  ELFCLASS32
+#define EM_MACHINE EM_ARM
+#define ELF_EHDR   Elf32_Ehdr
+#define ELF_PHDR   Elf32_Phdr
+#define ELF_GETEHDR(...) elf32_getehdr(__VA_ARGS__)
+#define ELF_GETPHDR(...) elf32_getphdr(__VA_ARGS__)
+#define ELF_AUXV_T Elf32_auxv_t
+
+int load_elf(char *filename, Elf **ret_elf, int *has_interp, uintptr_t *auxv_phdr, size_t *phnum);
+void elf_run(uintptr_t entry_address, uintptr_t orig_entry_addr, char *filename, uintptr_t auxv_phdr, size_t phnum, int argc, char **argv, char **envp);
 

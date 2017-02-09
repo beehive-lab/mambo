@@ -2,7 +2,7 @@
   This file is part of MAMBO, a low-overhead dynamic binary modification tool:
       https://github.com/beehive-lab/mambo
 
-  Copyright 2013-2016 Cosmin Gorgovan <cosmin at linux-geek dot org>
+  Copyright 2013-2017 Cosmin Gorgovan <cosmin at linux-geek dot org>
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -28,8 +28,8 @@
 /* Warning, size MUST be (a power of 2) */
 #define GET_INDEX(key) ((key) & (table->size - CODE_CACHE_HASH_OVERP))
 typedef struct {
-  uint32_t key;
-  uint32_t value;
+  uintptr_t key;
+  uintptr_t value;
 } hash_entry;
 
 typedef struct {
@@ -51,9 +51,9 @@ typedef struct {
   ll_entry pool[];
 } ll;
 
-bool hash_add(hash_table *table, uint32_t key, uint32_t value);
-void hash_delete(hash_table *table, uint32_t key);
-uint32_t hash_lookup(hash_table *table, uint32_t key);
+bool hash_add(hash_table *table, uintptr_t key, uintptr_t value);
+void hash_delete(hash_table *table, uintptr_t key);
+uintptr_t hash_lookup(hash_table *table, uintptr_t key);
 void hash_init(hash_table *table, int size);
 
 void linked_list_init(ll *list, int size);

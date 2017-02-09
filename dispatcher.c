@@ -31,10 +31,10 @@
   #define debug(...)
 #endif
 
-void dispatcher(uint32_t target, uint32_t *next_addr, uint32_t source_index, dbm_thread *thread_data) {
-  uint32_t block_address;
-  uint32_t other_target;
-  uint32_t pred_target;
+void dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_index, dbm_thread *thread_data) {
+  uintptr_t block_address;
+  uintptr_t other_target;
+  uintptr_t pred_target;
   uint16_t *branch_addr; 
   uint32_t *branch_table;
   bool     cached;
