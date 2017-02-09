@@ -1352,14 +1352,6 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
         copy_arm();
         break;
       }
-        
-      case ARM_LDRSHI: {
-        uint32_t opcode, size, opcode2, immediate, rd, rn, rm, imm4l, imm4h, prepostindex, updown, writeback;
-        arm_h_data_transfer_decode_fields(read_address, &opcode, &size, &opcode2, &immediate, &rd, &rn, &imm4l, &imm4h, &prepostindex, &updown, &writeback);
-        assert(rd != pc && rn != pc); // rm field is actually imm4l
-        copy_arm();
-        break;
-      }
 
       case ARM_REV:
       case ARM_REV16:
@@ -1456,8 +1448,8 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
       }
 
       case ARM_LDRSB: {
-        uint32_t immediate, rd, rn, rm, imm4h, prepostindex, writeback;
-        arm_ldrsb_decode_fields(read_address, &immediate, &rd, &rn, &rm, &imm4h, &prepostindex, &writeback);
+        uint32_t immediate, rd, rn, rm, imm4h, prepostindex, updown, writeback;
+        arm_ldrsb_decode_fields(read_address, &immediate, &rd, &rn, &rm, &imm4h, &prepostindex, &updown, &writeback);
         assert(rd != pc && rn != pc);
         if (immediate == REG_PROC) assert(rm != pc);
         copy_arm();
