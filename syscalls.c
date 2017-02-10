@@ -201,13 +201,13 @@ int syscall_handler_pre(uint32_t syscall_no, uint32_t *args, uint16_t *next_inst
           strcmp((char *)args[1], "/proc/thread-self/exe") == 0) {
         char path[PATH_MAX];
         char *rp = realpath(global_data.argv[1], path);
-        size_t path_len = strlen(rp);
         assert(rp != NULL);
+        size_t path_len = strlen(rp);
 
        /* realpath() null-terminates strings, while readlinkat shouldn't.
           Therefore, if PATH_MAX has been filled and bufsize == PATH_MAX, then it's possible
           that we've lost a valid last character which realpath set to null. */
-        assert((args[3] < PATH_MAX) || (strlen(path) < (PATH_MAX - 1)));
+        assert((args[3] < PATH_MAX) || (path_len < (PATH_MAX - 1)));
 
         strncpy((char *)args[2], path, args[3]);
         args[0] = min(path_len, args[3]);
