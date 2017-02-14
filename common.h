@@ -46,7 +46,7 @@ typedef struct {
 
 struct ll_entry_s {
   struct ll_entry_s *next;
-  uint32_t data;
+  uintptr_t data;
 };
 typedef struct ll_entry_s ll_entry;
 

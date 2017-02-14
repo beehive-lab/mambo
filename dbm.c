@@ -60,6 +60,7 @@
 #define dispatcher_thread_data_offset ((uintptr_t)&disp_thread_data - (uintptr_t)&start_of_dispatcher_s)
 #define dispatcher_wrapper_offset     ((uintptr_t)dispatcher_trampoline - (uintptr_t)&start_of_dispatcher_s)
 #define syscall_wrapper_offset        ((uintptr_t)syscall_wrapper - (uintptr_t)&start_of_dispatcher_s)
+#define trace_head_incr_offset        ((uintptr_t)trace_head_incr - (uintptr_t)&start_of_dispatcher_s)
 #define trampolines_size_bytes         ((uintptr_t)&end_of_dispatcher_s - (uintptr_t)&start_of_dispatcher_s)
 #define trampolines_size_bbs           ((trampolines_size_bytes / sizeof(dbm_block)) \
                                       + ((trampolines_size_bytes % sizeof(dbm_block)) ? 1 : 0))
@@ -296,7 +297,6 @@ bool allocate_thread_data(dbm_thread **thread_data) {
 
 void init_thread(dbm_thread *thread_data) {
   dbm_thread **dispatcher_thread_data;
-  uint16_t *write_p;
 
   // Initialize code cache
   thread_data->code_cache = mmap(NULL, sizeof(dbm_code_cache), PROT_EXEC | PROT_READ | PROT_WRITE, CC_MMAP_OPTS, -1, 0);
@@ -321,15 +321,22 @@ void init_thread(dbm_thread *thread_data) {
 #ifdef __arm__
   thread_data->code_cache->blocks[0].words[20] = (uint32_t)thread_data->scratch_regs;
   debug("*thread_data in dispatcher at: %p\n", dispatcher_thread_data);
+#endif // __arm__
 
-  #ifdef DBM_TRACES
-  write_p = (uint16_t *)&thread_data->code_cache->blocks[0].words[23];
-  thread_data->trace_head_incr_addr = ((uintptr_t)write_p) + 1 - 4;
+#ifdef DBM_TRACES
+  thread_data->trace_head_incr_addr = (uintptr_t)&thread_data->code_cache[0] + trace_head_incr_offset;
+
+  #ifdef __arm__
+  uint16_t *write_p = (uint16_t *)(thread_data->trace_head_incr_addr + 4 - 1);
   copy_to_reg_32bit(&write_p, r1, (uint32_t)thread_data->exec_count);
+  #endif
+  #ifdef __aarch64__
+  uint32_t *write_p = (uint32_t *)(thread_data->trace_head_incr_addr + 4);
+  a64_copy_to_reg_64bits(&write_p, x2, (uintptr_t)thread_data->exec_count);
+  #endif
 
   info("Traces start at: %p\n", &thread_data->code_cache->traces);
-  #endif // DBM_TRACES
-#endif // __arm__
+#endif // DBM_TRACES
 
   __clear_cache((char *)&thread_data->code_cache->blocks[0], (char *)&thread_data->code_cache->blocks[thread_data->free_block]);
  

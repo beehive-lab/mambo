@@ -62,10 +62,13 @@ void dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_index, d
   debug("Source block index: %d\n", source_index);
   source_branch_type = thread_data->code_cache_meta[source_index].exit_branch_type;
 
-#if defined(DBM_TRACES) && defined(__arm__)
+#ifdef DBM_TRACES
   // Handle trace exits separately
-  if (source_index >= CODE_CACHE_SIZE && source_branch_type != tbb && source_branch_type != tbh) {
-    return trace_dispatcher(target, next_addr, source_index, thread_data);
+  if (source_index >= CODE_CACHE_SIZE) {
+#ifdef __arm__
+    if (source_branch_type != tbb && source_branch_type != tbh)
+#endif
+      return trace_dispatcher(target, next_addr, source_index, thread_data);
   }
 #endif
   
@@ -285,7 +288,7 @@ void dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_index, d
   #ifdef DBM_LINK_UNCOND_IMM
     case uncond_imm_a64:
       branch_addr = thread_data->code_cache_meta[source_index].exit_branch_addr;
-      a64_b_helper(branch_addr, (uint64_t)block_address + 4);
+      a64_cc_branch(thread_data, branch_addr, block_address + 4);
       __clear_cache((void *)branch_addr, (void *)branch_addr + 4 + 1);
       break;
   #endif
@@ -333,25 +336,24 @@ void dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_index, d
           case cbz_a64:
             a64_cbz_cbnz_helper(branch_addr, cond, (uint64_t)branch_addr + 8,
                                 thread_data->code_cache_meta[source_index].rn >> 5,
-                                thread_data->code_cache_meta[source_index].rn & 0x1FF);
+                                thread_data->code_cache_meta[source_index].rn & 0x1F);
             break;
           case tbz_a64:
             a64_tbz_tbnz_helper(branch_addr, cond, (uint64_t)branch_addr + 8,
-                                thread_data->code_cache_meta[source_index].rn & 0x1FF,
+                                thread_data->code_cache_meta[source_index].rn & 0x1F,
                                 thread_data->code_cache_meta[source_index].rn >> 5);
             break;
         }
         branch_addr++;
       }
-
-      a64_b_helper(branch_addr, block_address + 4);
+      a64_cc_branch(thread_data, branch_addr, block_address + 4);
       branch_addr++;
 
       thread_data->code_cache_meta[source_index].branch_cache_status |= is_taken ? 2 : 1;
 
       if (other_target_in_cache &&
           (thread_data->code_cache_meta[source_index].branch_cache_status != 3)) {
-        a64_b_helper(branch_addr, other_target + 4);
+        a64_cc_branch(thread_data, branch_addr, other_target + 4);
         branch_addr++;
 
         thread_data->code_cache_meta[source_index].branch_cache_status = 3;

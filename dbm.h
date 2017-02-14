@@ -103,6 +103,7 @@ typedef enum {
 #endif //__arm__
 #ifdef __aarch64__
   uncond_imm_a64,
+  uncond_branch_reg,
   cond_imm_a64,
   cbz_a64,
   tbz_a64,
@@ -205,6 +206,7 @@ void dbm_exit(dbm_thread *thread_data, uint32_t code);
 
 extern void dispatcher_trampoline();
 extern void syscall_wrapper();
+extern void trace_head_incr();
 extern void* start_of_dispatcher_s;
 extern void* end_of_dispatcher_s;
 extern void th_to_arm();
@@ -219,7 +221,7 @@ uint32_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_blo
 uint32_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_block, cc_type type, uint16_t *write_p);
 size_t   scan_a64(dbm_thread *thread_data, uint32_t *read_address, int basic_block, cc_type type, uint32_t *write_p);
 int allocate_bb(dbm_thread *thread_data);
-void trace_dispatcher(uintptr_t target, uint32_t *next_addr, uint32_t source_index, dbm_thread *thread_data);
+void trace_dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_index, dbm_thread *thread_data);
 void flush_code_cache(dbm_thread *thread_data);
 
 void thumb_encode_stub_bb(dbm_thread *thread_data, int basic_block, uint32_t target);

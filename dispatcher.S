@@ -158,10 +158,11 @@ dispatcher_addr: .quad dispatcher
 #endif
 .endfunc
 
-#ifdef __arm__
-  SUB PC, PC, #3
 .global trace_head_incr
 .func   trace_head_incr
+#ifdef __arm__
+.code 32
+  SUB PC, PC, #3
 .thumb_func
 trace_head_incr:
   NOP
@@ -194,19 +195,88 @@ create_trace_trampoline:
   BIC SP, #0x7
   BLX R3
   MOV SP, R4
-  
+
   POP {R2, R3, R4, R9, R12}
   MSR CPSR, r2
-  
+
   ADD R2, SP, #4
   LDM R2, {R0-R2, LR}
   LDR PC, [SP], #20
-.endfunc
 #endif // __arm__
+#ifdef __aarch64__
+trace_head_incr:
+  /*
+   * X0 = Basic Block number
+   * X1 = Address to return on the code cache.
+   * X2 = address of the counter
+   */
+  STP      X2,  X3, [SP, #-16]!
+  // Leave space for storing the address of the counter to X2
+  NOP  // MOVZ X2, #address_first_half_word
+  NOP  // MOVK X2, #address_second_half_word, lsl #16
+  NOP  // MOVK X2, #address_third_half_word,  lsl #32
+  NOP  // MOVK X2, #address_fourth_half_word, lsl #48
+  LDRB W3, [X2, X0]
+  SUB  W3,  W3, #1
+  STRB W3, [X2, X0]
+  CBZ  W3,  create_trace_trampoline
+  LDP  X2,  X3, [SP], #16
+  BR   X1
+
+create_trace_trampoline:
+  // PUSH general purpose register except X0, X1
+  MRS  X3, NZCV
+  STP X30,  X3, [SP, #-240]!
+  STP  X4,  X5, [SP, #16]
+  STP  X6,  X7, [SP, #32]
+  STP  X8,  X9, [SP, #48]
+  STP X10, X11, [SP, #64]
+  STP X12, X13, [SP, #80]
+  STP X14, X15, [SP, #96]
+  STP X16, X17, [SP, #112]
+  STP X18, X19, [SP, #128]
+  STP X20, X21, [SP, #144]
+  STP X22, X23, [SP, #160]
+  STP X24, X25, [SP, #176]
+  STP X26, X27, [SP, #192]
+  STP X28, X29, [SP, #208]
+  STR  X1,      [SP, #224]
+
+  /*
+   * create_trace (dbm_thread *thread_data,   X0
+   *               uint32_t    bb_source,     X1
+   *               uint32_t   *trace_addr)    X2
+   */
+  MOV X1,  X0
+  LDR X0, disp_thread_data
+  ADD X2, SP, #224
+  LDR X3, =create_trace
+  BLR X3
+
+  # POP from the stack
+  LDP  X4,  X5, [SP, #16]
+  LDP  X6,  X7, [SP, #32]
+  LDP  X8,  X9, [SP, #48]
+  LDP X10, X11, [SP, #64]
+  LDP X12, X13, [SP, #80]
+  LDP X14, X15, [SP, #96]
+  LDP X16, X17, [SP, #112]
+  LDP X18, X19, [SP, #128]
+  LDP X20, X21, [SP, #144]
+  LDP X22, X23, [SP, #160]
+  LDP X24, X25, [SP, #176]
+  LDP X26, X27, [SP, #192]
+  LDP X28, X29, [SP, #208]
+  LDR  X1,      [SP, #224]
+  LDP X30,  X2, [SP], #240
+  MSR NZCV, X2
+  LDP X2 ,  X3, [SP], #16
+  BR  X1
+#endif // __aarch64__
+.endfunc
 
 .global syscall_wrapper
 .func   syscall_wrapper
-
 #ifdef __arm__
 .code 32
 syscall_wrapper:

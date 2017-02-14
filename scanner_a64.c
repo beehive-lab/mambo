@@ -75,6 +75,12 @@ void a64_b_helper(uint32_t *write_p, uint64_t target) {
   a64_branch_helper(write_p, target, false);
 }
 
+void a64_cc_branch(dbm_thread *thread_data, uint32_t *write_p, uint64_t target) {
+  a64_b_helper(write_p, target);
+
+  record_cc_link(thread_data, (uintptr_t)write_p, target);
+}
+
 void a64_bl_helper(uint32_t *write_p, uint64_t target) {
   a64_branch_helper(write_p, target, true);
 }
@@ -331,6 +337,38 @@ void a64_check_free_space(dbm_thread *thread_data, uint32_t **write_p,
   }
 }
 
+void pass1_a64(uint32_t *read_address, branch_type *bb_type) {
+
+  *bb_type = unknown;
+
+  while(*bb_type == unknown) {
+    a64_instruction instruction = a64_decode(read_address);
+
+    switch(instruction) {
+      case A64_B_BL:
+        *bb_type = uncond_imm_a64;
+        break;
+      case A64_CBZ_CBNZ:
+        *bb_type = cbz_a64;
+        break;
+      case A64_B_COND:
+        *bb_type = cond_imm_a64;
+        break;
+      case A64_TBZ_TBNZ:
+        *bb_type = tbz_a64;
+        break;
+      case A64_BR:
+      case A64_BLR:
+      case A64_RET:
+        *bb_type = uncond_branch_reg;
+        break;
+      case A64_INVALID:
+        return;
+    }
+    read_address++;
+  }
+}
+
 bool a64_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id, uint32_t *read_address,
                                    a64_instruction inst, uint32_t **o_write_p, uint32_t **o_data_p,
                                    int basic_block, cc_type type, bool allow_write) {
@@ -407,8 +445,7 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
   if (type == mambo_bb) {
     data_p = write_p + BASIC_BLOCK_SIZE;
   } else { // mambo_trace
-    // TODO
-    assert(0);
+    data_p = (uint32_t *)&thread_data->code_cache->traces + (TRACE_CACHE_SIZE / 4);
   }
 
   /*
@@ -416,9 +453,31 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
    * address and the Basic Block number respectively. Before
    * overwriting the values of these two registers they are pushed to the
    * Stack. This means that at the start of every Basic Block X0 and X1 have
-   * to be popped from the Stack.
+   * to be popped from the Stack. The same is true for trace entries, however
+   * trace fragments do not need a pop instruction.
    */
-  a64_pop_pair_reg(x0, x1);
+  if (type != mambo_trace) {
+    a64_pop_pair_reg(x0, x1);
+  }
+
+#ifdef DBM_TRACES
+  branch_type bb_type;
+  pass1_a64(read_address, &bb_type);
+
+  if (type == mambo_bb && bb_type != uncond_branch_reg) {
+    a64_push_pair_reg(x0, x1);
+
+    a64_copy_to_reg_64bits(&write_p, x0, (int)basic_block);
+
+    a64_ADR(&write_p, 0, 0, 2, x1);
+    write_p++;
+
+    a64_b_helper(write_p, thread_data->trace_head_incr_addr);
+    write_p++;
+
+    a64_pop_pair_reg(x0, x1);
+  }
+#endif
 
   while(!stop) {
     debug("A64 scan read_address: %p, w: : %p, bb: %d\n", read_address, write_p, basic_block);
@@ -563,6 +622,8 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
           case A64_RET:
             a64_RET_decode_fields(read_address, &Rn);
         }
+        thread_data->code_cache_meta[basic_block].exit_branch_type = uncond_branch_reg;
+        thread_data->code_cache_meta[basic_block].exit_branch_addr = write_p;
 
 #ifndef DBM_D_INLINE_HASH
         a64_branch_save_context(&write_p);
