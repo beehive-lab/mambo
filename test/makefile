@@ -1,4 +1,4 @@
-portable: mmap_munmap
+portable: mmap_munmap mprotect_exec
 
 hw_div: hw_div.S
 	$(CC) -mcpu=cortex-a15 $< -o $@
