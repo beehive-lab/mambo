@@ -30,7 +30,6 @@
 #include "common.h"
 #include "scanner_public.h"
 
-#define DEBUG 1
 //#undef DEBUG
 #ifdef DEBUG
   #define debug(...) fprintf(stderr, __VA_ARGS__)

@@ -27,6 +27,7 @@
 #include <assert.h>
 #include <limits.h>
 #include <string.h>
+#include <errno.h>
 
 #include "dbm.h"
 
@@ -229,18 +230,66 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
        as a safeguard in case a translation bug causes a branch to unmodified application code.
        Page permissions happen to be passed in the third argument both for mmap and mprotect. */
 #ifdef __arm__
-    case __NR_mmap2:
+    case __NR_mmap2: {
 #endif
-    case __NR_mprotect:
+#ifdef __aarch64__
+    case __NR_mmap: {
+#endif
+      uintptr_t syscall_ret, prot = args[2];
+
       /* Ensure that code pages are readable by the code scanner. */
       if (args[2] & PROT_EXEC) {
         assert(args[2] & PROT_READ);
+        args[2] &= ~PROT_EXEC;
       }
-      args[2] &= ~PROT_EXEC;
-      break;
-    case __NR_munmap:
-      flush_code_cache(thread_data);
-      break;
+      syscall_ret = raw_syscall(syscall_no, args[0], args[1], args[2], args[3], args[4], args[5]);
+      if ((syscall_ret <= -ERANGE) && (prot & PROT_EXEC)) {
+        uintptr_t start = align_lower(syscall_ret, PAGE_SIZE);
+        uintptr_t end = align_higher(syscall_ret + args[1], PAGE_SIZE);
+        int ret = interval_map_add(&global_data.exec_allocs, start, end);
+        assert(ret == 0);
+      }
+
+      args[0] = syscall_ret;
+      return 0;
+    }
+    case __NR_mprotect: {
+      int ret;
+      uintptr_t syscall_ret, prot = args[2];
+
+      if (args[2] & PROT_EXEC) {
+        assert(args[2] & PROT_READ);
+        args[2] &= ~PROT_EXEC;
+      }
+      syscall_ret = raw_syscall(syscall_no, args[0], args[1], args[2]);
+      if (syscall_ret == 0) {
+        if (prot & PROT_EXEC) {
+          uintptr_t start = align_lower(args[0], PAGE_SIZE);
+          uintptr_t end = align_higher(args[0] + args[1], PAGE_SIZE);
+          ret = interval_map_add(&global_data.exec_allocs, start, end);
+          assert(ret == 0);
+        }
+      } // if syscall_ret == 0
+
+      args[0] = syscall_ret;
+      return 0;
+    }
+    case __NR_munmap: {
+      uintptr_t syscall_ret = raw_syscall(syscall_no, args[0], args[1]);
+
+      if (syscall_ret == 0) {
+        uintptr_t start = align_lower(args[0], PAGE_SIZE);
+        uintptr_t end = align_higher(args[0] + args[1], PAGE_SIZE);
+        ssize_t ret = interval_map_delete(&global_data.exec_allocs, start, end);
+        assert(ret >= 0);
+        if (ret >= 1) {
+          flush_code_cache(thread_data);
+        }
+      }
+
+      args[0] = syscall_ret;
+      return 0;
+    }
 
 #ifdef __arm__
     case __NR_vfork:

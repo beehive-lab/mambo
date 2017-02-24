@@ -389,6 +389,9 @@ void main(int argc, char **argv, char **envp) {
 
   global_data.argc = argc;
   global_data.argv = argv;
+
+  int ret = interval_map_init(&global_data.exec_allocs, 512);
+  assert(ret == 0);
   
   load_elf(argv[1], &elf, &has_interp, &phdr, &phnum);
 

@@ -92,6 +92,10 @@ void load_segment(ELF_PHDR *phdr, int fd, Elf32_Half type, uintptr_t *auxv_phdr)
                MAP_ANONYMOUS|MAP_PRIVATE|MAP_FIXED, -1, 0);
     assert(mem != MAP_FAILED);
   }
+  if (phdr->p_flags & PF_X) {
+    int ret = interval_map_add(&global_data.exec_allocs, aligned_vaddr, aligned_vaddr + aligned_msize);
+    assert(ret >= 0);
+  }
   /*
   if (phdr->p_flags & PF_X) {
     __clear_cache((char *)phdr->p_vaddr, (char *)phdr->p_vaddr + (char *)phdr->p_memsz);

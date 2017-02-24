@@ -191,6 +191,7 @@ typedef enum {
 typedef struct {
   int argc;
   char **argv;
+  interval_map exec_allocs;
 #ifdef PLUGINS_NEW
   int free_plugin;
   mambo_plugin plugins[MAX_PLUGIN_NO];
