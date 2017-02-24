@@ -84,3 +84,34 @@ th_enter:
   BR X1
 #endif
 .endfunc
+
+.global raw_syscall
+.func   raw_syscall
+.type   raw_syscall, %function
+
+raw_syscall:
+#ifdef __arm__
+  MOV R12, SP
+  PUSH {R4 - R7}
+  MOV R7, R0
+  MOV R0, R1
+  MOV R1, R2
+  MOV R2, R3
+  LDM R12, {R3 - R6}
+  SVC 0
+  POP {R4 - R7}
+  BX LR
+#endif
+#ifdef __aarch64__
+  MOV W8, W0
+  MOV X0, X1
+  MOV X1, X2
+  MOV X2, X3
+  MOV X3, X4
+  MOV X4, X5
+  MOV X5, X6
+  MOV X6, X7
+  SVC 0
+  RET
+#endif
+.endfunc

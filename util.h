@@ -22,5 +22,7 @@
 
 extern void dbm_client_entry(uintptr_t addr, uintptr_t *stack_top);
 
+// syscall() without errno handling
+extern uintptr_t raw_syscall(long number, ...);
 #endif
 
