@@ -29,6 +29,7 @@
 
 #include "elf_loader.h"
 #include "../dbm.h"
+#include "../common.h"
 
 #define DEBUG 1
 #undef DEBUG
@@ -38,25 +39,7 @@
   #define debug(...)
 #endif
 
-#define PAGE_SIZE 4096
-
 extern void *_start;
-
-uintptr_t align_lower(uintptr_t address, uintptr_t alignment) {
-  uintptr_t aligned_address = address / alignment * alignment;
-  debug("lower: 0x%x 0x%x 0x%x\n", address, alignment, aligned_address);
-  
-  return aligned_address;
-}
-
-uintptr_t align_higher(uintptr_t address, uintptr_t alignment) {
-  uintptr_t aligned_address = align_lower(address, alignment);
-  if (aligned_address != address) {
-    aligned_address += alignment;
-  }
-  debug("higher: 0x%x 0x%x 0x%x\n", address, alignment, aligned_address);
-  return aligned_address;
-}
 
 #define STARTUP_STACK_LEN 200
 

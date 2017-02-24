@@ -267,5 +267,7 @@ void mambo_deliver_callbacks(unsigned cb_id, dbm_thread *thread_data, inst_set i
 #define CC_SZ_ROUND(input) ROUND_UP(input, CC_PAGE_SIZE)
 #define METADATA_SZ_ROUND(input) ROUND_UP(input, CC_PAGE_SIZE)
 
+#define PAGE_SIZE 4096
+
 #endif
 

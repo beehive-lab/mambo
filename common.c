@@ -23,7 +23,10 @@
 #include <limits.h>
 #include <stdbool.h>
 #include <assert.h>
+#include <pthread.h>
+#include <errno.h>
 
+#include "dbm.h"
 #include "common.h"
 #include "scanner_public.h"
 
@@ -136,6 +139,160 @@ ll_entry *linked_list_alloc(ll *list) {
   return entry;
 }
 
+/* Interval map */
+/* Private interval_map functions; obtain lock before calling */
+void interval_map_print(interval_map *imap) {
+  fprintf(stderr, "imap %p:\n", imap);
+  for (ssize_t i = 0; i < imap->entry_count; i++) {
+    fprintf(stderr, "  %"PRIxPTR" - %"PRIxPTR"\n",
+            imap->entries[i].start, imap->entries[i].end);
+  }
+}
+
+int interval_map_delete_entry(interval_map *imap, ssize_t index) {
+  if (index < 0 || index >= imap->entry_count) {
+    return -1;
+  }
+
+  if (imap->entry_count >= 2) {
+    imap->entries[index] = imap->entries[imap->entry_count - 1];
+  }
+  imap->entry_count--;
+  return 0;
+}
+
+int interval_map_add_entry(interval_map *imap, uintptr_t start, uintptr_t end) {
+  if (imap->entry_count >= imap->mem_size || start >= end) {
+    return -1;
+  }
+  ssize_t index = imap->entry_count++;
+
+  imap->entries[index].start = start;
+  imap->entries[index].end = end;
+
+  return 0;
+}
+
+/* Public interval_map functions */
+int interval_map_init(interval_map *imap, ssize_t size) {
+  assert(size > 0);
+  interval_map_entry *entries = malloc(sizeof(interval_map_entry) * size);
+  if (entries == NULL) return -1;
+
+  imap->mem_size = size;
+  imap->entry_count = 0;
+  imap->entries = entries;
+  int ret = pthread_mutex_init(&imap->mutex, NULL);
+  if (ret != 0 && ret != EBUSY) {
+    return -1;
+  }
+
+  return 0;
+}
+
+int interval_map_add(interval_map *imap, uintptr_t start, uintptr_t end) {
+  int ret;
+  ssize_t overlap_ind = -1;
+
+  if (start >= end) return -1;
+
+  ret = pthread_mutex_lock(&imap->mutex);
+  if (ret != 0) return -1;
+
+  // Check for overlapping regions
+  for (ssize_t i = imap->entry_count -1; i >= 0; i--) {
+    if ((start < imap->entries[i].end) && (end > imap->entries[i].start)) {
+      if (overlap_ind == -1) {
+        overlap_ind = i;
+      } else {
+        start = min(imap->entries[i].start, start);
+        end = max(imap->entries[i].end, end);
+        ret = interval_map_delete_entry(imap, i);
+        assert(ret == 0);
+      }
+      imap->entries[overlap_ind].start = min(imap->entries[overlap_ind].start, start);
+      imap->entries[overlap_ind].end = max(imap->entries[overlap_ind].end, end);
+    }
+  }
+
+  // No overlapping region found
+  if (overlap_ind == -1) {
+    ret = interval_map_add_entry(imap, start, end);
+    assert(ret == 0);
+  }
+
+#ifdef DEBUG
+  fprintf(stderr, "imap added: %"PRIxPTR" %"PRIxPTR"\n", start, end);
+  interval_map_print(imap);
+#endif
+
+  ret = pthread_mutex_unlock(&imap->mutex);
+  if (ret != 0) return -1;
+
+  return 0;
+}
+
+ssize_t interval_map_search(interval_map *imap, uintptr_t start, uintptr_t end) {
+  int ret;
+  ssize_t status = 0;
+
+  if (start >= end) return -1;
+
+  ret = pthread_mutex_lock(&imap->mutex);
+  if (ret != 0) return -1;
+
+  for (ssize_t i = imap->entry_count - 1; i >= 0; i--) {
+    if ((start < imap->entries[i].end) && (end > imap->entries[i].start)) {
+      status++;
+    }
+  }
+
+  ret = pthread_mutex_unlock(&imap->mutex);
+  if (ret != 0) return -1;
+
+  return status;
+}
+
+ssize_t interval_map_delete(interval_map *imap, uintptr_t start, uintptr_t end) {
+  ssize_t status = 0;
+
+  if (start >= end) return -1;
+
+  int ret = pthread_mutex_lock(&imap->mutex);
+  if (ret != 0) return -1;
+
+  for (ssize_t i = imap->entry_count - 1; i >= 0; i--) {
+    if ((start < imap->entries[i].end) && (end > imap->entries[i].start)) {
+      status++;
+
+      if (start <= imap->entries[i].start && end >= imap->entries[i].end) {
+        ret = interval_map_delete_entry(imap, i);
+        assert(ret == 0);
+      } else if (start == imap->entries[i].start && end < imap->entries[i].end) {
+        imap->entries[i].start = end;
+      } else if (end == imap->entries[i].end && start > imap->entries[i].start) {
+        imap->entries[i].end = start;
+      } else {
+        uintptr_t tmp = imap->entries[i].end;
+        imap->entries[i].end = start;
+        ret = interval_map_add_entry(imap, end, tmp);
+        assert(ret == 0);
+      }
+    } // if hit
+  } // for
+
+#ifdef DEBUG
+  if (status > 0) {
+    fprintf(stderr, "imap deleted: %"PRIxPTR" %"PRIxPTR"\n", start, end);
+    interval_map_print(imap);
+  }
+#endif
+
+  ret = pthread_mutex_unlock(&imap->mutex);
+  if (ret != 0) return -1;
+
+  return status;
+}
 
 /* Other useful functions*/
 #ifdef __arm__
