@@ -639,8 +639,9 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
              * ======== ====== ======
              *
              *                 STP  X0, X1, [SP, #-16]
-             *                 STP  X2, [SP, #-16]     **
-             *                 MOV  X2, Rn             **
+             *                 STP  X2, [SP, #-16]         **
+             *                 MOV  X2, Rn                 **
+             *                 MOV  X0, #hash_table
              *                 AND  X1, Rn, #hash_mask
              *                 ADD  X0, X0, X1, LSL #4
              *          loop:
@@ -649,15 +650,18 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
              *                 SUB  X1, X1, Rn
              *                 CBNZ X1, loop
              *                 LDR  X0, [X0,  #-8]
-             *                 LDR  X2, [SP], #16      **
+             *                 LDR  X2, [SP], #16           **
+             *                 MOV  LR, read_address + 4    ##
              *                 BR   X0
              *     not_found:
              *                 MOV  X0, Rn
              *                 MOV  X1, #bb
-             *                 LDR  X2, [SP], #16      **
+             *                 LDR  X2, [SP], #16           **
+             *                 MOV  LR, read_address + 4    ##
              *                 B    dispatcher
              *
              * ** if Rn is X0 or X1
+             * ## if Rn is LR
              */
 
             uint32_t *loop;
