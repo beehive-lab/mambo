@@ -21,6 +21,7 @@
 #define __DBM_H__
 
 #include <stdbool.h>
+#include <signal.h>
 
 #include "pie/pie-arm-decoder.h"
 #include "pie/pie-thumb-decoder.h"
@@ -192,6 +193,8 @@ typedef struct {
   int argc;
   char **argv;
   interval_map exec_allocs;
+  uintptr_t signal_handlers[_NSIG];
+  pthread_mutex_t signal_handlers_mutex;
 #ifdef PLUGINS_NEW
   int free_plugin;
   mambo_plugin plugins[MAX_PLUGIN_NO];

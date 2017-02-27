@@ -117,7 +117,6 @@ dbm_thread *dbm_create_thread(dbm_thread *thread_data, void *next_inst, sys_clon
 
 // return 0 to skip the syscall
 int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_inst, dbm_thread *thread_data) {
-  struct sigaction *sig_action;
   sys_clone_args *clone_args;
   debug("syscall pre %d\n", syscall_no);
 
@@ -181,19 +180,43 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
       pthread_exit(NULL); // this should never return
       while(1); 
       break;
-    case __NR_rt_sigaction:
-      debug("sigaction %d\n", args[0]);
-      debug("struct sigaction at 0x%x\n", args[1]);
-      sig_action = (struct sigaction *)args[1];
-      // If act is non-NULL, the new action for signal signum is installed from act. If oldact is non-NULL, the previous action is saved in oldact.
-      debug("handler at %p\n", sig_action->sa_handler);
-      if (sig_action
-          && sig_action->sa_handler != SIG_IGN
-          && sig_action->sa_handler != SIG_DFL) {
-        sig_action->sa_handler = (void *)lookup_or_scan(thread_data, (uintptr_t)sig_action->sa_handler, NULL)
-                                 + SIG_FRAG_OFFSET;
+    case __NR_rt_sigaction: {
+      uintptr_t handler = 0xdead;
+
+      struct sigaction *act = (struct sigaction *)args[1];
+      // On ARM, sa_handler and sa_sigaction are in a union, so we don't have to check for the SA_SIGINFO flag
+      if (act != NULL) {
+        handler = (uintptr_t)act->sa_handler;
+        if (act->sa_handler != SIG_IGN && act->sa_handler != SIG_DFL) {
+          act->sa_handler = signal_trampoline;
+        }
       }
-      break;
+
+      // A mutex is used to ensure that changes to the handler and all other options appear atomic
+      int ret = pthread_mutex_lock(&global_data.signal_handlers_mutex);
+      assert(ret == 0);
+
+      uintptr_t syscall_ret = raw_syscall(syscall_no, args[0], args[1], args[2], args[3]);
+      if (syscall_ret == 0) {
+        assert(args[0] >= 0 && args[0] < _NSIG);
+
+        struct sigaction *oldact = (struct sigaction *)args[2];
+        if (oldact != NULL && oldact->sa_handler != SIG_IGN && oldact->sa_handler != SIG_DFL) {
+          oldact->sa_handler = (void *)global_data.signal_handlers[args[0]];
+        }
+
+        if (act != NULL) {
+          global_data.signal_handlers[args[0]] = handler;
+        }
+      }
+
+      ret = pthread_mutex_unlock(&global_data.signal_handlers_mutex);
+      assert(ret == 0);
+
+      args[0] = syscall_ret;
+
+      return 0;
+    }
     case __NR_exit_group:
       dbm_exit(thread_data, args[0]);
       break;

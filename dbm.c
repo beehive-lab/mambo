@@ -24,6 +24,7 @@
 #include <string.h>
 #include <limits.h>
 #include <asm/unistd.h>
+#include <pthread.h>
 
 #include <sys/mman.h>
 #include <unistd.h>
@@ -391,6 +392,9 @@ void main(int argc, char **argv, char **envp) {
   global_data.argv = argv;
 
   int ret = interval_map_init(&global_data.exec_allocs, 512);
+  assert(ret == 0);
+
+  ret = pthread_mutex_init(&global_data.signal_handlers_mutex, NULL);
   assert(ret == 0);
   
   load_elf(argv[1], &elf, &has_interp, &phdr, &phnum);

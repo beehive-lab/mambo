@@ -115,3 +115,46 @@ raw_syscall:
   RET
 #endif
 .endfunc
+
+.global signal_trampoline
+.func signal_trampoline
+.type signal_trampoline, %function
+
+signal_trampoline:
+#ifdef __arm__
+  SUB SP, SP, #4
+  PUSH {r0-r3, r9, r12, lr}
+  BL signal_dispatcher
+  STR R0, [SP, #28]
+  POP {r0-r3, r9, r12, lr}
+  POP {PC}
+#endif
+#ifdef __aarch64__
+  STP  X2,  X3, [SP, #-176]!
+  STP  X4,  X5, [SP, #16]
+  STP  X6,  X7, [SP, #32]
+  STP  X8,  X9, [SP, #48]
+  STP X10, X11, [SP, #64]
+  STP X12, X13, [SP, #80]
+  STP X14, X15, [SP, #96]
+  STP X16, X17, [SP, #112]
+  STP X18, X29, [SP, #128]
+  STR X30,      [SP, #144]
+  STP  X0,  X1, [SP, #160]
+
+  BL signal_dispatcher
+
+  LDP  X4,  X5, [SP, #16]
+  LDP  X6,  X7, [SP, #32]
+  LDP  X8,  X9, [SP, #48]
+  LDP X10, X11, [SP, #64]
+  LDP X12, X13, [SP, #80]
+  LDP X14, X15, [SP, #96]
+  LDP X16, X17, [SP, #112]
+  LDP X18, X29, [SP, #128]
+  LDR X30,      [SP, #144]
+  LDP  X2,  X3, [SP], #160
+
+  BR X0
+#endif
+.endfunc

@@ -2,7 +2,7 @@
   This file is part of MAMBO, a low-overhead dynamic binary modification tool:
       https://github.com/beehive-lab/mambo
 
-  Copyright 2013-2017 Cosmin Gorgovan <cosmin at linux-geek dot org>
+  Copyright 2017 Cosmin Gorgovan <cosmin at linux-geek dot org>
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -17,13 +17,14 @@
   limitations under the License.
 */
 
-#ifndef __DBM_UTIL_H__
-#define __DBM_UTIL_H__
+#include <stdio.h>
+#include <signal.h>
+#include <assert.h>
 
-extern void dbm_client_entry(uintptr_t addr, uintptr_t *stack_top);
+#include "dbm.h"
 
-// syscall() without errno handling
-extern uintptr_t raw_syscall(long number, ...);
-void signal_trampoline(int i);
-#endif
-
+uintptr_t signal_dispatcher(int i) {
+  assert(i >= 0 && i < _NSIG);
+  uintptr_t handler = lookup_or_scan(current_thread, global_data.signal_handlers[i], NULL);
+  return handler;
+}
