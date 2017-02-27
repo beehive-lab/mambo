@@ -136,8 +136,10 @@ syscall_wrapper:
   // the value of R8 must be preserved
   LDM SP, {R0-R7}
 
-  // Balance the stack on sigreturn, which doesn't return here
+  // Balance the stack on sigreturn and rt_sigreturn, which don't return here
   CMP R7, #119
+  ADDEQ SP, SP, #60
+  CMP R7, #173
   ADDEQ SP, SP, #60
 
   SVC 0
