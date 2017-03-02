@@ -1853,7 +1853,10 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
       case ARM_VFP_VNMLS:
       case ARM_VFP_VNMUL:
       case ARM_VFP_VPOP_DP:
+      case ARM_VFP_VPOP_SP:
       case ARM_VFP_VPUSH_DP:
+      case ARM_VFP_VPUSH_SP:
+      case ARM_NEON_VRADDHN:
       case ARM_VFP_VSQRT:
       case ARM_VFP_VSUB_F:
         copy_arm();
