@@ -21,6 +21,13 @@
 #define __DBM_UTIL_H__
 
 extern void dbm_client_entry(uintptr_t addr, uintptr_t *stack_top);
+extern uint32_t atomic_increment_u32(uint32_t *loc, uint32_t inc);
+extern uint64_t atomic_increment_u64(uint64_t *loc, uint64_t inc);
+#ifdef __arm__
+  #define atomic_increment_uptr(loc, inc) atomic_increment_u32(loc, inc);
+#elif __aarch64__
+  #define atomic_increment_uptr(loc, inc) atomic_increment_u64(loc, inc);
+#endif
 
 // syscall() without errno handling
 extern uintptr_t raw_syscall(long number, ...);

@@ -158,3 +158,61 @@ signal_trampoline:
   BR X0
 #endif
 .endfunc
+
+.global atomic_increment_u64
+.func atomic_increment_u64
+.type atomic_increment_u64, %function
+
+atomic_increment_u64:
+#ifdef __arm__
+  // R0 - ptr, R2 inc (low), R3, inc (high)
+  PUSH {R4, R5}
+
+retry:
+  LDREXD R4, R5, [R0]
+  ADDS R4, R2
+  ADC R5, R3
+  STREXD R1, R4, R5, [R0]
+  CMP R1, #0
+  BNE retry
+
+  MOV R0, R4
+  MOV R1, R5
+  POP {R4, R5}
+  BX LR
+
+#elif __aarch64__
+  LDXR X2, [X0]
+  ADD X2, X2, X1
+  STXR W3, X2, [X0]
+  CBNZ W3, atomic_increment_u64
+  MOV X0, X2
+  RET
+
+#endif
+.endfunc
+
+.global atomic_increment_u32
+.func atomic_increment_u32
+.type atomic_increment_u32, %function
+
+atomic_increment_u32:
+#ifdef __arm__
+  LDREX R2, [R0]
+  ADD R2, R1
+  STREX R3, R2, [R0]
+  CMP R3, #0
+  BNE atomic_increment_u32
+  MOV R0, R2
+  BX LR
+
+#elif __aarch64__
+  LDXR W2, [X0]
+  ADD W2, W2, W1
+  STXR W3, W2, [X0]
+  CBNZ W3, atomic_increment_u32
+  MOV W0, W2
+  RET
+
+#endif
+.endfunc
