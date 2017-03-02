@@ -3121,6 +3121,23 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
         it_cond_handled = true;
         break;
 
+      case THUMB_NEON_VDUP_CORE: {
+        uint32_t b, e, q;
+        thumb_neon_vdup_core_decode_fields(read_address, &b, &e, &q, &d, &vd, &rt);
+        assert(rt != pc);
+        copy_thumb_32();
+        it_cond_handled = true;
+        break;
+      }
+
+      case THUMB_NEON_VSTX_M: {
+        thumb_neon_vstx_m_decode_fields(read_address, &opcode, &size, &d, &vd, &rn, &align, &rm);
+        assert(rn != pc); // rm == pc has a special meaning, doesn't actually use the PC
+        copy_thumb_32();
+        it_cond_handled = true;
+        break;
+      }
+
       /* NEON and VFP instructions which can't access the PC */
       case THUMB_VFP_VPUSH:
       case THUMB_VFP_VPOP:
