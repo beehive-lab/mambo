@@ -2122,7 +2122,7 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
               while(1);
             }
             if (rn == sp) {
-              assert(pre_index == 0 && upwards && writeback && imm8 == 4); // POP {PC} aka LDR PC, [SP], #n
+              assert(pre_index == 0 && upwards && writeback);
 
               // LDR sr[0], [SP, #12]
               thumb_ldr_sp16(&write_p, sr[0], 3);
