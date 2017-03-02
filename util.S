@@ -48,48 +48,6 @@ dbm_client_entry:
 #endif
 .endfunc
 
-#ifdef __arm__
-# R0 - pointer to saved registers
-# This is executed from .text, not required in the code cache
-.global dbm_thread_exit
-.func dbm_thread_exit
-.code 32
-.type dbm_thread_exit, %function
-dbm_thread_exit:
-  LDM r0, {r0-r12, r14}
-  MOV R7, #1
-  SVC 0
-  BKPT @ if this syscall returns, something went horribly wrong
-  B .
-.endfunc
-
-.global dbm_aquire_lock
-.func dbm_aquire_lock
-.type dbm_aquire_lock, %function
-dbm_aquire_lock:
-  MOV R2, #1
-retry:
-  LDREX r1, [r0]
-  CMP r1, #0
-  BNE retry
-  STREXEQ r1, r2, [r0]
-  CMP r1, #0
-  BNE retry
-  DMB
-  BX LR
-.endfunc
-
-.global dbm_release_lock
-.func dbm_release_lock
-.type dbm_release_lock, %function
-dbm_release_lock:
-  DMB
-  MOV R1, #0
-  STR R1, [R0]
-  BX LR
-.endfunc
-#endif // __arm_
-
 # R0 - new SP
 .global th_enter
 .func   th_enter

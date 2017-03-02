@@ -21,9 +21,6 @@
 #define __DBM_UTIL_H__
 
 extern void dbm_client_entry(uintptr_t addr, uintptr_t *stack_top);
-extern void dbm_thread_exit(uintptr_t *args);
-extern void dbm_aquire_lock(uintptr_t *lock);
-extern void dbm_release_lock(uintptr_t *lock);
 
 #endif
 
