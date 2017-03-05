@@ -87,9 +87,11 @@ bool hash_add(hash_table *table, uintptr_t key, uintptr_t value) {
   
   do {
     if (table->entries[index].key == 0 || table->entries[index].key == key) {
+      if (table->entries[index].key == 0) {
+        table->count++;
+      }
       table->entries[index].key = key;
       table->entries[index].value = value;
-      table->count++;
       done = true;
     } else {
       prev_index = index;
