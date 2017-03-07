@@ -33,7 +33,7 @@
   #define debug(...)
 #endif
 
-void dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_index, dbm_thread *thread_data) {
+void dispatcher(uintptr_t target, uint32_t source_index, uintptr_t *next_addr, dbm_thread *thread_data) {
   uintptr_t block_address;
   uintptr_t other_target;
   uintptr_t pred_target;
@@ -164,7 +164,7 @@ void dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_index, d
       branch_addr = thread_data->code_cache_meta[source_index].exit_branch_addr;
       is_taken = target == thread_data->code_cache_meta[source_index].branch_taken_addr;
       if (is_taken) {
-        other_target = hash_lookup(&thread_data->entry_address, thread_data->code_cache_meta[source_index].branch_skipped_addr);
+        other_target = cc_lookup(thread_data, thread_data->code_cache_meta[source_index].branch_skipped_addr);
         other_target_in_cache = (other_target != UINT_MAX);
 
         if (thread_data->code_cache_meta[source_index].branch_cache_status & 1) {
@@ -174,7 +174,7 @@ void dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_index, d
         arm_cc_branch(thread_data, (uint32_t *)branch_addr, (uint32_t)block_address,
                       thread_data->code_cache_meta[source_index].branch_condition);
       } else {
-        other_target = hash_lookup(&thread_data->entry_address, thread_data->code_cache_meta[source_index].branch_taken_addr);
+        other_target = cc_lookup(thread_data, thread_data->code_cache_meta[source_index].branch_taken_addr);
         other_target_in_cache = (other_target != UINT_MAX);
 
         if (thread_data->code_cache_meta[source_index].branch_cache_status & 2) {
@@ -205,7 +205,7 @@ void dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_index, d
                thread_data->code_cache_meta[source_index].branch_skipped_addr);
         debug("Overwriting branches at %p\n", branch_addr);
         if (target == thread_data->code_cache_meta[source_index].branch_taken_addr) {
-          other_target = hash_lookup(&thread_data->entry_address, thread_data->code_cache_meta[source_index].branch_skipped_addr);
+          other_target = cc_lookup(thread_data, thread_data->code_cache_meta[source_index].branch_skipped_addr);
           other_target_in_cache = (other_target != UINT_MAX);
           thumb_encode_cond_imm_branch(thread_data, &branch_addr, 
                                       source_index,
@@ -215,7 +215,7 @@ void dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_index, d
                                       true,
                                       other_target_in_cache, true);
         } else {
-          other_target = hash_lookup(&thread_data->entry_address, thread_data->code_cache_meta[source_index].branch_taken_addr);
+          other_target = cc_lookup(thread_data, thread_data->code_cache_meta[source_index].branch_taken_addr);
           other_target_in_cache = (other_target != UINT_MAX);
           thumb_encode_cond_imm_branch(thread_data, &branch_addr, 
                                       source_index,
@@ -242,7 +242,7 @@ void dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_index, d
              thread_data->code_cache_meta[source_index].branch_skipped_addr);
       debug("Overwriting branches at %p\n", branch_addr);
       if (target == thread_data->code_cache_meta[source_index].branch_taken_addr) {
-        other_target = hash_lookup(&thread_data->entry_address, thread_data->code_cache_meta[source_index].branch_skipped_addr);
+        other_target = cc_lookup(thread_data, thread_data->code_cache_meta[source_index].branch_skipped_addr);
         other_target_in_cache = (other_target != UINT_MAX);
         thumb_encode_cbz_branch(thread_data,
                                 thread_data->code_cache_meta[source_index].rn,
@@ -253,7 +253,7 @@ void dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_index, d
                                 true,
                                 other_target_in_cache, true);
       } else {
-        other_target = hash_lookup(&thread_data->entry_address, thread_data->code_cache_meta[source_index].branch_taken_addr);
+        other_target = cc_lookup(thread_data, thread_data->code_cache_meta[source_index].branch_taken_addr);
         other_target_in_cache = (other_target != UINT_MAX);
         thumb_encode_cbz_branch(thread_data,
                                 thread_data->code_cache_meta[source_index].rn,

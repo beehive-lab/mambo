@@ -92,6 +92,7 @@ void create_trace(dbm_thread *thread_data, uint32_t bb_source, uintptr_t *trace_
   ll_entry *cc_link;
   uintptr_t orig_addr;
   int trace_id;
+  uintptr_t trace_entry;
 
 #ifdef __arm__
   uint16_t *bb_addr = (uint16_t *)&thread_data->code_cache->blocks[bb_source];
@@ -130,10 +131,10 @@ void create_trace(dbm_thread *thread_data, uint32_t bb_source, uintptr_t *trace_
     debug("bb: %d, source: %p, ret to: 0x%x\n", bb_source, source_addr, *trace_addr);
     hot_bb_cnt++;
 
-    *trace_addr = (uintptr_t)thread_data->trace_cache_next;
+    trace_entry = (uintptr_t)thread_data->trace_cache_next;
+    trace_entry |= ((uintptr_t)source_addr) & THUMB;
+    *trace_addr = adjust_cc_entry(trace_entry);
 #ifdef __arm__
-    *trace_addr |= ((uintptr_t)source_addr) & THUMB;
-
     if (is_thumb) {
   #ifdef HW_RAS
       *trace_addr += 4;
@@ -184,8 +185,8 @@ void create_trace(dbm_thread *thread_data, uint32_t bb_source, uintptr_t *trace_
        __clear_cache((void *)orig_addr, (void *)orig_addr + 5);
     }
 
-    hash_add(&thread_data->trace_entry_address, (uintptr_t)source_addr, *trace_addr);
-    hash_add(&thread_data->entry_address, (uintptr_t)source_addr, *trace_addr);
+    hash_add(&thread_data->trace_entry_address, (uintptr_t)source_addr, trace_entry);
+    hash_add(&thread_data->entry_address, (uintptr_t)source_addr, trace_entry);
 
     fragment_len = scan_trace(thread_data, source_addr, mambo_trace_entry, &trace_id);
     debug("len: %d\n\n", fragment_len);
@@ -395,6 +396,7 @@ void trace_dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_in
   debug("Hash lookup for 0x%x: 0x%x\n", target, addr);
   if (addr != UINT_MAX) {
 #ifdef __arm__
+    addr = adjust_cc_entry(addr);
     if (addr & 1) {
       thumb_b32_helper(write_p, addr);
     } else {

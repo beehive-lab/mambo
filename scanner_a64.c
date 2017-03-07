@@ -625,7 +625,7 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
         thread_data->code_cache_meta[basic_block].exit_branch_type = uncond_branch_reg;
         thread_data->code_cache_meta[basic_block].exit_branch_addr = write_p;
 
-#ifndef DBM_D_INLINE_HASH
+#ifndef DBM_INLINE_HASH
         a64_branch_save_context(&write_p);
 
         // MOV X0, Rn (Alias of ORR X0, Rn, XZR)

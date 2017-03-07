@@ -318,9 +318,6 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
     case __NR_vfork:
       assert(thread_data->is_vfork_child == false);
       thread_data->is_vfork_child = true;
-      for (int i = 0; i < 3; i++) {
-        thread_data->parent_scratch_regs[i] = thread_data->scratch_regs[i];
-      }
       break;
     case __ARM_NR_cacheflush:
       fprintf(stderr, "cache flush\n");
@@ -359,9 +356,6 @@ void syscall_handler_post(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_
 #ifdef __arm__
     case __NR_vfork:
       if (args[0] != 0) { // in the parent
-        for (int i = 0; i < 3; i++) {
-          thread_data->scratch_regs[i] = thread_data->parent_scratch_regs[i];
-        }
         thread_data->is_vfork_child = false;
       }
       break;

@@ -22,6 +22,7 @@
 
 #include <stdbool.h>
 #include <signal.h>
+#include <limits.h>
 
 #include "pie/pie-arm-decoder.h"
 #include "pie/pie-thumb-decoder.h"
@@ -149,10 +150,6 @@ typedef struct {
   int free_block;
   uintptr_t dispatcher_addr;
   uintptr_t syscall_wrapper_addr;
-#ifdef __arm__
-  uintptr_t scratch_regs[3];
-  uintptr_t parent_scratch_regs[3];
-#endif
   bool is_vfork_child;
 
   dbm_code_cache *code_cache;
@@ -214,6 +211,7 @@ extern void th_enter(void *stack, uintptr_t cc_addr);
 
 bool allocate_thread_data(dbm_thread **thread_data);
 void init_thread(dbm_thread *thread_data);
+uintptr_t cc_lookup(dbm_thread *thread_data, uintptr_t target);
 uintptr_t lookup_or_scan(dbm_thread *thread_data, uintptr_t target, bool *cached);
 uintptr_t lookup_or_stub(dbm_thread *thread_data, uintptr_t target);
 uintptr_t scan(dbm_thread *thread_data, uint16_t *address, int basic_block);
@@ -230,6 +228,15 @@ void arm_encode_stub_bb(dbm_thread *thread_data, int basic_block, uint32_t targe
 int addr_to_bb_id(dbm_thread *thread_data, uintptr_t addr);
 void record_cc_link(dbm_thread *thread_data, uintptr_t linked_from, uintptr_t linked_to_addr);
 bool is_bb(dbm_thread *thread_data, uintptr_t addr);
+
+inline static uintptr_t adjust_cc_entry(uintptr_t addr) {
+#ifdef __arm__
+  if (addr != UINT_MAX) {
+    addr += 4 - ((addr & 1) << 1); // +4 for ARM, +2 for Thumb
+  }
+#endif
+  return addr;
+}
 
 extern dbm_global global_data;
 extern dbm_thread *disp_thread_data;

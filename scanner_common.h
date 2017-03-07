@@ -25,6 +25,9 @@
 #define SETUP (1 << 0)
 #define REPLACE_TARGET (1 << 1)
 #define INSERT_BRANCH (1 << 2)
+#define LATE_APP_SP (1 << 3)
+
+#define APP_SP (r3)
 
 #ifdef __arm__
 void thumb_cc_branch(dbm_thread *thread_data, uint16_t *write_p, uint32_t dest_addr);

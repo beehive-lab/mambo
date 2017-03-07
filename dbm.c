@@ -111,6 +111,11 @@ void mambo_deliver_callbacks(unsigned cb_id, dbm_thread *thread_data, inst_set i
 #endif
 }
 
+uintptr_t cc_lookup(dbm_thread *thread_data, uintptr_t target) {
+  uintptr_t addr = hash_lookup(&thread_data->entry_address, target);
+  return adjust_cc_entry(addr);
+}
+
 uintptr_t lookup_or_scan(dbm_thread *thread_data, uintptr_t target, bool *cached) {
   uintptr_t block_address;
   bool from_cache = true;
@@ -118,7 +123,7 @@ uintptr_t lookup_or_scan(dbm_thread *thread_data, uintptr_t target, bool *cached
   
   debug("Thread_data: %p\n", thread_data);
   
-  block_address = hash_lookup(&thread_data->entry_address, target);
+  block_address = cc_lookup(thread_data, target);
 
   if (block_address == UINT_MAX) {
     from_cache = false;
@@ -181,7 +186,7 @@ uintptr_t stub_bb(dbm_thread *thread_data, uintptr_t target) {
   assert(0); // TODO
 #endif
   
-  return block_address + thumb;
+  return adjust_cc_entry(block_address + thumb);
 }
 
 uintptr_t lookup_or_stub(dbm_thread *thread_data, uintptr_t target) {
@@ -190,12 +195,12 @@ uintptr_t lookup_or_stub(dbm_thread *thread_data, uintptr_t target) {
   debug("Stub(0x%x)\n", target);
   debug("Thread_data: %p\n", thread_data);
   
-  block_address = hash_lookup(&thread_data->entry_address, target);
+  block_address = cc_lookup(thread_data, target);
   if (block_address == UINT_MAX) {
     block_address = stub_bb(thread_data, target);
     __clear_cache((char *)block_address, (char *)(block_address + BASIC_BLOCK_SIZE * 4 + 1));
   }
- 
+
   return block_address;
 }
 
@@ -269,7 +274,7 @@ uintptr_t scan(dbm_thread *thread_data, uint16_t *address, int basic_block) {
   // End address is exclusive
   __clear_cache((char *)block_address, (char *)(block_address + block_size + 1));
 
-  return block_address;
+  return adjust_cc_entry(block_address);
 }
 
 void dbm_exit(dbm_thread *thread_data, uint32_t code) {
@@ -318,10 +323,7 @@ void init_thread(dbm_thread *thread_data) {
   dispatcher_thread_data = (dbm_thread **)((uintptr_t)&thread_data->code_cache->blocks[0]
                                            + dispatcher_thread_data_offset);
   *dispatcher_thread_data = thread_data;
-#ifdef __arm__
-  thread_data->code_cache->blocks[0].words[20] = (uint32_t)thread_data->scratch_regs;
   debug("*thread_data in dispatcher at: %p\n", dispatcher_thread_data);
-#endif // __arm__
 
 #ifdef DBM_TRACES
   thread_data->trace_head_incr_addr = (uintptr_t)&thread_data->code_cache[0] + trace_head_incr_offset;

@@ -41,14 +41,12 @@ dispatcher_trampoline:
   #TODO: INSTALL our own stack
 
 #A subroutine must preserve the contents of the registers r4-r8, r10, r11 and SP (and r9 in PCS variants that designate r9 as v6).
-  SUB SP, SP, #4
-  PUSH {r3, r4, r9, r12, lr}
-  MOV R2, R1
+  PUSH {r3 - r4, r9, r12, lr}
   # PUSH CPSR
-  MRS r1, CPSR
-  PUSH {R1}
-  # R0 is target, R1 where to put address
-  ADD R1, SP, #24
+  MRS r2, CPSR
+  PUSH {R2}
+  # R0 is the target, R2 is the location where to save the TPC
+  SUB R2, R3, #4
   LDR R3, disp_thread_data
   LDR R9, dispatcher_addr
 
@@ -61,9 +59,12 @@ dispatcher_trampoline:
   # RESTORE CPSR
   POP {R1}
   MSR CPSR, r1
-  LDR R0, scratch_space
-  LDM R0, {R0-R2}
-  POP {r3, r4, r9, r12, lr, pc}
+  POP {r3 - r4, r9, r12, lr}
+  LDR R1, [SP, #12]
+  STR R1, [R3, #-8]
+  POP {R0, R1, R2}
+  SUB SP, R3, #8
+  POP {R3, PC}
 ret_addr: .word 0
 dispatcher_addr: .word dispatcher
 scratch_space: .word 0
@@ -108,8 +109,7 @@ dispatcher_trampoline:
   MRS  X3 , NZCV
   STP X30,  X3, [SP,  #224]
 
-  MOV X2, X1
-  ADR X1, ret_addr
+  ADR X2, ret_addr
   LDR X3, disp_thread_data
   LDR X9, dispatcher_addr
   BLR X9

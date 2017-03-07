@@ -43,6 +43,7 @@
 #define copy_arm() *(write_p++) = *read_address;
 
 #define ALLOWED_IHL_REGS (0x5FF8) // {R3 - R12, R14}
+#define IHL_SPACE (88)
 
 void arm_copy_to_reg_16bit(uint32_t **write_p, enum reg reg, uint32_t value) {
   arm_movw(write_p, reg, (value >> 12) & 0xF, value & 0xFFF);
@@ -109,14 +110,18 @@ void arm_add_sub_32_bit(uint32_t **write_p, enum reg rd, enum reg rn, int value)
   arm_proc_i32bit(write_p, inst, rd, rn, value);
 }
 
-void arm_branch_save_context(dbm_thread *thread_data, uint32_t **o_write_p) {
+void arm_branch_save_context(dbm_thread *thread_data, uint32_t **o_write_p, bool late_app_sp) {
   uint32_t *write_p = *o_write_p;
 
-  arm_push_reg(r3);
-  arm_copy_to_reg_32bit(&write_p, r3, (uint32_t)thread_data->scratch_regs);
-  arm_stm(&write_p, r3, (1 << r0) | (1 << r1) | (1 << r2), 0, 1, 0, 0);
+  arm_sub(&write_p, IMM_PROC, 0, sp, sp, 8);
   write_p++;
-  arm_pop_reg(r3);
+
+  arm_push_regs((1 << r0) | (1 << r1) | (1 << r2) | (1 << r3));
+
+  if (!late_app_sp) {
+    arm_add(&write_p, IMM_PROC, 0, r3, sp, 24);
+    write_p++;
+  }
 
   *o_write_p = write_p;
 }
@@ -147,6 +152,10 @@ void arm_branch_jump(dbm_thread *thread_data, uint32_t **o_write_p, int basic_bl
   }
    
   if (flags & INSERT_BRANCH) {
+    if (flags & LATE_APP_SP) {
+      arm_add(&write_p, IMM_PROC, 0, r3, sp, 24);
+      write_p++;
+    }
     arm_copy_to_reg_32bit(&write_p, r1, basic_block);
 
     arm_b(&write_p, (thread_data->dispatcher_addr - (uint32_t)write_p - 8) >> 2);
@@ -356,205 +365,108 @@ bool arm_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id, 
   return replaced;
 }
 
-void arm_inline_hash_lookup(dbm_thread *thread_data, uint32_t **o_write_p, int basic_block,
-                            int reg1, int reg2, int reg3, uint32_t reglist, bool predictor,
-                            unsigned int pc_incr, uint32_t **ret_branch) {
+void arm_inline_hash_lookup(dbm_thread *thread_data, uint32_t **o_write_p, int basic_block) {
   uint32_t *write_p = *o_write_p;
+  uint32_t *loop_start;
+  uint32_t *branch_miss;
 
-  uint32_t *match_eq_br, arm_hash_lookup_loop;
+  // MOVW+MOVT r5, hash_mask
+  arm_copy_to_reg_32bit(&write_p, r5, CODE_CACHE_HASH_SIZE);
 
-  // MOVW+MOVT reg2, hash_table
-  arm_copy_to_reg_32bit(&write_p, reg2, (uint32_t)thread_data->entry_address.entries);
-  // MOVW+MOVT reg3, hash_mask
-  arm_copy_to_reg_32bit(&write_p, reg3, CODE_CACHE_HASH_SIZE);
+  // MOVW+MOVT r6, hash_table
+  arm_copy_to_reg_32bit(&write_p, r6, (uint32_t)thread_data->entry_address.entries);
 
-  // AND reg3, reg1, reg3
-  arm_and(&write_p, REG_PROC, 0, reg3, reg1, reg3);
+  // AND r5, r4, r5
+  arm_and(&write_p, REG_PROC, 0, r5, r4, r5);
   write_p++;
 
-  // ADD reg2, reg2, reg3, LSL #3
-  arm_add(&write_p, REG_PROC, 0, reg2, reg2, reg3 | (LSL << 5) | (3 << 7));
+  // ADD r5, r6, r5, LSL #3
+  arm_add(&write_p, REG_PROC, 0, r5, r6, r5 | (LSL << 5) | (3 << 7));
   write_p++;
 
-  // asm_hash_lookup_loop:
-  arm_hash_lookup_loop = (uint32_t)write_p;
-  // LDR reg3, [reg2], #8
-  arm_ldr(&write_p, IMM_LDR, reg3, reg2, 8, 0, 1, 0);
+  // loop:
+  loop_start = write_p;
+
+  // LDR r6, [r5], #8
+  arm_ldr(&write_p, IMM_LDR, r6, r5, 8, 0, 1, 0);
   write_p++;
 
-  // CMP reg3, reg1
-  arm_cmp(&write_p, REG_PROC, reg3, reg1);
+  // CMP r6, r4
+  arm_cmp(&write_p, REG_PROC, r6, r4);
   write_p++;
 
-  if (ret_branch) {
-    *ret_branch = write_p;
-  }
+  // BNE miss
+  branch_miss = write_p++;
 
-  // BEQ arm_hash_lookup_ret
-  match_eq_br = write_p++;
+  // jump:
+  // POP {r4}
+  arm_pop_reg(r4);
 
-  // CMP reg3, #0
-  arm_cmp(&write_p, IMM_PROC, reg3, 0);
+  // LDR r6, [r5, #-4]
+  arm_ldr(&write_p, IMM_LDR, r6, r5, 4, 1, 0, 0);
   write_p++;
 
-  // BNE asm_hash_lookup_loop
-  arm_b32_helper(write_p, arm_hash_lookup_loop, NE);
+  // BX R6
+  arm_bx(&write_p, r6);
   write_p++;
 
-  // arm_hash_lookup_fail:
-  // MOV reg2, #thread_scratch_regs
-  arm_copy_to_reg_32bit(&write_p, reg2, (uint32_t)thread_data->scratch_regs);
+  // miss:
+  arm_b32_helper(branch_miss, (uint32_t)write_p, NE);
 
-  // STMIA reg2, {R0-R2}
-  arm_stm(&write_p, reg2, (1 << r0)|(1 << r1)|(1 << r2), 0, 1, 0, 0);
+  // CMP R6, #0
+  arm_cmp(&write_p, IMM_PROC, r6, 0);
   write_p++;
 
-  // MOV R0, reg1
-  arm_mov(&write_p, REG_PROC, 0, r0, reg1);
+  // BNE loop
+  arm_b32_helper(write_p, (uint32_t)loop_start, NE);
   write_p++;
 
-  // MOV R1, reg2
-  arm_mov(&write_p, REG_PROC, 0, r1, reg2);
+  // SUB sp, sp, #8
+  arm_sub(&write_p, IMM_PROC, 0, sp, sp, 8);
   write_p++;
 
-  // POP {reglist}
-  while((((1 << r0) | (1 << r1)) & reglist) != 0);
-  arm_pop_regs(reglist & 0x7FFF);
+  // PUSH {r0 - r3}
+  arm_push_regs((1 << r0) | (1 << r1) | (1 << r2) | (1 << r3));
 
-  // STR R2, [R1, #8]
-  arm_str(&write_p, IMM_LDR, r2, r1, 8, 1, 1, 0);
+  //ADD r3, sp, #24
+  arm_add(&write_p, IMM_PROC, 0, r3, sp, 24);
   write_p++;
 
-  // MOV R1, #BB_ID
+  // MOV r0, r4
+  arm_mov(&write_p, REG_PROC, 0, r0, r4);
+  write_p++;
+
+  // MOV r1, #bb_id
   arm_copy_to_reg_32bit(&write_p, r1, basic_block);
 
-  // if the PC was to be POPed off the stack: ADD SP, SP, #4
-  if ((reglist & (1 << pc)) && !(reglist & (1 << sp))) {
-    assert(pc_incr < 0x1000);
-    arm_add(&write_p, IMM_PROC, 0, sp, sp, pc_incr);
-    write_p++;
-  }
-
-  // B dispatcher_trampoline
-  arm_b32_helper(write_p, (uint32_t)thread_data->dispatcher_addr, AL);
+  // LDMFD R3!, {R4-R6}
+  arm_ldm(&write_p, r3, (1 << r4) | (1 << r5) | (1 << r6), 0, 1, 1, 0);
   write_p++;
 
-  // saved_pc: .word
-  write_p++;
-
-  // arm_hash_lookup_ret:
-  arm_b32_helper(match_eq_br, (uint32_t)write_p, EQ);
-  // LDR reg1, [reg2, -4]
-  arm_ldr(&write_p, IMM_LDR, reg1, reg2, 4, 1, 0, 0);
+  // B dispatcher
+  arm_b32_helper(write_p, thread_data->dispatcher_addr, AL);
   write_p++;
 
   *o_write_p = write_p;
 }
 
-enum arm_ihl_branch {
-  IHL_BRANCH_LDR_PC_PC,
-  IHL_BRANCH_POP,
-  IHL_BRANCH_LDM
-};
-
-int arm_ihl_result_branch(dbm_thread *thread_data, enum arm_ihl_branch type, uint32_t **o_write_p,
-                          uint32_t reglist, uint32_t sr[3], bool ind_p_pred, unsigned int pc_incr) {
-  uint32_t *write_p = *o_write_p;
-  uint32_t *saved_target = write_p-2;
-
-  switch (type) {
-    case IHL_BRANCH_LDR_PC_PC:
-      arm_str(&write_p, IMM_LDR, sr[0], pc, 16, 1, 0, 0);
-      write_p++;
-
-      arm_pop_regs(reglist & 0x7FFF);
-
-      if ((reglist & (1 << pc)) && !(reglist & (1 << sp))) {
-        assert(pc_incr < 0x1000);
-        arm_add(&write_p, IMM_PROC, 0, sp, sp, pc_incr);
-        write_p++;
-      }
-
-      arm_ldr(&write_p, IMM_LDR, pc, pc, (write_p+2-saved_target) << 2, 1, 0, 0);
-      write_p++;
-      break;
-
-    case IHL_BRANCH_POP:
-      arm_str(&write_p, IMM_LDR, sr[0], sp, (count_bits(reglist)-1) << 2, 1, 1, 0);
-      write_p++;
-
-      arm_pop_regs(reglist | (1 << pc));
-      write_p++;
-      break;
-
-    case IHL_BRANCH_LDM:
-      assert((reglist & (1 << r12)) == 0);
-
-      // MOV{W,T} sr2, #scratch_regs
-      arm_copy_to_reg_32bit(&write_p, sr[2], (uint32_t)thread_data->scratch_regs);
-
-      // STR R12, [sr2, #0]
-      arm_str(&write_p, IMM_LDR, r12, sr[2], 0, 1, 1, 0);
-      write_p++;
-
-      // STR sr0, [sr2, #4] // CC target
-      arm_str(&write_p, IMM_LDR, sr[0], sr[2], 4, 1, 1, 0);
-      write_p++;
-
-      // MOV r12, sr2
-      arm_mov(&write_p, REG_PROC, 0, r12, sr[2]);
-      write_p++;
-
-      // POP {reglist - PC}
-      arm_pop_regs(reglist & 0x7FFF);
-
-      if ((reglist & (1 << pc)) && !(reglist & (1 << sp))) {
-        assert(pc_incr < 0x1000);
-        // ADD SP, SP, #4
-        arm_add(&write_p, IMM_PROC, 0, sp, sp, pc_incr);
-	      write_p++;
-      }
-
-      // LDM R12, {R12, PC}
-      arm_ldm(&write_p, r12, (1 << r12) | (1 << pc), 0, 1, 0, 0);
-      write_p++;
-      break;
-
-    default:
-      return -1;
-  }
-
-  *o_write_p = write_p;
-
-  return 0;
-}
-
-uint32_t arm_ihl_static_sr(uint32_t **o_write_p, uint32_t *sr) {
-  uint32_t to_push;
-  uint32_t *write_p = *o_write_p;
-
-  sr[0] = r4;
-  sr[1] = r5;
-  sr[2] = r6;
-
-  to_push = (1 << sr[0]) | (1 << sr[1]) | (1 << sr[2]);
-  arm_push_regs(to_push);
-
-  *o_write_p = write_p;
-  return to_push;
-}
-
-void arm_ihl_tr_rn_rm(uint32_t **o_write_p, uint32_t *read_address, uint32_t *sr, enum reg *rn, enum reg *rm, uint32_t *operand2) {
+void arm_ihl_tr_rn_rm(uint32_t **o_write_p, uint32_t *read_address, uint32_t available_regs,
+                      enum reg *rn, enum reg *rm, uint32_t *operand2) {
   uint32_t scratch_reg;
   uint32_t *write_p = *o_write_p;
+
+  assert(count_bits(available_regs) >= 2);
+  uint32_t sr[2];
+  sr[0] = next_reg_in_list(available_regs, 0);
+  sr[1] = next_reg_in_list(available_regs, sr[0] + 1);
 
   assert(*rn != pc || *rm != pc);
   if (*rn == pc || *rm == pc) {
     if (*rn == pc) {
-      scratch_reg = (*rm != sr[1]) ? sr[1] : sr[2];
+      scratch_reg = (*rm == sr[0]) ? sr[1] : sr[0];
       *rn = scratch_reg;
     } else if (*rm == pc) {
-      scratch_reg = (*rn != sr[1]) ? sr[1] : sr[2];
+      scratch_reg = (*rn == sr[0]) ? sr[1] : sr[0];
       *rm = scratch_reg;
       *operand2 = (*operand2 & (~0xF)) | *rm;
     }
@@ -592,6 +504,10 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
   }
   
   debug("write_p: %p\n", write_p);
+  
+  if (type != mambo_trace) {
+    arm_pop_regs((1 << r5) | (1 << r6));
+  }
 
 #ifdef DBM_TRACES
   branch_type bb_type;
@@ -639,6 +555,7 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
             rm = operand2 & 0xF;
           }
           if (rd == pc) {
+            assert(rn != sp && rm != sp);
             assert(set_flags == 0);
 #ifdef LINK_BX_ALT
             if ((*read_address >> 28) != AL) {
@@ -652,31 +569,24 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
             thread_data->code_cache_meta[basic_block].exit_branch_type = uncond_reg_arm;
             thread_data->code_cache_meta[basic_block].exit_branch_addr = (uint16_t *)write_p;
 
-#ifdef DBM_D_INLINE_HASH
+#ifdef DBM_INLINE_HASH
   #ifndef LINK_BX_ALT
-    assert(0);
+            assert(0);
   #endif
-            uint32_t sr[3];
-            uint32_t registers = 0;
+            uint32_t saved_regs = (1 << r4) | (1 << r5) | (1 << r6);
 
-            arm_ihl_static_sr(&write_p, sr);
-            registers = (1 << sr[0]) | (1 << sr[1]) | (1 << sr[2]);
-
-            arm_ihl_tr_rn_rm(&write_p, read_address, sr, &rn, &rm, &operand2);
-
-            arm_data_proc(&write_p, immediate, opcode, set_flags, sr[0], rn, operand2);
+            arm_push_regs(saved_regs);
+            arm_ihl_tr_rn_rm(&write_p, read_address, saved_regs, &rn, &rm, &operand2);
+            arm_data_proc(&write_p, immediate, opcode, set_flags, r4, rn, operand2);
             write_p++;
 
-            arm_check_free_space(thread_data, &write_p, &data_p, 104);
-
-            arm_inline_hash_lookup(thread_data, &write_p, basic_block, sr[0], sr[1], sr[2], registers, false, 4, NULL);
-            arm_ihl_result_branch(thread_data, IHL_BRANCH_LDR_PC_PC, &write_p, registers, sr, false, 4);
+            arm_inline_hash_lookup(thread_data, &write_p, basic_block);
 
             stop = true;
             break;
 #endif
             /* This is an indirect branch */
-            arm_branch_save_context(thread_data, &write_p);
+            arm_branch_save_context(thread_data, &write_p, true);
             arm_branch_jump(thread_data, &write_p, basic_block, 0, read_address, (*read_address >> 28), SETUP);
           }
           if (rn == pc && rm == pc) {
@@ -704,11 +614,10 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
             arm_cond_copy_to_reg_32bit(&write_p, *read_address >> 28, scratch_reg, (uint32_t)read_address + 8);
           }
 
-          if (inst != ARM_MOV || set_flags == 1) {
-            arm_data_proc_cond(&write_p, (*read_address >> 28), immediate, opcode, set_flags,
-                          (rd == pc) ? r0 : rd, (rn == pc) ? scratch_reg : rn, (rm == pc) ? (scratch_reg | (operand2 & 0xFF0)) : operand2);
-            write_p++;
-          }
+          arm_data_proc_cond(&write_p, (*read_address >> 28), immediate, opcode, set_flags,
+                             (rd == pc) ? r0 : rd, (rn == pc) ? scratch_reg : rn,
+                             (rm == pc) ? (scratch_reg | (operand2 & 0xFF0)) : operand2);
+          write_p++;
 
           // Restore the value of the scratch register
           if ((rn == pc || rm == pc) && rd != pc && scratch_reg != rd) {
@@ -716,7 +625,8 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
           }
 
           if (rd == pc) {
-            arm_branch_jump(thread_data, &write_p, basic_block, 0, read_address, (*read_address >> 28), INSERT_BRANCH);
+            arm_branch_jump(thread_data, &write_p, basic_block, 0, read_address,
+                            (*read_address >> 28), INSERT_BRANCH|LATE_APP_SP);
             stop = true;
           }
         }
@@ -761,7 +671,7 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
           write_p++;
         }
 
-        arm_branch_save_context(thread_data, &write_p);
+        arm_branch_save_context(thread_data, &write_p, false);
         arm_branch_jump(thread_data, &write_p, basic_block, offset, read_address, condition_code, SETUP|REPLACE_TARGET|INSERT_BRANCH);
         stop = true;
 
@@ -772,7 +682,7 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
       case ARM_BLX: {
         uint32_t link, rn;
         arm_bx_t_decode_fields(read_address, &link, &rn);
-        assert(rn != pc);
+        assert(rn != pc && rn != sp);
 
 #ifdef LINK_BX_ALT
         if ((*read_address >> 28) != AL) {
@@ -792,51 +702,30 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
         thread_data->code_cache_meta[basic_block].exit_branch_addr = (uint16_t *)write_p;
         thread_data->code_cache_meta[basic_block].rn = rn;
         
-#ifdef DBM_D_INLINE_HASH
+#ifdef DBM_INLINE_HASH
   #ifndef LINK_BX_ALT
-        assert(0);
+    #error LINK_BX_ALT is required
   #endif
-          uint32_t sr[3];
-          uint32_t to_push;
-          uint32_t registers = 0;
-          uint32_t *branch_addr;
+        arm_push_regs((1 << r4) | (1 << r5) | (1 << r6));
 
-          sr[0] = r4;
-          sr[1] = r5;
-          sr[2] = r6;
-          to_push = (1 << sr[0]) | (1 << sr[1]) | (1 << sr[2]);
+        if (rn != r4) {
+          arm_mov(&write_p, REG_PROC, 0, r4, rn);
+          write_p++;
+        }
 
-          if (to_push) {
-            arm_push_regs(to_push);
-            registers |= to_push;
-          }
-
-          // MOV sr[0], rn
-          if (sr[0] != rn) {
-            arm_mov(&write_p, REG_PROC, 0, sr[0], rn);
-            write_p++;
-          }
-
-          arm_check_free_space(thread_data, &write_p, &data_p, 116);
-
-          arm_inline_hash_lookup(thread_data, &write_p, basic_block, sr[0], sr[1], sr[2], registers, false, 4, &branch_addr);
-          arm_ihl_result_branch(thread_data, IHL_BRANCH_LDR_PC_PC, &write_p, registers, sr, false, 4);
-          stop = true;
-          break;
-#endif // DBM_D_INLINE_HASH
-
-#if !defined(DBM_D_INLINE_HASH)
-        arm_branch_save_context(thread_data, &write_p);
-
+        arm_check_free_space(thread_data, &write_p, &data_p, IHL_SPACE);
+        arm_inline_hash_lookup(thread_data, &write_p, basic_block);
+#else
+        arm_branch_save_context(thread_data, &write_p, true);
         arm_branch_jump(thread_data, &write_p, basic_block, 0, read_address, (*read_address >> 28), SETUP);
 
         // Branch taken (not taken MOV is inserted by arm_branch_jump(SETUP))
         arm_mov_cond(&write_p, (*read_address >> 28), REG_PROC, false, r0, rn);
         write_p++;
 
-        arm_branch_jump(thread_data, &write_p, basic_block, 0, read_address, (*read_address >> 28), INSERT_BRANCH);
+        arm_branch_jump(thread_data, &write_p, basic_block, 0, read_address,
+                        (*read_address >> 28), INSERT_BRANCH|LATE_APP_SP);
 #endif
-
         stop = true;
         break;
       }
@@ -853,7 +742,7 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
         thread_data->code_cache_meta[basic_block].exit_branch_type = uncond_blxi_arm;
         thread_data->code_cache_meta[basic_block].exit_branch_addr = (uint16_t *)write_p;
         
-        arm_branch_save_context(thread_data, &write_p);
+        arm_branch_save_context(thread_data, &write_p, false);
         arm_branch_jump(thread_data, &write_p, basic_block, 0, read_address, (*read_address >> 28), SETUP);
         
         arm_copy_to_reg_32bit(&write_p, r0, (uint32_t)read_address + 8 + branch_offset);
@@ -868,6 +757,7 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
         uint32_t rn, registers, prepostindex, updown, writeback, psr;
         int ret;
         arm_ldm_decode_fields(read_address, &rn, &registers, &prepostindex, &updown, &writeback, &psr);
+        assert(rn != pc);
 
         if ((registers & (1 << 15)) == 0) {
           copy_arm();
@@ -883,89 +773,44 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
 #else
           assert((condition_code >> 28) == AL);
 #endif
+          assert(writeback);
+          assert(((1 << rn) & registers) == 0);
+          if (registers & 0x7FFF) {
+            arm_ldm(&write_p, rn, registers & 0x7FFF, prepostindex, updown, writeback, psr);
+            write_p++;
+          }
 
           thread_data->code_cache_meta[basic_block].exit_branch_type = uncond_reg_arm;
           thread_data->code_cache_meta[basic_block].exit_branch_addr = (uint16_t *)write_p;
 
-#ifdef DBM_D_INLINE_HASH
-            uint32_t to_push = 0, sr[3];
-            if (rn != sp || !updown || (!writeback && !(registers & (1 << sp))) || prepostindex || psr) {
-              fprintf(stderr, "Panic: LDM ...{PC} not a POP\n");
-              while(1);
-            }
-
-            // ALLOWED_IHL_REGS is {R3 - R12, R14}
-            ret = get_n_regs(registers & ALLOWED_IHL_REGS, sr, 3);
-            if (ret != 3) {
-              // If this is a POP and enough low registers can be pushed...
-              if (rn == sp && (writeback || (registers & (1 << sp)))
-                  && ((int)next_reg_in_list(registers, 0) - 3 + count_bits(registers & ALLOWED_IHL_REGS)) >= 3) {
-                scratch_reg = r3 - 1; // it's incremented by at least 1 before use
-                for (int r = 0; r < 3; r++) {
-                  if (sr[r] == reg_invalid) {
-                    do {
-                      scratch_reg++;
-                    } while ((1 << scratch_reg) & registers);
-                    if (ret > 0) {
-                      assert(scratch_reg < sr[0]);
-                    }
-                    sr[r] = scratch_reg;
-                    to_push |= 1 << scratch_reg;
-                  }
-                }
-              } else {
-                assert((registers & (1 << rn)) == 0);
-                arm_ldm(&write_p, rn, registers & 0x7FFF, prepostindex, updown, writeback, psr);
-                write_p++;
-
-                registers = 1 << pc;
-
-                sr[0] = r4;
-                sr[1] = r5;
-                sr[2] = r6;
-                to_push = (1 << sr[0]) | (1 << sr[1]) | (1 << sr[2]);
-              }
-            }
-
-            if (to_push) {
-              arm_push_regs(to_push);
-              registers |= to_push;
-            }
-
-            // LDR SR[0], [SP, #pc_offset]
-            arm_ldr(&write_p, IMM_LDR, sr[0], rn, (count_bits(registers)-1) << 2, 1, 1, 0);
+#ifdef DBM_INLINE_HASH
+          if (rn == sp) {
+            assert(!prepostindex && updown && writeback && !psr);
+            arm_push_regs((1 << r4) | (1 << r5));
+            arm_ldr(&write_p, IMM_LDR, r4, sp, 8, 1, 1, 0);
             write_p++;
-
-            arm_check_free_space(thread_data, &write_p, &data_p, 112);
-            arm_inline_hash_lookup(thread_data, &write_p, basic_block, sr[0], sr[1], sr[2], registers, false, 4, NULL);
-            arm_ihl_result_branch(thread_data, IHL_BRANCH_LDR_PC_PC, &write_p, registers, sr, false, 4);
-
-            stop = true;
-            break;
-#endif
-          if ((registers & 0x7FFF) && (registers & (1 << rn)) == 0) {
-            arm_ldm_cond(&write_p, (condition_code >> 28), rn, registers & 0x7FFF, prepostindex, updown, writeback, psr);
-            write_p++;
-          }
-
-#if !defined(DBM_D_INLINE_HASH)
-          arm_branch_save_context(thread_data, &write_p);
-          arm_branch_jump(thread_data, &write_p, basic_block, 0, read_address, (*read_address >> 28), SETUP);
-
-          if ((registers & (1 << rn)) == 0) {
-            arm_ldm_cond(&write_p, (*read_address >> 28), rn, (1 << r0), prepostindex, updown, writeback, psr);
+            arm_str(&write_p, IMM_LDR, r6, sp, 8, 1, 1, 0);
             write_p++;
           } else {
-            assert (prepostindex == 0 && updown == 1); // untested
-
-            arm_ldr_cond(&write_p, (*read_address >> 28), IMM_LDR, r0, rn, (count_bits(registers) - 1) << 2, 1, 1, 0);
+            arm_push_regs((1 << r4) | (1 << r5) | (1 << r6));
+            arm_ldm(&write_p, rn, 1 << r4, prepostindex, updown, writeback, psr);
             write_p++;
-
-            if (registers & 0x7FFF) {
-              arm_ldm_cond(&write_p, (*read_address >> 28), rn, registers & 0x7FFF, prepostindex, updown, writeback, psr);
-              write_p++;
-            }
+            while(1);
           }
+
+          arm_check_free_space(thread_data, &write_p, &data_p, IHL_SPACE);
+          arm_inline_hash_lookup(thread_data, &write_p, basic_block);
+#else
+          arm_branch_save_context(thread_data, &write_p, false);
+          arm_branch_jump(thread_data, &write_p, basic_block, 0, read_address, (*read_address >> 28), SETUP);
+
+          assert(rn != r3);
+          if (rn == sp) {
+            rn = APP_SP;
+          }
+
+          arm_ldm_cond(&write_p, (*read_address >> 28), rn, (1 << r0), prepostindex, updown, writeback, psr);
+          write_p++;
 
           arm_branch_jump(thread_data, &write_p, basic_block, 0, read_address, (*read_address >> 28), INSERT_BRANCH);
 #endif
@@ -977,9 +822,7 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
       case ARM_LDRB:
       case ARM_LDR: {
         uint32_t immediate, rd, rn, offset, prepostindex, updown, writeback, rm = reg_invalid;
-#ifdef DBM_D_INLINE_HASH
-        uint32_t sr[3], registers, target_offset;
-#endif
+
         switch (inst) {
           case ARM_LDRB:
             arm_ldrb_decode_fields(read_address, &immediate, &rd, &rn, &offset, &prepostindex, &updown, &writeback);
@@ -1010,45 +853,54 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
             thread_data->code_cache_meta[basic_block].exit_branch_type = uncond_reg_arm;
             thread_data->code_cache_meta[basic_block].exit_branch_addr = (uint16_t *)write_p;
 
-#ifdef DBM_D_INLINE_HASH
+#ifdef DBM_INLINE_HASH
   #ifndef LINK_BX_ALT
             assert(0);
   #endif
-            arm_ihl_static_sr(&write_p, sr);
-            arm_ihl_tr_rn_rm(&write_p, read_address, sr, &rn, &rm, &offset);
-            registers = (1 << sr[0]) | (1 << sr[1]) | (1 << sr[2]);
-
+            uint32_t saved_regs;
+            assert(rm != pc);
             if (rn == sp) {
-              assert(!immediate && updown);
+              // POP {PC}
+              assert(immediate == IMM_LDR && !prepostindex && updown
+                       && !writeback && (offset & 3) == 0 && offset >= 4);
+              if (offset == 4) {
+                arm_push_regs((1 << r4) | (1 << r5));
+                arm_ldr(&write_p, IMM_LDR, r4, sp, 8, 1, 1, 0);
+                write_p++;
+                arm_str(&write_p, IMM_LDR, r6, sp, 8, 1, 1, 0);
+                write_p++;
+              } else { // offset > 4
+                // STR R6, [SP, #offset-4]
+                arm_str(&write_p, IMM_LDR, r6, sp, offset-4, 1, 1, 0);
+                write_p++;
 
-              target_offset = prepostindex ? offset : 0;
-              target_offset += count_bits(registers) << 2;
-              assert(target_offset < 0x1000);
-              arm_ldr(&write_p, IMM_LDR, sr[0], rn, target_offset, 1, 1, 0);
+                // LDR R6, [SP], #offset-4
+                arm_ldr(&write_p, IMM_LDR, r6, sp, offset-4, 0, 1, 0);
+                write_p++;
 
-              if (prepostindex) {
-                assert(!writeback);
-              } else {
-                registers |= (1 << pc);
+                // PUSH {R4, R5}
+                arm_push_regs((1 << r4) | (1 << r5));
+
+                // MOV R4, R6
+                arm_mov(&write_p, REG_PROC, 0, r4, r6);
+                write_p++;
               }
-            } else { // rn != sp
-              arm_ldr(&write_p, immediate, sr[0], rn, offset, prepostindex, updown, writeback);
-              if (writeback) {
-                // Ensure the writeback is not applied to one of the previously saved scratch registers
-                assert(((1 << rn) & registers) == 0);
-              }
+            } else {
+              saved_regs =  (1 << r4) | (1 << r5) | (1 << r6);
+              arm_push_regs(saved_regs);
+              arm_ihl_tr_rn_rm(&write_p, read_address, saved_regs, &rn, &rm, &offset);
+              arm_ldr(&write_p, immediate, r4, rn, offset, prepostindex, updown, writeback);
+              write_p++;
             }
-            write_p++;
+            arm_check_free_space(thread_data, &write_p, &data_p, IHL_SPACE);
+            arm_inline_hash_lookup(thread_data, &write_p, basic_block);
 
-            arm_check_free_space(thread_data, &write_p, &data_p, 112);
-
-            arm_inline_hash_lookup(thread_data, &write_p, basic_block, sr[0], sr[1], sr[2], registers, false, offset, NULL);
-            arm_ihl_result_branch(thread_data, IHL_BRANCH_LDR_PC_PC, &write_p, registers, sr, false, offset);
-            
             stop = true;
             break;
 #endif
-            arm_branch_save_context(thread_data, &write_p);
+            assert(rm != sp && rn != r3 && rm != r3);
+
+            arm_branch_save_context(thread_data, &write_p, false);
             arm_branch_jump(thread_data, &write_p, basic_block, 0, read_address, (*read_address >> 28), SETUP);
           }
           scratch_reg = r0;
@@ -1061,7 +913,11 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
             }
             arm_cond_copy_to_reg_32bit(&write_p, condition_code >> 28, scratch_reg, (uint32_t)read_address + 8);
           }
-            
+
+          if (rd == pc && rn == sp) {
+            rn = APP_SP;
+          }
+
           switch (inst) {
             case ARM_LDRB:
               arm_ldrb_cond(&write_p, (condition_code >> 28), immediate, (rd == pc) ? r0 : rd, (rn == pc) ? scratch_reg : rn, offset, prepostindex, updown, writeback);
@@ -1896,7 +1752,9 @@ void arm_encode_stub_bb(dbm_thread *thread_data, int basic_block, uint32_t targe
   debug("Stub BB: %p\n", write_p);
   debug("ARM stub target: 0x%x\n", target);
 
-  arm_branch_save_context(thread_data, &write_p);
+  arm_pop_regs((1 << r5) | (1 << r6));
+
+  arm_branch_save_context(thread_data, &write_p, false);
   arm_branch_jump(thread_data, &write_p, basic_block, 0, (uint32_t *)(target - 8), AL, SETUP|REPLACE_TARGET|INSERT_BRANCH);
 }
 
