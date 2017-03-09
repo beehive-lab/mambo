@@ -3119,6 +3119,10 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
         break;
       }
 
+      case THUMB_NEON_VLDX_S_O:
+      case THUMB_NEON_VSTX_S_O:
+      case THUMB_NEON_VLDX_S_A:
+      case THUMB_NEON_VLDX_M:
       case THUMB_NEON_VSTX_M: {
         thumb_neon_vstx_m_decode_fields(read_address, &opcode, &size, &d, &vd, &rn, &align, &rm);
         assert(rn != pc); // rm == pc has a special meaning, doesn't actually use the PC
@@ -3127,31 +3131,91 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
         break;
       }
 
+      case THUMB_VFP_VMOV_CORE_SCAL:
+        thumb_vfp_vmov_core_scal_decode_fields(read_address, &d, &vd, &opc1, &opc2, &rt);
+        assert(rt != pc);
+        copy_thumb_32();
+        it_cond_handled = true;
+        break;
+
       /* NEON and VFP instructions which can't access the PC */
-      case THUMB_VFP_VPUSH:
-      case THUMB_VFP_VPOP:
+      case THUMB_NEON_VABD_I:
+      case THUMB_NEON_VADD_I:
+      case THUMB_NEON_VADDL:
+      case THUMB_NEON_VADDW:
+      case THUMB_NEON_VAND:
+      case THUMB_NEON_VBIC:
+      case THUMB_NEON_VBSL:
+      case THUMB_NEON_VCGT_I:
+      case THUMB_NEON_VCLTZ:
+      case THUMB_NEON_VDUP_SCAL:
+      case THUMB_NEON_VEOR:
+      case THUMB_NEON_VEXT:
+      case THUMB_NEON_VHADD:
+      case THUMB_NEON_VMAX_I:
+      case THUMB_NEON_VMIN_I:
+      case THUMB_NEON_VMLAL_I:
+      case THUMB_NEON_VMLA_SCAL:
+      case THUMB_NEON_VMLS_SCAL:
+      case THUMB_NEON_VMOVI:
+      case THUMB_NEON_VMOVL:
+      case THUMB_NEON_VMOVN:
+      case THUMB_NEON_VMUL_I:
+      case THUMB_NEON_VMULL_I:
+      case THUMB_NEON_VMUL_SCAL:
+      case THUMB_NEON_VMVN:
+      case THUMB_NEON_VNEG:
+      case THUMB_NEON_VORN:
+      case THUMB_NEON_VORR:
+      case THUMB_NEON_VPADD_I:
+      case THUMB_NEON_VPADDL:
+      case THUMB_NEON_VQADD:
+      case THUMB_NEON_VQMOVN:
+      case THUMB_NEON_VQMOVUN:
+      case THUMB_NEON_VQRSHRUN:
+      case THUMB_NEON_VQSHRUN:
+      case THUMB_NEON_VQSUB:
+      case THUMB_NEON_VREV32:
+      case THUMB_NEON_VREV64:
+      case THUMB_NEON_VRHADD:
+      case THUMB_NEON_VRSHR:
+      case THUMB_NEON_VRSHRN:
+      case THUMB_NEON_VSHL:
+      case THUMB_NEON_VSHLI:
+      case THUMB_NEON_VSHLL:
+      case THUMB_NEON_VSHR:
+      case THUMB_NEON_VSHRN:
+      case THUMB_NEON_VSLI:
+      case THUMB_NEON_VSUB_I:
+      case THUMB_NEON_VSUBL:
+      case THUMB_NEON_VSUBW:
+      case THUMB_NEON_VSWP:
+      case THUMB_NEON_VTRN:
+      case THUMB_NEON_VTST:
+      case THUMB_VFP_VABS:
+      case THUMB_VFP_VADD:
+      case THUMB_VFP_VCMP:
+      case THUMB_VFP_VCMPE:
+      case THUMB_VFP_VCMPEZ:
+      case THUMB_VFP_VCMPZ:
+      case THUMB_VFP_VCVT_DP_SP:
+      case THUMB_VFP_VCVT_F_FP:
       case THUMB_VFP_VCVT_F_I:
       case THUMB_VFP_VDIV:
-      case THUMB_VFP_VMOVI:
-      case THUMB_VFP_VADD:
-      case THUMB_VFP_VCVT_F_FP:
-      case THUMB_VFP_VMUL:
-      case THUMB_VFP_VSUB:
-      case THUMB_VFP_VCMPZ:
-      case THUMB_VFP_VMRS: // rt=0xF is CPSR
-      case THUMB_VFP_VCVT_DP_SP:
-      case THUMB_VFP_VMOV:
       case THUMB_VFP_VMLA_F:
-      case THUMB_VFP_VNMLS:
-      case THUMB_VFP_VNEG:
-      case THUMB_VFP_VCMPE:
-      case THUMB_VFP_VCMP:
-      case THUMB_VFP_VCMPEZ:
-      case THUMB_VFP_VABS:
       case THUMB_VFP_VMLS_F:
-      case THUMB_VFP_VNMUL:
-      case THUMB_VFP_VSQRT:
+      case THUMB_VFP_VMOV:
+      case THUMB_VFP_VMOVI:
+      case THUMB_VFP_VMRS: // rt=0xF is CPSR
+      case THUMB_VFP_VMUL:
+      case THUMB_VFP_VNEG:
       case THUMB_VFP_VNMLA:
+      case THUMB_VFP_VNMLS:
+      case THUMB_VFP_VNMUL:
+      case THUMB_VFP_VPOP:
+      case THUMB_VFP_VPUSH:
+      case THUMB_VFP_VSQRT:
+      case THUMB_VFP_VSUB:
         copy_thumb_32();
         it_cond_handled = true;
         break;

@@ -1775,6 +1775,7 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
       case ARM_NEON_VMLAL_SCAL:
       case ARM_NEON_VMLA_SCAL:
       case ARM_NEON_VMLS_F:
+      case ARM_NEON_VMLSL_I:
       case ARM_NEON_VMLSL_SCAL:
       case ARM_NEON_VMLS_SCAL:
       case ARM_NEON_VMOVI:
@@ -1809,6 +1810,7 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
       case ARM_NEON_VRSHL:
       case ARM_NEON_VRSHR:
       case ARM_NEON_VRSHRN:
+      case ARM_NEON_VRSRA:
       case ARM_NEON_VSHL:
       case ARM_NEON_VSHLI:
       case ARM_NEON_VSHLL:
@@ -1837,6 +1839,8 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
       case ARM_VFP_VCVT_F_I:
       case ARM_VFP_VDIV:
       case ARM_VFP_VFMA:
+      case ARM_VFP_VFMS:
+      case ARM_VFP_VFNMS:
       case ARM_VFP_VMLA_F:
       case ARM_VFP_VMLS_F:
       case ARM_VFP_VMOV:
