@@ -281,7 +281,17 @@ void dispatcher(uintptr_t target, uint32_t source_index, uintptr_t *next_addr, d
 	    __clear_cache((char *)(branch_addr)-6, (char *)branch_addr);
 
 	    record_cc_link(thread_data, (uint32_t)branch_addr|FULLADDR, block_address);
+      break;
 
+    case uncond_blxi_arm:
+      branch_addr = thread_data->code_cache_meta[source_index].exit_branch_addr;
+
+      arm_ldr((uint32_t **)&branch_addr, IMM_LDR, pc, pc, 4, 1, 0, 0);
+      branch_addr += 2;
+      *(uint32_t *)branch_addr = block_address;
+      __clear_cache((char *)(branch_addr-2), (char *)branch_addr);
+
+      record_cc_link(thread_data, (uint32_t)branch_addr|FULLADDR, block_address);
       break;
 #endif // __arm__
 #ifdef __aarch64__

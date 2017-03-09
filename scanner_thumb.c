@@ -631,10 +631,13 @@ void thumb_encode_cbz_branch(dbm_thread *thread_data,
   *o_write_p = write_p;
 }
 
-void thumb_inline_hash_lookup(dbm_thread *thread_data, uint16_t **o_write_p, int basic_block) {
+void thumb_inline_hash_lookup(dbm_thread *thread_data, uint16_t **o_write_p, int basic_block, int r_target) {
   uint16_t *loop_start;
   uint16_t *branch_miss;
   uint16_t *write_p = *o_write_p;
+
+  bool target_reg_clean = (r_target >= r0);
+  int target = target_reg_clean ? r_target : r4;
 
   // MOVW+MOVT r5, hash_mask
   copy_to_reg_32bit(&write_p, r5, CODE_CACHE_HASH_SIZE);
@@ -643,7 +646,7 @@ void thumb_inline_hash_lookup(dbm_thread *thread_data, uint16_t **o_write_p, int
   copy_to_reg_32bit(&write_p, r6, (uint32_t)thread_data->entry_address.entries);
 
   // AND R5, R4, R5
-  thumb_and32(&write_p, 0, r4, 0, r5, 0, 0, r5);
+  thumb_and32(&write_p, 0, target, 0, r5, 0, 0, r5);
   write_p += 2;
 
   // ADD R5, R6, R5, LSL #3
@@ -658,16 +661,18 @@ void thumb_inline_hash_lookup(dbm_thread *thread_data, uint16_t **o_write_p, int
   write_p += 2;
 
   // CMP r6, r4
-  thumb_cmp32(&write_p, r6, 0, 0, 0, r4);
+  thumb_cmp32(&write_p, r6, 0, 0, 0, target);
   write_p += 2;
 
   // BNE miss
   branch_miss = write_p++;
 
   // jump:
-  // POP {R4}
-  thumb_pop16(&write_p, (1 << r4));
-  write_p++;
+  if (!target_reg_clean) {
+    // POP {R4}
+    thumb_pop16(&write_p, (1 << r4));
+    write_p++;
+  }
 
   // LDR R6, [R5, #-4]
   thumb_ldri32(&write_p, r5, r6, 4, 1, 0, 0);
@@ -690,15 +695,22 @@ void thumb_inline_hash_lookup(dbm_thread *thread_data, uint16_t **o_write_p, int
 
   // SUB SP, SP, #8
   // PUSH {R0 - R3}
-  // ADD R3, SP, #24
-  branch_save_context(thread_data, &write_p, false);
+  branch_save_context(thread_data, &write_p, true);
 
   // MOV R0, R4
-  thumb_movh16(&write_p, r0 >> 3, r4, r0);
+  thumb_movh16(&write_p, r0 >> 3, target, r0);
   write_p++;
 
+  // ADD R3, SP, #24
+  thumb_addi32(&write_p, 0, 0, sp, 0, r3, 24);
+  write_p += 2;
+
   // LDMFD R3!, {R4-R6}
-  thumb_ldmfd32(&write_p, 1, r3, (1 << r4) | (1 << r5) | (1 << r6));
+  if (target_reg_clean) {
+    thumb_ldmfd32(&write_p, 1, r3, (1 << r5) | (1 << r6));
+  } else {
+    thumb_ldmfd32(&write_p, 1, r3, (1 << r4) | (1 << r5) | (1 << r6));
+  }
   write_p += 2;
 
   // MOV R1, #bb_id
@@ -1215,7 +1227,7 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
           write_p += 2;
 
 #ifdef DBM_INLINE_HASH
-          thumb_inline_hash_lookup(thread_data, &write_p, basic_block);
+          thumb_inline_hash_lookup(thread_data, &write_p, basic_block, -1);
 #else
           branch_jump(thread_data, &write_p, basic_block, 0, SETUP|INSERT_BRANCH|LATE_APP_SP);
 #endif
@@ -1251,7 +1263,7 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
       case THUMB_BX16:
       case THUMB_BLX16:
         thumb_bx_16_decode_fields(read_address, &link, &rm);
-        assert(rm != sp);
+        assert(rm != sp && (inst != THUMB_BLX16 || rm != lr));
         /* Handle conditional execution: either a direct branch to the basic block for
            read_address + 2 or a call to the dispatcher */
         thread_data->code_cache_meta[basic_block].exit_branch_type = uncond_reg_thumb;
@@ -1339,15 +1351,21 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
         }
 
 #ifdef DBM_INLINE_HASH
-        assert(rm != sp);
-        thumb_push16(&write_p, (1 << r4) | (1 << r5) | (1 << r6));
+        assert(rm != sp && rm != pc);
+        int r_target = -1;
+        if (rm != r5 && rm != r6) {
+          r_target = rm;
+          thumb_push16(&write_p, (1 << r5) | (1 << r6));
+        } else {
+          thumb_push16(&write_p, (1 << r4) | (1 << r5) | (1 << r6));
+        }
         write_p++;
 
-        if (rm != r4) {
+        if (r_target < r0) {
           thumb_movh16(&write_p, 0, rm, r4);
           write_p++;
         }
-        thumb_inline_hash_lookup(thread_data, &write_p, basic_block);
+        thumb_inline_hash_lookup(thread_data, &write_p, basic_block, r_target);
 #else
         branch_save_context(thread_data, &write_p, true);
 
@@ -1547,7 +1565,7 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
           thumb_str_sp16(&write_p, r6, 2);
           write_p++;
 
-          thumb_inline_hash_lookup(thread_data, &write_p, basic_block);
+          thumb_inline_hash_lookup(thread_data, &write_p, basic_block, -1);
 #else
           thumb_pop16(&write_p, reglist & 0xFF);
           write_p++;
@@ -1909,7 +1927,7 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
               while(1);
             }
 
-            thumb_inline_hash_lookup(thread_data, &write_p, basic_block);
+            thumb_inline_hash_lookup(thread_data, &write_p, basic_block, -1);
 #else
             scratch_reg = (rn == r0) ? 1 : 0;
             branch_save_context(thread_data, &write_p, false);
@@ -2021,7 +2039,7 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
           write_p += 2;
 
 #ifdef DBM_INLINE_HASH
-          thumb_inline_hash_lookup(thread_data, &write_p, basic_block);
+          thumb_inline_hash_lookup(thread_data, &write_p, basic_block, -1);
 #else
           branch_jump(thread_data, &write_p, basic_block, target, SETUP|INSERT_BRANCH|LATE_APP_SP);
 #endif
@@ -2732,7 +2750,7 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
             thumb_load_store_multiple32(&write_p, opcode, writeback, load_store, r0, reglist);
             write_p += 2;
           }
-          thumb_inline_hash_lookup(thread_data, &write_p, basic_block);
+          thumb_inline_hash_lookup(thread_data, &write_p, basic_block, -1);
 #else
           branch_save_context(thread_data, &write_p, false);
           assert(rn != r3);
