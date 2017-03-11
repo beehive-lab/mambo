@@ -41,12 +41,14 @@ dispatcher_trampoline:
   #TODO: INSTALL our own stack
 
 #A subroutine must preserve the contents of the registers r4-r8, r10, r11 and SP (and r9 in PCS variants that designate r9 as v6).
-  PUSH {r3 - r4, r9, r12, lr}
-  # PUSH CPSR
-  MRS r2, CPSR
-  PUSH {R2}
-  # R0 is the target, R2 is the location where to save the TPC
+  PUSH {r3 - r6, r9, r12, lr}
   SUB R2, R3, #4
+  VPUSH {d16-d31}
+  VPUSH {d0-d7}
+
+  MRS r5, CPSR
+  VMRS r6, FPSCR
+
   LDR R3, disp_thread_data
   LDR R9, dispatcher_addr
 
@@ -56,10 +58,13 @@ dispatcher_trampoline:
   BLX R9
   MOV SP, R4
 
-  # RESTORE CPSR
-  POP {R1}
-  MSR CPSR, r1
-  POP {r3 - r4, r9, r12, lr}
+  MSR CPSR, r5
+  VMSR FPSCR, r6
+
+  VPOP {d0-d7}
+  VPOP {d16-d31}
+  POP {r3 - r6, r9, r12, lr}
+
   LDR R1, [SP, #12]
   STR R1, [R3, #-8]
   POP {R0, R1, R2}
@@ -183,10 +188,14 @@ create_trace_trampoline:
   BX PC
   NOP
 .code 32
-  MRS r2, CPSR
-  PUSH {R2, R3, R4, R9, R12}
+  PUSH {R3 - R6, R9, R12}
+  ADD R2, SP, #24
+  VPUSH {D16-D31}
+  VPUSH {D0-D7}
 
-  ADD R2, SP, #20
+  MRS R5, CPSR
+  VMRS R6, FPSCR
+
   MOV R1, R0
   LDR R0, disp_thread_data
   LDR R3, =create_trace
@@ -196,8 +205,12 @@ create_trace_trampoline:
   BLX R3
   MOV SP, R4
 
-  POP {R2, R3, R4, R9, R12}
-  MSR CPSR, r2
+  MSR CPSR, R5
+  VMSR FPSCR, R6
+
+  VPOP {D0-D7}
+  VPOP {D16-D31}
+  POP {R3 - R6, R9, R12}
 
   ADD R2, SP, #4
   LDM R2, {R0-R2, LR}
