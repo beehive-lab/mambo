@@ -1,28 +1,69 @@
-CC=gcc
-CFLAGS=-g -std=gnu99 -mcpu=native #-DPLUGINS_NEW #-DDEBUG -DVERBOSE
-OPTS=-O2 -DDBM_LINK_UNCOND_IMM  -DDBM_INLINE_UNCOND_IMM -DDBM_LINK_COND_IMM -DLINK_BX_ALT -DDBM_LINK_CBZ -DDBM_LINK_TBZ -DDBM_INLINE_HASH -DDBM_TB_DIRECT -DDBM_TRACES #-DTB_AS_TRACE_HEAD #-DBLXI_AS_TRACE_HEAD #-DCC_HUGETLB #-DMETADATA_HUGETLB #-DFAST_BT
+#PLUGINS+=plugins/branch_count.c
+#PLUGINS+=plugins/soft_div.c
+#PLUGINS+=plugins/tb_count.c
+
+OPTS= -DDBM_LINK_UNCOND_IMM
+OPTS+=-DDBM_INLINE_UNCOND_IMM
+OPTS+=-DDBM_LINK_COND_IMM
+OPTS+=-DDBM_LINK_CBZ
+OPTS+=-DDBM_LINK_TBZ
+OPTS+=-DDBM_TB_DIRECT #-DFAST_BT
+OPTS+=-DLINK_BX_ALT
+OPTS+=-DDBM_INLINE_HASH
+OPTS+=-DDBM_TRACES #-DTB_AS_TRACE_HEAD #-DBLXI_AS_TRACE_HEAD
+#OPTS+=-DCC_HUGETLB -DMETADATA_HUGETLB
+
+CFLAGS=-g -std=gnu99 -O2
+#CFLAGS+=-mcpu=native
+
 LDFLAGS=-static -ldl -Wl,-Ttext-segment=0xa8000000
 LIBS=-lelf -lpthread
-HEADERS=dbm.h common.h api/plugin_support.h api/emit_arm.h api/emit_thumb.h api/emit_a64.h api/helpers.h makefile
+HEADERS=dbm.h common.h api/plugin_support.h api/helpers.h makefile
 INCLUDES=-I/usr/include/libelf
-SOURCES=elf_loader/elf_loader.o pie/pie-arm-encoder.o pie/pie-arm-decoder.o pie/pie-arm-field-decoder.o pie/pie-thumb-encoder.o pie/pie-thumb-decoder.o pie/pie-thumb-field-decoder.o pie/pie-a64-encoder.o pie/pie-a64-decoder.o pie/pie-a64-field-decoder.o dispatcher.S scanner_thumb.c scanner_arm.c scanner_a64.c common.c dbm.c traces.c syscalls.c dispatcher.c signals.c api/emit_arm.c api/emit_thumb.c api/emit_a64.c api/helpers.c api/plugin_support.c util.S
-PLUGINS=plugins/soft_div.c plugins/tb_count.c
+SOURCES= dispatcher.S common.c dbm.c traces.c syscalls.c dispatcher.c signals.c util.S
+SOURCES+=api/helpers.c api/plugin_support.c
+SOURCES+=elf_loader/elf_loader.o
 
-all: pie dbm
+ARCH=$(shell $(CROSS_COMPILE)$(CC) -dumpmachine | awk -F '-' '{print $$1}')
+ifeq ($(ARCH),arm)
+	CFLAGS += -mfpu=neon
+	HEADERS += api/emit_arm.h api/emit_thumb.h
+	PIE = pie/pie-arm-encoder.o pie/pie-arm-decoder.o pie/pie-arm-field-decoder.o
+	PIE += pie/pie-thumb-encoder.o pie/pie-thumb-decoder.o pie/pie-thumb-field-decoder.o
+	SOURCES += scanner_thumb.c scanner_arm.c
+	SOURCES += api/emit_arm.c api/emit_thumb.c
+endif
+ifeq ($(ARCH),aarch64)
+	HEADERS += api/emit_a64.h
+	PIE += pie/pie-a64-field-decoder.o pie/pie-a64-encoder.o pie/pie-a64-decoder.o
+	SOURCES += scanner_a64.c
+	SOURCES += api/emit_a64.c
+endif
 
-.PHONY: pie
+ifdef PLUGINS
+	CFLAGS += -DPLUGINS_NEW
+endif
+
+.PHONY: pie clean cleanall
+
+all:
+	$(info MAMBO: detected architecture "$(ARCH)")
+	@$(MAKE) --no-print-directory pie && $(MAKE) --no-print-directory dbm
+
 pie:
-	make --no-print-directory -C pie/ all
+	@$(MAKE) --no-print-directory -C pie/ native
 
 %.o: %.c %.h
 	$(CROSS_COMPILE)$(CC) $(CFLAGS) -c -o $@ $<
 
 dbm: $(HEADERS) $(SOURCES) $(PLUGINS)
-	$(CROSS_COMPILE)$(CC) -o $@ $(INCLUDES) $(SOURCES) $(PLUGINS) $(CFLAGS) $(OPTS) $(LDFLAGS) $(LIBS)
+	$(CROSS_COMPILE)$(CC) $(CFLAGS) $(LDFLAGS) $(OPTS) $(INCLUDES) -o $@ $(SOURCES) $(PLUGINS) $(PIE) $(LIBS)
 
-.PHONY: clean
 clean:
-	rm dbm elf_loader/elf_loader.o
+	rm -f dbm elf_loader/elf_loader.o
+
+cleanall: clean
+	$(MAKE) -C pie/ clean
 
 api/emit_%.c: pie/pie-%-encoder.c api/generate_emit_wrapper.rb
 	ruby api/generate_emit_wrapper.rb $< > $@

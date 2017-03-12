@@ -23,9 +23,12 @@
 #include <stdbool.h>
 #include <signal.h>
 #include <limits.h>
+#include <stdint.h>
 
+#ifdef __arm__
 #include "pie/pie-arm-decoder.h"
 #include "pie/pie-thumb-decoder.h"
+#endif
 
 #include "common.h"
 #include "util.h"

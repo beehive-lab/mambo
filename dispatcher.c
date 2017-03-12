@@ -23,9 +23,12 @@
 
 #include "dbm.h"
 #include "scanner_common.h"
+#ifdef __arm__
 #include "pie/pie-thumb-encoder.h"
 #include "pie/pie-arm-encoder.h"
+#elif __aarch64__
 #include "pie/pie-a64-encoder.h"
+#endif
 
 #ifdef DEBUG
   #define debug(...) fprintf(stderr, __VA_ARGS__)

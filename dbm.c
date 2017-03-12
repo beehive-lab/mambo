@@ -37,10 +37,11 @@
 
 #include "elf_loader/elf_loader.h"
 
+#ifdef __arm__
 #include "pie/pie-thumb-decoder.h"
 #include "pie/pie-thumb-encoder.h"
-
 #include "pie/pie-arm-encoder.h"
+#endif
 
 #ifdef DEBUG
   #define debug(...) fprintf(stderr, __VA_ARGS__)
