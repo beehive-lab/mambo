@@ -1,0 +1,4 @@
+mmap_munmap
+mprotect_exec
+self_modifying
+signals
