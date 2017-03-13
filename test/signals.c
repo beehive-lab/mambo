@@ -4,8 +4,11 @@
 #include <unistd.h>
 #include <stdint.h>
 #include <sys/mman.h>
+#ifdef __arm__
 #include "../pie/pie-arm-encoder.h"
+#elif __aarch64__
 #include "../pie/pie-a64-encoder.h"
+#endif
 #include "../scanner_public.h"
 
 void signal_handler(int i, siginfo_t *info, void *ptr) {

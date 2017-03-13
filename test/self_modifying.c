@@ -24,8 +24,11 @@
 #include <sys/mman.h>
 #include <asm/unistd.h>
 
+#ifdef __arm__
 #include "../pie/pie-arm-encoder.h"
+#elif __aarch64__
 #include "../pie/pie-a64-encoder.h"
+#endif
 #include "../scanner_public.h"
 
 #define PAGESZ   4096
