@@ -196,8 +196,12 @@ int syscall_handler_pre(uint32_t syscall_no, uint32_t *args, uint16_t *next_inst
       args[0] = 0;
       return 0;
       break;
-    case __NR_readlinkat:
-      if (strcmp((char *)args[1], "/proc/self/exe") == 0 ||
+    case __NR_readlinkat: {
+      const int proc_buflen = 100;
+      char buf[proc_buflen];
+      snprintf(buf, proc_buflen, "/proc/%d/exe", getpid());
+      if (strcmp((char *)args[1], buf) == 0 ||
+          strcmp((char *)args[1], "/proc/self/exe") == 0 ||
           strcmp((char *)args[1], "/proc/thread-self/exe") == 0) {
         char path[PATH_MAX];
         char *rp = realpath(global_data.argv[1], path);
@@ -214,6 +218,7 @@ int syscall_handler_pre(uint32_t syscall_no, uint32_t *args, uint16_t *next_inst
         return 0;
       }
       break;
+    }
     /* Remove the execute permission from application mappings. At this point, this mostly acts
        as a safeguard in case a translation bug causes a branch to unmodified application code.
        Page permissions happen to be passed in the third argument both for mmap and mprotect. */
