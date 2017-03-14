@@ -380,6 +380,7 @@ void record_cc_link(dbm_thread *thread_data, uintptr_t linked_from, uintptr_t li
   if (linked_to < 0) return;
 
   ll_entry *entry = linked_list_alloc(thread_data->cc_links);
+  assert(entry != NULL);
 
   entry->data = linked_from;
   entry->next = thread_data->code_cache_meta[linked_to].linked_from;
