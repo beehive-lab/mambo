@@ -901,7 +901,7 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
           a64_branch_jump(thread_data, &write_p, basic_block, (uint64_t)read_address,
                           REPLACE_TARGET | INSERT_BRANCH);
           stop = true;
-          fprintf(stderr, "WARN: deferred scanning because of unknown instruction at: %p\n", read_address);
+          debug("WARN: deferred scanning because of unknown instruction at: %p\n", read_address);
         } else {
           fprintf(stderr, "Unknown A64 instruction: %d at %p\n", inst, read_address);
           while(1);
