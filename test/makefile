@@ -6,6 +6,10 @@ ifeq ($(ARCH),aarch64)
 	PIE = ../pie/pie-a64-encoder.o
 endif
 
+LDFLAGS=-lpthread
+
+.PHONY: clean
+
 portable: mmap_munmap mprotect_exec self_modifying signals
 
 aarch32: portable hw_div
@@ -16,6 +20,8 @@ hw_div: hw_div.S
 	$(CC) -mcpu=cortex-a15 $< -o $@
 
 self_modifying: $(PIE) self_modifying.c
-	$(CC) $(CFLAGS) -o $@ $^ -lpthread
 
 signals: $(PIE) signals.c
+
+clean:
+	rm -f mmap_munmap mprotect_exec self_modifying signals hw_div

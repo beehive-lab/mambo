@@ -2,8 +2,10 @@
 #include <signal.h>
 #include <assert.h>
 #include <unistd.h>
+#include <asm/unistd.h>
 #include <stdint.h>
 #include <sys/mman.h>
+#include <pthread.h>
 #ifdef __arm__
 #include "../pie/pie-arm-encoder.h"
 #elif __aarch64__
@@ -13,6 +15,8 @@
 
 FILE *nulldev;
 int count = 0;
+
+#define SIGNAL_CNT (10*1000)
 
 void sigusr_handler(int i, siginfo_t *info, void *ptr) {
   printf("success\n");
@@ -55,6 +59,17 @@ void fill_cc() {
   munmap(code, JUNK_CODE_SIZE);
 }
 
+void *signal_parent(void *data) {
+  int tid = *(int *)data;
+  int pid = syscall(__NR_getpid);
+  int ret;
+
+  for (int i = 0; i < SIGNAL_CNT; i++) {
+    ret = syscall(__NR_tgkill, pid, tid, SIGRTMIN);
+    assert(ret == 0);
+  }
+}
+
 int main (int argc, char **argv) {
   int ret;
 
@@ -66,17 +81,18 @@ int main (int argc, char **argv) {
   assert(ret == 0);
 
   printf("Simple signal handler: ");
+  fflush(stdout);
   ret = kill(getpid(), SIGUSR1);
   assert(ret == 0);
-  printf("Back to main()\n");
 
   printf("Signal after flushing the code cache: ");
+  fflush(stdout);
   fill_cc();
   ret = kill(getpid(), SIGUSR1);
   assert(ret == 0);
-  printf("Back to main()\n");
 
-  printf("Test against race conditions between code generation and signals:\n");
+  printf("Test against race conditions between code generation and signals: ");
+  fflush(stdout);
   nulldev = fopen("/dev/null", "r+");
   assert(nulldev != NULL);
 
@@ -100,6 +116,19 @@ int main (int argc, char **argv) {
   it.it_value.tv_usec = 0;
   ret = setitimer(ITIMER_REAL, &it, NULL);
   assert(ret == 0);
-  printf("Test completed succesfully\n");
-  printf("Sig handler count: %d\n", count);
+  printf("success\n");
+
+  printf("Test for missed signals: ");
+  fflush(stdout);
+  count = 0;
+  int tid = syscall(__NR_gettid);
+
+  ret = sigaction(SIGRTMIN, &act, NULL);
+  assert(ret == 0);
+
+  pthread_t thread;
+  pthread_create(&thread, NULL, signal_parent, &tid);
+  pthread_join(thread, NULL);
+  assert(count == SIGNAL_CNT);
+  printf("success\n");
 }
