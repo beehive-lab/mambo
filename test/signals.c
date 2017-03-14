@@ -11,8 +11,18 @@
 #endif
 #include "../scanner_public.h"
 
-void signal_handler(int i, siginfo_t *info, void *ptr) {
+FILE *nulldev;
+int count = 0;
+
+void sigusr_handler(int i, siginfo_t *info, void *ptr) {
   printf("success\n");
+}
+
+void alarm_handler(int i, siginfo_t *info, void *ptr) {
+  // Here we need a relatively slow function which uses a high number of registers.
+  // We call fprintf for convenience.
+  fprintf(nulldev, "alarm\n");
+  count++;
 }
 
 #ifdef __arm__
@@ -26,7 +36,7 @@ void signal_handler(int i, siginfo_t *info, void *ptr) {
 #endif
 
 // Fill the CC
-#define JUNK_CODE_SIZE (15*1024*1024)
+#define JUNK_CODE_SIZE (10*1024*1024)
 void fill_cc() {
   int i;
   uint32_t *code = mmap(NULL, JUNK_CODE_SIZE, PROT_EXEC | PROT_READ | PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
@@ -49,7 +59,7 @@ int main (int argc, char **argv) {
   int ret;
 
   struct sigaction act;
-  act.sa_sigaction = signal_handler;
+  act.sa_sigaction = sigusr_handler;
   sigemptyset(&act.sa_mask);
   act.sa_flags = SA_SIGINFO;
   ret = sigaction(SIGUSR1, &act, NULL);
@@ -65,4 +75,31 @@ int main (int argc, char **argv) {
   ret = kill(getpid(), SIGUSR1);
   assert(ret == 0);
   printf("Back to main()\n");
+
+  printf("Test against race conditions between code generation and signals:\n");
+  nulldev = fopen("/dev/null", "r+");
+  assert(nulldev != NULL);
+
+  act.sa_sigaction = alarm_handler;
+  ret = sigaction(SIGALRM, &act, NULL);
+  assert(ret == 0);
+
+  struct itimerval it;
+  it.it_interval.tv_sec = 0;
+  it.it_interval.tv_usec = 10;
+  it.it_value.tv_sec = 0;
+  it.it_value.tv_usec = 10;
+
+  ret = setitimer(ITIMER_REAL, &it, NULL);
+  assert(ret == 0);
+
+  for (int i = 0; i < 40; i++) {
+    fill_cc();
+  }
+
+  it.it_value.tv_usec = 0;
+  ret = setitimer(ITIMER_REAL, &it, NULL);
+  assert(ret == 0);
+  printf("Test completed succesfully\n");
+  printf("Sig handler count: %d\n", count);
 }
