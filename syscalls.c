@@ -173,6 +173,10 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
         fprintf(stderr, "Error freeing code cache on exit()\n");
         while(1);
       }
+      if (munmap(thread_data->cc_links, METADATA_SZ_ROUND(sizeof(ll) + sizeof(ll_entry) * MAX_CC_LINKS)) != 0) {
+        fprintf(stderr, "Error freeing CC link struct on exit()\n");
+        while(1);
+      }
       if (munmap(thread_data, METADATA_SZ_ROUND(sizeof(dbm_thread))) != 0) {
         fprintf(stderr, "Error freeing thread private structure on exit()\n");
         while(1);
