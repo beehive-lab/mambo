@@ -76,8 +76,7 @@ scratch_space: .word 0
 #endif
 
 #ifdef __aarch64__
-dispatcher_trampoline:
-  // Push SIMD and floating point registers.
+push_neon:
   STP  Q0,  Q1, [SP, #-512]!
   STP  Q2,  Q3, [SP,   #32]
   STP  Q4,  Q5, [SP,   #64]
@@ -94,50 +93,9 @@ dispatcher_trampoline:
   STP Q26, Q27, [SP,  #416]
   STP Q28, Q29, [SP,  #448]
   STP Q30, Q31, [SP,  #480]
+  RET
 
-  // PUSH all general purpose registers but X0, X1
-  // X0 and X1 are pushed by the exit stub
-  STP  X2,  X3, [SP,  #-240]!
-  STP  X4,  X5, [SP,  #16]
-  STP  X6,  X7, [SP,  #32]
-  STP  X8,  X9, [SP,  #48]
-  STP X10, X11, [SP,  #64]
-  STP X12, X13, [SP,  #80]
-  STP X14, X15, [SP,  #96]
-  STP X16, X17, [SP,   #112]
-  STP X18, X19, [SP,   #128]
-  STP X20, X21, [SP,   #144]
-  STP X22, X23, [SP,   #160]
-  STP X24, X25, [SP,   #176]
-  STP X26, X27, [SP,   #192]
-  STP X28, X29, [SP,   #208]
-  MRS  X3 , NZCV
-  STP X30,  X3, [SP,  #224]
-
-  ADR X2, ret_addr
-  LDR X3, disp_thread_data
-  LDR X9, dispatcher_addr
-  BLR X9
-
-  # POP from the stack
-  LDP  X4,  X5, [SP, #16]
-  LDP  X6,  X7, [SP, #32]
-  LDP  X8,  X9, [SP, #48]
-  LDP X10, X11, [SP, #64]
-  LDP X12, X13, [SP, #80]
-  LDP X14, X15, [SP, #96]
-  LDP X16, X17, [SP, #112]
-  LDP X18, X19, [SP, #128]
-  LDP X20, X21, [SP, #144]
-  LDP X22, X23, [SP, #160]
-  LDP X24, X25, [SP, #176]
-  LDP X26, X27, [SP, #192]
-  LDP X28, X29, [SP, #208]
-  LDP X30,  X3, [SP, #224]
-  MSR NZCV, X3
-  LDP  X2,  X3, [SP], #240
-
-  // POP SIMD and floating point registers.
+pop_neon:
   LDP  Q2,  Q3, [SP, #32]
   LDP  Q4,  Q5, [SP, #64]
   LDP  Q6,  Q7, [SP, #96]
@@ -154,11 +112,64 @@ dispatcher_trampoline:
   LDP Q28, Q29, [SP, #448]
   LDP Q30, Q31, [SP, #480]
   LDP  Q0,  Q1, [SP], #512
+  RET
 
-  LDR X0, ret_addr
+push_x4_x21:
+  STP  X4,  X5, [SP, #-144]!
+  STP  X6,  X7, [SP, #16]
+  STP  X8,  X9, [SP, #32]
+  STP X10, X11, [SP, #48]
+  STP X12, X13, [SP, #64]
+  STP X14, X15, [SP, #80]
+  STP X16, X17, [SP, #96]
+  STP X18, X19, [SP, #112]
+  STP X20, X21, [SP, #128]
+  RET
+
+pop_x4_x21:
+  LDP  X6,  X7, [SP, #16]
+  LDP  X8,  X9, [SP, #32]
+  LDP X10, X11, [SP, #48]
+  LDP X12, X13, [SP, #64]
+  LDP X14, X15, [SP, #80]
+  LDP X16, X17, [SP, #96]
+  LDP X18, X19, [SP, #112]
+  LDP X20, X21, [SP, #128]
+  LDP  X4,  X5, [SP], #144
+  RET
+#endif
+
+#ifdef __aarch64__
+dispatcher_trampoline:
+  // PUSH all general purpose registers but X0, X1
+  // X0 and X1 are pushed by the exit stub
+  STP  X2,  X3, [SP, #-48]!
+  STP X29, X30, [SP, #16]
+  BL push_x4_x21
+
+  MRS X19, NZCV
+  MRS X20, FPCR
+  MRS X21, FPSR
+
+  ADD X2, SP, #176
+  LDR X3, disp_thread_data
+  LDR X9, dispatcher_addr
+  BL push_neon
+
+  BLR X9
+
+  BL pop_neon
+  MSR NZCV, X19
+  MSR FPCR, X20
+  MSR FPSR, X21
+
+  BL pop_x4_x21
+  LDP X29, X30, [SP, #16]
+  LDR  X0,      [SP, #32]
+  LDP  X2,  X3, [SP], #48
+
   BR X0
 
-ret_addr:        .quad 0
 dispatcher_addr: .quad dispatcher
 #endif
 .endfunc
@@ -237,54 +248,38 @@ trace_head_incr:
   BR   X1
 
 create_trace_trampoline:
-  // PUSH general purpose register except X0, X1
-  MRS  X3, NZCV
-  STP X30,  X3, [SP, #-240]!
-  STP  X4,  X5, [SP, #16]
-  STP  X6,  X7, [SP, #32]
-  STP  X8,  X9, [SP, #48]
-  STP X10, X11, [SP, #64]
-  STP X12, X13, [SP, #80]
-  STP X14, X15, [SP, #96]
-  STP X16, X17, [SP, #112]
-  STP X18, X19, [SP, #128]
-  STP X20, X21, [SP, #144]
-  STP X22, X23, [SP, #160]
-  STP X24, X25, [SP, #176]
-  STP X26, X27, [SP, #192]
-  STP X28, X29, [SP, #208]
-  STR  X1,      [SP, #224]
+  STP X29, X30, [SP, #-32]!
+  BL push_x4_x21
+
+  MRS X19, NZCV
+  MRS X20, FPCR
+  MRS X21, FPSR
 
   /*
    * create_trace (dbm_thread *thread_data,   X0
    *               uint32_t    bb_source,     X1
    *               uint32_t   *trace_addr)    X2
    */
-  MOV X1,  X0
+  ADD X2, SP, #160
+  MOV X1, X0
   LDR X0, disp_thread_data
-  ADD X2, SP, #224
   LDR X3, =create_trace
+  BL push_neon
+
   BLR X3
 
-  # POP from the stack
-  LDP  X4,  X5, [SP, #16]
-  LDP  X6,  X7, [SP, #32]
-  LDP  X8,  X9, [SP, #48]
-  LDP X10, X11, [SP, #64]
-  LDP X12, X13, [SP, #80]
-  LDP X14, X15, [SP, #96]
-  LDP X16, X17, [SP, #112]
-  LDP X18, X19, [SP, #128]
-  LDP X20, X21, [SP, #144]
-  LDP X22, X23, [SP, #160]
-  LDP X24, X25, [SP, #176]
-  LDP X26, X27, [SP, #192]
-  LDP X28, X29, [SP, #208]
-  LDR  X1,      [SP, #224]
-  LDP X30,  X2, [SP], #240
-  MSR NZCV, X2
-  LDP X2 ,  X3, [SP], #16
-  BR  X1
+  BL pop_neon
+  MSR NZCV, X19
+  MSR FPCR, X20
+  MSR FPSR, X21
+
+  BL pop_x4_x21
+  LDR  X0,      [SP, #16]
+  LDP  X2,  X3, [SP, #32]
+  LDP X29, X30, [SP], #48
+
+  BR X0
+
 #endif // __aarch64__
 .endfunc
 
@@ -345,75 +340,62 @@ syscall_handler_post_addr: .word syscall_handler_post
 
 #ifdef __aarch64__
 syscall_wrapper:
-  STP      X0,  X1, [SP, #-240]!
-  STP      X2,  X3, [SP,   #16]
-  STP      X4,  X5, [SP,   #32]
-  STP      X6,  X7, [SP,   #48]
-  STP      X8,  X9, [SP,   #64]
-  STP     X10, X11, [SP,   #80]
-  STP     X12, X13, [SP,   #96]
-  STP     X14, X15, [SP,  #112]
-  STP     X16, X17, [SP,  #128]
-  STP     X18, X19, [SP,  #144]
-  STP     X20, X21, [SP,  #160]
-  STP     X22, X23, [SP,  #176]
-  STP     X24, X25, [SP,  #192]
-  STP     X26, X27, [SP,  #208]
-  STR     X28,      [SP,  #224]
+  STR X30, [SP, #-16]!
+  BL push_x4_x21
+  STP X0, X1, [SP, #-32]!
+  STP X2, X3, [SP, #16]
+  BL push_neon
+
   MRS X19, NZCV
-  MOV X20, X30
+  MRS X20, FPCR
+  MRS X21, FPSR
 
   MOV X0, X8
-  MOV X1, SP
+  ADD X1, SP, #512
   MOV X2, X29
   LDR X3, disp_thread_data
-
   LDR X4, syscall_handler_pre_addr
+
   BLR X4
 
   CBZ X0, s_w_r
 
-  LDP X0, X1, [SP, #0]
-  LDP X2, X3, [SP, #16]
-  LDP X4, X5, [SP, #32]
-  LDP X6, X7, [SP, #48]
-  LDP X8, X9, [SP, #64]
+  ADD X9, SP, #512
+  LDP X0, X1, [X9, #0]
+  LDP X2, X3, [X9, #16]
+  LDP X4, X5, [X9, #32]
+  LDP X6, X7, [X9, #48]
+  LDR X8,     [X9, #64]
 
   // Balance the stack on rt_sigreturn, which doesn't return here
   CMP X8, #0x8b
   BNE svc
-  ADD SP, SP, #256
+  ADD SP, SP, #(64 + 144 + 512)
 
 svc: SVC 0
 
-  STP X0, X1, [SP, #0]
-
+  ADD X1, SP, #512
+  STR X0, [X1, #0]
   MOV X0, X8
-  MOV X1, SP
   MOV X2, X29
   LDR X3, disp_thread_data
-
   LDR X4, syscall_handler_post_addr
   BLR X4
 
-s_w_r: MSR NZCV, X19
-  MOV X30, X20
-  LDP  X2,  X3, [SP,  #16]
-  LDP  X4,  X5, [SP,  #32]
-  LDP  X6,  X7, [SP,  #48]
-  LDP  X8,  X9, [SP,  #64]
-  LDP X10, X11, [SP,  #80]
-  LDP X12, X13, [SP,  #96]
-  LDP X14, X15, [SP, #112]
-  LDP X16, X17, [SP, #128]
-  LDP X18, X19, [SP, #144]
-  LDP X20, X21, [SP, #160]
-  LDP X22, X23, [SP, #176]
-  LDP X24, X25, [SP, #192]
-  LDP X26, X27, [SP, #208]
-  LDR X28,      [SP, #224]
-  LDP X0,  X1,  [SP], #240
-  RET X30
+s_w_r:
+  BL pop_neon
+  MSR NZCV, X19
+  MSR FPCR, X20
+  MSR FPSR, X21
+
+  LDP X2, X3, [SP, #16]
+  LDP X0, X1, [SP], #32
+  BL pop_x4_x21
+  LDP X29, X30, [SP, #16]
+  STP X0, X1, [SP, #16]
+  LDR X0, [SP], #16
+
+  BR X0
 
 syscall_handler_pre_addr: .quad syscall_handler_pre
 syscall_handler_post_addr: .quad syscall_handler_post

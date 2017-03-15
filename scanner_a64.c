@@ -521,7 +521,7 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
         a64_copy_to_reg_64bits(&write_p, x29, (uint64_t)read_address + 4);
         a64_bl_helper(write_p, thread_data->syscall_wrapper_addr);
         write_p++;
-        a64_pop_pair_reg(x29, x30);
+        a64_pop_pair_reg(x0, x1);
         break;
 
       case A64_MRS_MSR_REG:
