@@ -18,7 +18,7 @@ CFLAGS=-g -std=gnu99 -O2
 
 LDFLAGS=-static -ldl -Wl,-Ttext-segment=0xa8000000
 LIBS=-lelf -lpthread
-HEADERS=dbm.h common.h api/plugin_support.h api/helpers.h makefile
+HEADERS=*.h makefile
 INCLUDES=-I/usr/include/libelf
 SOURCES= dispatcher.S common.c dbm.c traces.c syscalls.c dispatcher.c signals.c util.S
 SOURCES+=api/helpers.c api/plugin_support.c
