@@ -273,7 +273,15 @@ uintptr_t scan(dbm_thread *thread_data, uint16_t *address, int basic_block) {
 
   // Flush modified instructions from caches
   // End address is exclusive
-  __clear_cache((char *)block_address, (char *)(block_address + block_size + 1));
+  if (thread_data->free_block < basic_block) {
+    /* The code cache has been flushed. Play it safe, because we don't know how
+       much space has been used in each of the two areas. */
+    __clear_cache((char *)block_address, &thread_data->code_cache->traces);
+    __clear_cache(&thread_data->code_cache->blocks[trampolines_size_bbs],
+                  &thread_data->code_cache->blocks[thread_data->free_block]);
+  } else {
+    __clear_cache((char *)block_address, (char *)(block_address + block_size + 1));
+  }
 
   return adjust_cc_entry(block_address);
 }
