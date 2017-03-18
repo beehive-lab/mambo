@@ -75,6 +75,7 @@ void flush_code_cache(dbm_thread *thread_data) {
 #ifdef DBM_TRACES
   thread_data->trace_cache_next = thread_data->code_cache->traces;
   thread_data->trace_id = CODE_CACHE_SIZE;
+  thread_data->active_trace.id = CODE_CACHE_SIZE;
 
   hash_init(&thread_data->trace_entry_address, CODE_CACHE_HASH_SIZE + CODE_CACHE_HASH_OVERP);
 #endif
@@ -396,7 +397,7 @@ int addr_to_fragment_id(dbm_thread *thread_data, uintptr_t addr) {
 
 #ifdef DBM_TRACES
   int first = CODE_CACHE_SIZE;
-  int last = thread_data->trace_id - 1;
+  int last = thread_data->active_trace.id - 1;
   int pivot;
 
   if (addr >= thread_data->code_cache_meta[last].tpc) {

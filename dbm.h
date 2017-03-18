@@ -152,6 +152,14 @@ typedef struct {
 } sys_clone_args;
 
 typedef struct {
+  int id;
+  int source_bb;
+  void *write_p;
+  uintptr_t entry_addr;
+  bool active;
+} trace_in_prog;
+
+typedef struct {
   int free_block;
   uintptr_t dispatcher_addr;
   uintptr_t syscall_wrapper_addr;
@@ -168,6 +176,7 @@ typedef struct {
   uint8_t  *trace_cache_next;
   int       trace_id;
   int       trace_fragment_count;
+  trace_in_prog active_trace;
 #endif
 
   ll *cc_links;
