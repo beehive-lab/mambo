@@ -1,12 +1,13 @@
 ARCH=$(shell $(CC) -dumpmachine | awk -F '-' '{print $$1}')
 ifeq ($(ARCH),arm)
 	PIE = ../pie/pie-arm-encoder.o
+	CFLAGS+=-march=armv7-a
 endif
 ifeq ($(ARCH),aarch64)
 	PIE = ../pie/pie-a64-encoder.o
 endif
 
-CFLAGS=-std=gnu99
+CFLAGS+=-std=gnu99
 LDFLAGS=-lpthread
 
 .PHONY: clean

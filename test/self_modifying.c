@@ -52,7 +52,7 @@
   #define movi(wptr, rd, imm) a64_MOV_wide(&wptr, 1, 2, 0, imm, rd);
   #define svc(wptr) a64_SVC (&wptr, 0);
   #define return_inst(wptr) a64_RET(&wptr, lr);
-#elif
+#else
   #error Unknown architecture
 #endif
 
