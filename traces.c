@@ -168,6 +168,42 @@ void install_trace(dbm_thread *thread_data) {
   __clear_cache(write_p, write_p + 1);
 #endif
 }
+
+#ifdef __aarch64__
+void generate_trace_exit(dbm_thread *thread_data, uint32_t **o_write_p, int fragment_id, bool is_taken, bool record_link) {
+  dbm_code_cache_meta *bb_meta = &thread_data->code_cache_meta[fragment_id];
+  uint32_t *write_p = *o_write_p;
+
+  switch (bb_meta->exit_branch_type) {
+    case cbz_a64:
+      a64_CBZ_CBNZ(&write_p, bb_meta->rn >> 5,
+                   is_taken ? (bb_meta->branch_condition) : (bb_meta->branch_condition ^ 1),
+                   2, bb_meta->rn);
+      break;
+    case cond_imm_a64:
+      a64_B_cond(&write_p, 2, is_taken ? bb_meta->branch_condition : (bb_meta->branch_condition ^ 1));
+      break;
+    case tbz_a64:
+      a64_TBZ_TBNZ(&write_p, bb_meta->rn >> 10,
+                   is_taken ? (bb_meta->branch_condition) : (bb_meta->branch_condition ^ 1),
+                   bb_meta->rn >> 5, 2, bb_meta->rn);
+      break;
+    default:
+      fprintf(stderr, "Unknown branch type\n");
+      while(1);
+  }
+  uintptr_t addr = is_taken ? bb_meta->branch_skipped_addr : bb_meta->branch_taken_addr;
+  write_p++;
+  if (record_link) {
+    a64_cc_branch(thread_data, write_p, active_trace_lookup_or_scan(thread_data, addr) + 4);
+  } else {
+    a64_b_helper(write_p, active_trace_lookup_or_scan(thread_data, addr) + 4);
+  }
+  write_p++;
+
+  *o_write_p = write_p;
+}
+#endif
 #endif
 
 /* This is called from trace_head_incr, which is called by trace heads */
@@ -272,12 +308,12 @@ void create_trace(dbm_thread *thread_data, uint32_t bb_source, uintptr_t *trace_
 void trace_dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_index, dbm_thread *thread_data) {
   uintptr_t addr;
   dbm_code_cache_meta *bb_meta = &thread_data->code_cache_meta[source_index];
+  bool is_taken = (bb_meta->branch_taken_addr == target);
 #ifdef __arm__
   uint16_t *write_p = (uint16_t *)bb_meta->exit_branch_addr;
 #endif
 #ifdef __aarch64__
   uint32_t *write_p = (uint32_t *) bb_meta->exit_branch_addr;
-  addr = (bb_meta->branch_taken_addr == target) ? bb_meta->branch_skipped_addr : bb_meta->branch_taken_addr;
 #endif
   size_t fragment_len;
 
@@ -378,25 +414,11 @@ void trace_dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_in
 #ifdef __aarch64__
     // TODO change lookup_or_scan to lookup_or_stub
     case cbz_a64:
-      a64_CBZ_CBNZ(&write_p, bb_meta->rn >> 5, (bb_meta->branch_taken_addr == target) ? (bb_meta->branch_condition) : (bb_meta->branch_condition ^ 1), 2, bb_meta->rn);
-      write_p++;
-      a64_cc_branch(thread_data, write_p, active_trace_lookup_or_scan(thread_data, addr) + 4);
-      write_p++;
-      __clear_cache(write_p - 2, write_p);
-      break;
     case cond_imm_a64:
-      a64_B_cond(&write_p, 2, (bb_meta->branch_taken_addr == target) ? bb_meta->branch_condition : (bb_meta->branch_condition ^ 1));
-      write_p++;
-      a64_cc_branch(thread_data, write_p, active_trace_lookup_or_scan(thread_data, addr) + 4);
-      write_p++;
-      __clear_cache(write_p - 2, write_p);
-      break;
     case tbz_a64:
-      a64_TBZ_TBNZ(&write_p, bb_meta->rn >> 10, (bb_meta->branch_taken_addr == target) ? (bb_meta->branch_condition) : (bb_meta->branch_condition ^ 1), bb_meta->rn >> 5, 2, bb_meta->rn);
-      write_p++;
-      a64_cc_branch(thread_data, write_p, active_trace_lookup_or_scan(thread_data, addr) + 4);
-      write_p++;
+      generate_trace_exit(thread_data, &write_p, source_index, is_taken, true);
       __clear_cache(write_p - 2, write_p);
+      bb_meta->branch_cache_status |= is_taken ? 1 : 2;
       break;
     case uncond_imm_a64:
       break;
