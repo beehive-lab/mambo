@@ -465,7 +465,7 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
   branch_type bb_type;
   pass1_a64(read_address, &bb_type);
 
-  if (type == mambo_bb && bb_type != uncond_branch_reg) {
+  if (type == mambo_bb && bb_type != uncond_branch_reg && bb_type != unknown) {
     a64_push_pair_reg(x0, x1);
 
     a64_copy_to_reg_64bits(&write_p, x0, (int)basic_block);
