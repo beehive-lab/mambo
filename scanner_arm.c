@@ -165,11 +165,13 @@ void arm_branch_jump(dbm_thread *thread_data, uint32_t **o_write_p, int basic_bl
   *o_write_p = write_p;
 }
 
-void arm_check_free_space(dbm_thread *thread_data, uint32_t **write_p, uint32_t **data_p, uint32_t size) {
+void arm_check_free_space(dbm_thread *thread_data, uint32_t **write_p,
+                          uint32_t **data_p, uint32_t size, int cur_block) {
   int basic_block;
 
   if ((((uint32_t)*write_p)+size) >= (uint32_t)*data_p) {
     basic_block = allocate_bb(thread_data);
+    thread_data->code_cache_meta[basic_block].actual_id = cur_block;
     arm_b(write_p, ((uint32_t)&thread_data->code_cache->blocks[basic_block] - (uint32_t)*write_p - 8) >> 2);
     *write_p = (uint32_t *)&thread_data->code_cache->blocks[basic_block];
     *data_p = (uint32_t *)*write_p;
@@ -351,7 +353,7 @@ bool arm_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id, 
             }
           }
           write_p = ctx.write_p;
-          arm_check_free_space(thread_data, &write_p, &data_p, MIN_FSPACE);
+          arm_check_free_space(thread_data, &write_p, &data_p, MIN_FSPACE, basic_block);
         } else {
           assert(ctx.write_p == write_p);
         }
@@ -713,7 +715,7 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
           write_p++;
         }
 
-        arm_check_free_space(thread_data, &write_p, &data_p, IHL_SPACE);
+        arm_check_free_space(thread_data, &write_p, &data_p, IHL_SPACE, basic_block);
         arm_inline_hash_lookup(thread_data, &write_p, basic_block);
 #else
         arm_branch_save_context(thread_data, &write_p, true);
@@ -798,7 +800,7 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
             while(1);
           }
 
-          arm_check_free_space(thread_data, &write_p, &data_p, IHL_SPACE);
+          arm_check_free_space(thread_data, &write_p, &data_p, IHL_SPACE, basic_block);
           arm_inline_hash_lookup(thread_data, &write_p, basic_block);
 #else
           arm_branch_save_context(thread_data, &write_p, false);
@@ -892,7 +894,7 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
               arm_ldr(&write_p, immediate, r4, rn, offset, prepostindex, updown, writeback);
               write_p++;
             }
-            arm_check_free_space(thread_data, &write_p, &data_p, IHL_SPACE);
+            arm_check_free_space(thread_data, &write_p, &data_p, IHL_SPACE, basic_block);
             arm_inline_hash_lookup(thread_data, &write_p, basic_block);
 
             stop = true;
@@ -1728,7 +1730,7 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
     }
     assert (write_p < data_p);
 
-    if (!stop) arm_check_free_space(thread_data, &write_p, &data_p, MIN_FSPACE);
+    if (!stop) arm_check_free_space(thread_data, &write_p, &data_p, MIN_FSPACE, basic_block);
 
 #ifdef PLUGINS_NEW
     arm_scanner_deliver_callbacks(thread_data, POST_INST_C, read_address, inst, &write_p, &data_p, basic_block, type, !stop);

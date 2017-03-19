@@ -323,11 +323,12 @@ void a64_branch_imm_reg(dbm_thread *thread_data, uint32_t **o_write_p,
 }
 
 void a64_check_free_space(dbm_thread *thread_data, uint32_t **write_p,
-                          uint32_t **data_p, uint32_t size) {
+                          uint32_t **data_p, uint32_t size, int cur_block) {
   int basic_block;
 
   if ((((uint64_t)*write_p) + size) >= (uint64_t)*data_p) {
     basic_block = allocate_bb(thread_data);
+    thread_data->code_cache_meta[basic_block].actual_id = cur_block;
     if ((uint32_t *)&thread_data->code_cache->blocks[basic_block] != *data_p) {
       a64_b_helper(*write_p, (uint64_t)&thread_data->code_cache->blocks[basic_block]);
       *write_p = (uint32_t *)&thread_data->code_cache->blocks[basic_block];
@@ -401,7 +402,7 @@ bool a64_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id, 
             }
           }
           write_p = ctx.write_p;
-          a64_check_free_space(thread_data, &write_p, &data_p, MIN_FSPACE);
+          a64_check_free_space(thread_data, &write_p, &data_p, MIN_FSPACE, basic_block);
         } else {
           assert(ctx.write_p == write_p);
         }
@@ -926,7 +927,7 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
     }
 
     if (!stop) {
-      a64_check_free_space(thread_data, &write_p, &data_p, MIN_FSPACE);
+      a64_check_free_space(thread_data, &write_p, &data_p, MIN_FSPACE, basic_block);
     }
 #ifdef PLUGINS_NEW
     a64_scanner_deliver_callbacks(thread_data, POST_INST_C, read_address, inst, &write_p, &data_p, basic_block, type, !stop);

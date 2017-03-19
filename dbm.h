@@ -125,7 +125,9 @@ typedef struct {
 
 typedef struct {
   uint16_t *source_addr;
+  uintptr_t tpc;
   branch_type exit_branch_type;
+  int actual_id;
 #ifdef __arm__
   uint16_t *exit_branch_addr;
 #endif // __arm__
@@ -229,6 +231,7 @@ void thumb_encode_stub_bb(dbm_thread *thread_data, int basic_block, uint32_t tar
 void arm_encode_stub_bb(dbm_thread *thread_data, int basic_block, uint32_t target);
 
 int addr_to_bb_id(dbm_thread *thread_data, uintptr_t addr);
+int addr_to_fragment_id(dbm_thread *thread_data, uintptr_t addr);
 void record_cc_link(dbm_thread *thread_data, uintptr_t linked_from, uintptr_t linked_to_addr);
 bool is_bb(dbm_thread *thread_data, uintptr_t addr);
 

@@ -83,6 +83,7 @@ void flush_code_cache(dbm_thread *thread_data) {
     thread_data->code_cache_meta[i].exit_branch_type = unknown;
     thread_data->code_cache_meta[i].linked_from = NULL;
     thread_data->code_cache_meta[i].branch_cache_status = 0;
+    thread_data->code_cache_meta[i].actual_id = 0;
 #ifdef DBM_TRACES
     thread_data->exec_count[i] = 0;
 #endif
@@ -236,8 +237,10 @@ uintptr_t scan(dbm_thread *thread_data, uint16_t *address, int basic_block) {
   } else {
     stub = true;
   }
-  thread_data->code_cache_meta[basic_block].source_addr = address;
+
   block_address = (uintptr_t)&thread_data->code_cache->blocks[basic_block];
+  thread_data->code_cache_meta[basic_block].source_addr = address;
+  thread_data->code_cache_meta[basic_block].tpc = block_address;
   //fprintf(stderr, "scan(%p): 0x%x (bb %d)\n", address, block_address, basic_block);
 
   // Add entry into the code cache hash table
@@ -377,6 +380,43 @@ int addr_to_bb_id(dbm_thread *thread_data, uintptr_t addr) {
   }
 
   return (addr - (uintptr_t)thread_data->code_cache->blocks) / sizeof(dbm_block);
+}
+
+int addr_to_fragment_id(dbm_thread *thread_data, uintptr_t addr) {
+  uintptr_t start = (uintptr_t )thread_data->code_cache->blocks;
+  assert(addr >= start && addr < (start + MAX_BRANCH_RANGE));
+
+  int id = addr_to_bb_id(thread_data, addr);
+  if (id >= 0) {
+    if (thread_data->code_cache_meta[id].actual_id != 0) {
+      id = thread_data->code_cache_meta[id].actual_id;
+    }
+    return id;
+  }
+
+#ifdef DBM_TRACES
+  int first = CODE_CACHE_SIZE;
+  int last = thread_data->trace_id - 1;
+  int pivot;
+
+  if (addr >= thread_data->code_cache_meta[last].tpc) {
+    assert((void *)addr < (((void *)&thread_data->code_cache) + sizeof(dbm_code_cache)));
+    return last;
+  }
+
+  while (first <= last) {
+    pivot = (first + last) / 2;
+    if (addr < thread_data->code_cache_meta[pivot].tpc) {
+      last = pivot - 1;
+    } else if (addr >= thread_data->code_cache_meta[pivot+1].tpc) {
+      first = pivot + 1;
+    } else {
+      return pivot;
+    }
+  }
+#endif
+
+  return -1;
 }
 
 // TODO: handle links to traces

@@ -57,6 +57,7 @@ uint32_t scan_trace(dbm_thread *thread_data, void *address, cc_type type, int *s
   debug("Trace scan: %p to %p, id %d\n", address, write_p, trace_id);
 
   thread_data->code_cache_meta[trace_id].source_addr = address;
+  thread_data->code_cache_meta[trace_id].tpc = (uintptr_t)write_p;
 
 #ifdef PLUGINS_NEW
   mambo_deliver_callbacks(PRE_FRAGMENT_C, thread_data, thumb ? THUMB_INST : ARM_INST,
