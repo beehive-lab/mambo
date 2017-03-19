@@ -25,10 +25,10 @@ extern uint32_t atomic_increment_u32(uint32_t *loc, uint32_t inc);
 extern uint64_t atomic_increment_u64(uint64_t *loc, uint64_t inc);
 extern int32_t atomic_decrement_if_positive_i32(int32_t *loc, int32_t inc);
 
-inline int32_t atomic_increment_i32(int32_t *loc, int32_t inc) {
+static inline int32_t atomic_increment_i32(int32_t *loc, int32_t inc) {
   return (int32_t)atomic_increment_u32((uint32_t *)loc, (uint32_t)inc);
 }
-inline int64_t atomic_increment_i64(int64_t *loc, int64_t inc) {
+static inline int64_t atomic_increment_i64(int64_t *loc, int64_t inc) {
   return (int64_t)atomic_increment_u64((uint64_t *)loc, (uint64_t)inc);
 }
 #ifdef __arm__
