@@ -16,7 +16,11 @@
 FILE *nulldev;
 int count = 0;
 
-#define SIGNAL_CNT (10*1000)
+#define SIGNAL_CNT (100*1000)
+#define AS_TEST_ITER (100*1000*1000)
+
+int test_cbz(int count);
+int test_tbz(int count);
 
 void sigusr_handler(int i, siginfo_t *info, void *ptr) {
   printf("success\n");
@@ -67,6 +71,7 @@ void *signal_parent(void *data) {
   for (int i = 0; i < SIGNAL_CNT; i++) {
     ret = syscall(__NR_tgkill, pid, tid, SIGRTMIN);
     assert(ret == 0);
+    usleep(10);
   }
 }
 
@@ -131,4 +136,22 @@ int main (int argc, char **argv) {
   pthread_join(thread, NULL);
   assert(count == SIGNAL_CNT);
   printf("success\n");
+
+  printf("Test signal handling in fragments containing CB(N)Z: ");
+  fflush(stdout);
+  pthread_create(&thread, NULL, signal_parent, &tid);
+  int64_t count = test_cbz(AS_TEST_ITER);
+  pthread_join(thread, NULL);
+  assert(count == AS_TEST_ITER/4);
+  printf("success\n");
+
+#ifdef __aarch64__
+  printf("Test signal handling in fragments containing TB(N)Z: ");
+  fflush(stdout);
+  pthread_create(&thread, NULL, signal_parent, &tid);
+  count = test_tbz(AS_TEST_ITER);
+  pthread_join(thread, NULL);
+  assert(count == AS_TEST_ITER/4);
+  printf("success\n");
+#endif
 }

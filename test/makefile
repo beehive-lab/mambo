@@ -21,7 +21,7 @@ hw_div: hw_div.S
 
 self_modifying: $(PIE) self_modifying.c
 
-signals: $(PIE) signals.c
+signals: $(PIE) signals.c signals.S
 
 clean:
 	rm -f mmap_munmap mprotect_exec self_modifying signals hw_div
