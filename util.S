@@ -216,3 +216,39 @@ atomic_increment_u32:
 
 #endif
 .endfunc
+
+.global atomic_decrement_if_positive_i32
+.func atomic_decrement_if_positive_i32
+
+atomic_decrement_if_positive_i32:
+#ifdef __arm__
+  LDREX R2, [R0]
+  CMP R2, R1
+  BLT abort
+  SUB R2, R2, R1
+  STREX R3, R2, [R0]
+  CMP R3, #0
+  BNE atomic_decrement_if_positive_i32
+  MOV R0, R2
+  BX LR
+abort:
+  CLREX
+  MOV R0, #-1
+  BX LR
+
+#elif __aarch64__
+  LDXR W2, [X0]
+  CMP W2, W1
+  BLT abort
+  SUB W2, W2, W1
+  STXR W3, W2, [X0]
+  CBNZ W3, atomic_decrement_if_positive_i32
+  MOV W0, W2
+  RET
+abort:
+  CLREX
+  MOV W0, #-1
+  RET
+
+#endif
+.endfunc
