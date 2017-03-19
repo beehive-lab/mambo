@@ -123,6 +123,10 @@ typedef struct {
   uint8_t  traces[TRACE_CACHE_SIZE];
 } dbm_code_cache;
 
+#define FALLTHROUGH_LINKED (1 << 0)
+#define BRANCH_LINKED (1 << 1)
+#define BOTH_LINKED (1 << 2)
+
 typedef struct {
   uint16_t *source_addr;
   uintptr_t tpc;

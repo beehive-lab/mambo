@@ -36,6 +36,24 @@
   #define debug(...)
 #endif
 
+#ifdef __aarch64__
+void insert_cond_exit_branch(dbm_code_cache_meta *bb_meta, uint32_t *write_p, int cond) {
+  switch(bb_meta->exit_branch_type) {
+    case cond_imm_a64:
+      a64_b_cond_helper(write_p, (uint64_t)write_p + 8, cond);
+      break;
+    case cbz_a64:
+      a64_cbz_cbnz_helper(write_p, cond, (uint64_t)write_p + 8,
+                          bb_meta->rn >> 5, bb_meta->rn & 0x1F);
+      break;
+    case tbz_a64:
+      a64_tbz_tbnz_helper(write_p, cond, (uint64_t)write_p + 8,
+                          bb_meta->rn & 0x1F, bb_meta->rn >> 5);
+      break;
+  }
+}
+#endif
+
 void dispatcher(uintptr_t target, uint32_t source_index, uintptr_t *next_addr, dbm_thread *thread_data) {
   uintptr_t block_address;
   uintptr_t other_target;
@@ -317,59 +335,40 @@ void dispatcher(uintptr_t target, uint32_t source_index, uintptr_t *next_addr, d
   #if defined(DBM_LINK_COND_IMM) || defined(DBM_LINK_CBZ) || defined(DBM_LINK_TBZ)
       branch_addr = thread_data->code_cache_meta[source_index].exit_branch_addr;
       is_taken = target == thread_data->code_cache_meta[source_index].branch_taken_addr;
-      if (is_taken) {
-        other_target = hash_lookup(&thread_data->entry_address,
-                                   thread_data->code_cache_meta[source_index].branch_skipped_addr);
+
+      if (thread_data->code_cache_meta[source_index].branch_cache_status == 0) {
+        if (is_taken) {
+          other_target = thread_data->code_cache_meta[source_index].branch_skipped_addr;
+        } else {
+          other_target = thread_data->code_cache_meta[source_index].branch_taken_addr;
+        }
+        other_target = cc_lookup(thread_data, other_target);
         other_target_in_cache = (other_target != UINT_MAX);
 
-        if (thread_data->code_cache_meta[source_index].branch_cache_status == 0) {
-          insert_cond_br = true;
-          cond = invert_cond(thread_data->code_cache_meta[source_index].branch_condition);
-        } else if (thread_data->code_cache_meta[source_index].branch_cache_status & 1) {
-          branch_addr += 2;
+        cond = thread_data->code_cache_meta[source_index].branch_condition;
+        if (is_taken) {
+          cond = invert_cond(cond);
         }
-      } else {
-        other_target = hash_lookup(&thread_data->entry_address,
-                                   thread_data->code_cache_meta[source_index].branch_taken_addr);
-        other_target_in_cache = (other_target != UINT_MAX);
-
-        if (thread_data->code_cache_meta[source_index].branch_cache_status == 0) {
-          insert_cond_br = true;
-          cond = thread_data->code_cache_meta[source_index].branch_condition;
-        } else if (thread_data->code_cache_meta[source_index].branch_cache_status & 2) {
-          branch_addr += 2;
-        }
-      }
-
-      if (insert_cond_br) {
-        switch(source_branch_type) {
-          case cond_imm_a64:
-            a64_b_cond_helper(branch_addr, (uint64_t)branch_addr + 8, cond);
-            break;
-          case cbz_a64:
-            a64_cbz_cbnz_helper(branch_addr, cond, (uint64_t)branch_addr + 8,
-                                thread_data->code_cache_meta[source_index].rn >> 5,
-                                thread_data->code_cache_meta[source_index].rn & 0x1F);
-            break;
-          case tbz_a64:
-            a64_tbz_tbnz_helper(branch_addr, cond, (uint64_t)branch_addr + 8,
-                                thread_data->code_cache_meta[source_index].rn & 0x1F,
-                                thread_data->code_cache_meta[source_index].rn >> 5);
-            break;
-        }
+        insert_cond_exit_branch(&thread_data->code_cache_meta[source_index], branch_addr, cond);
         branch_addr++;
+      } else {
+        branch_addr += 2;
       }
+
       a64_cc_branch(thread_data, branch_addr, block_address + 4);
       branch_addr++;
 
-      thread_data->code_cache_meta[source_index].branch_cache_status |= is_taken ? 2 : 1;
-
-      if (other_target_in_cache &&
-          (thread_data->code_cache_meta[source_index].branch_cache_status != 3)) {
-        a64_cc_branch(thread_data, branch_addr, other_target + 4);
-        branch_addr++;
-
-        thread_data->code_cache_meta[source_index].branch_cache_status = 3;
+      if (thread_data->code_cache_meta[source_index].branch_cache_status == 0) {
+        thread_data->code_cache_meta[source_index].branch_cache_status =
+                      (is_taken ? BRANCH_LINKED : FALLTHROUGH_LINKED);
+        if (other_target_in_cache) {
+          a64_cc_branch(thread_data, branch_addr, other_target + 4);
+          branch_addr++;
+          thread_data->code_cache_meta[source_index].branch_cache_status |= BOTH_LINKED;
+        }
+      } else {
+        // We have just linked the fallthrough
+        thread_data->code_cache_meta[source_index].branch_cache_status |= BOTH_LINKED;
       }
 
       __clear_cache((void *)thread_data->code_cache_meta[source_index].exit_branch_addr,
