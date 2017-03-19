@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <sys/mman.h>
 #include <pthread.h>
+#include <sys/time.h>
 #ifdef __arm__
 #include "../pie/pie-arm-encoder.h"
 #elif __aarch64__

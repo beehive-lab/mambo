@@ -17,6 +17,10 @@
   limitations under the License.
 */
 
+#ifdef __arm__
+.syntax unified
+#endif
+
 .global test_cbz
 .func
 test_cbz:
@@ -38,16 +42,18 @@ cbz_skip:
 #endif
 
 #ifdef __arm__
+.thumb_func
   MOV R1, #0
 cbz_loop:
   SUB R0, R0, #1
   AND R2, R0, #1
-  CBZ cbz_skip
+  CBZ R2, cbz_skip
   AND R2, R0, #2
   CBNZ R2, cbz_skip
   ADD R1, R1, #1
 cbz_skip:
-  CBNZ R0, cbz_loop
+  CMP R0, #0
+  BNE cbz_loop
 
   MOV R0, R1
   BX LR
