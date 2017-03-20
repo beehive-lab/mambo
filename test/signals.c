@@ -7,6 +7,7 @@
 #include <sys/mman.h>
 #include <pthread.h>
 #include <sys/time.h>
+#include <setjmp.h>
 #ifdef __arm__
 #include "../pie/pie-arm-encoder.h"
 #elif __aarch64__
@@ -16,6 +17,8 @@
 
 FILE *nulldev;
 int count = 0;
+sigjmp_buf main_env;
+int sig_received = 0;
 
 #define SIGNAL_CNT (100*1000)
 #define AS_TEST_ITER (100*1000*1000)
@@ -32,6 +35,11 @@ void alarm_handler(int i, siginfo_t *info, void *ptr) {
   // We call fprintf for convenience.
   fprintf(nulldev, "alarm\n");
   count++;
+}
+
+void handle_sync(int i, siginfo_t *info, void *ptr) {
+  sig_received++;
+  siglongjmp(main_env, 1);
 }
 
 #ifdef __arm__
@@ -155,4 +163,41 @@ int main (int argc, char **argv) {
   assert(count == AS_TEST_ITER/4);
   printf("success\n");
 #endif
+
+  printf("Test handling of a synchronous SIGTRAP signal: ");
+  fflush(stdout);
+  act.sa_sigaction = handle_sync;
+  ret = sigaction(SIGTRAP, &act, NULL);
+  assert(ret == 0);
+
+  ret = sigsetjmp(main_env, 1);
+  if (ret == 0) {
+#ifdef __arm__
+    asm volatile ("bkpt 0");
+#elif __aarch64__
+    asm volatile ("brk 0");
+#else
+    #error Unsupported architecture
+#endif
+  }
+  assert(sig_received == 1);
+  printf("success\n");
+
+  printf("Test handling of a synchronous SIGILL signal: ");
+  fflush(stdout);
+  ret = sigaction(SIGILL, &act, NULL);
+  assert(ret == 0);
+
+  ret = sigsetjmp(main_env, 1);
+  if (ret == 0) {
+#ifdef __arm__
+    asm volatile ("udf");
+#elif __aarch64__
+    asm volatile ("hvc 0");
+#else
+    #error Unsupported architecture
+#endif
+  }
+  assert(sig_received == 2);
+  printf("success\n");
 }
