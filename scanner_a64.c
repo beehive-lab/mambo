@@ -833,6 +833,7 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
         a64_copy_to_reg_64bits(&write_p, Rd, PC_relative_address);
         break;
 
+      case A64_HVC:
       case A64_BRK:
       case A64_HINT:
       case A64_CLREX:
