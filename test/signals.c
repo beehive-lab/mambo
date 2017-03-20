@@ -200,4 +200,15 @@ int main (int argc, char **argv) {
   }
   assert(sig_received == 2);
   printf("success\n");
+
+  printf("Test receiving SIGILL when no handler is installed\n");
+  act.sa_handler = SIG_DFL;
+  ret = sigaction(SIGILL, &act, NULL);
+#ifdef __arm__
+    asm volatile ("udf");
+#elif __aarch64__
+    asm volatile ("hvc 0");
+#else
+    #error Unsupported architecture
+#endif
 }
