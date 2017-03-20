@@ -113,13 +113,13 @@ void arm_add_sub_32_bit(uint32_t **write_p, enum reg rd, enum reg rn, int value)
 void arm_branch_save_context(dbm_thread *thread_data, uint32_t **o_write_p, bool late_app_sp) {
   uint32_t *write_p = *o_write_p;
 
-  arm_sub(&write_p, IMM_PROC, 0, sp, sp, 8);
+  arm_sub(&write_p, IMM_PROC, 0, sp, sp, DISP_RES_WORDS*4);
   write_p++;
 
   arm_push_regs((1 << r0) | (1 << r1) | (1 << r2) | (1 << r3));
 
   if (!late_app_sp) {
-    arm_add(&write_p, IMM_PROC, 0, r3, sp, 24);
+    arm_add(&write_p, IMM_PROC, 0, r3, sp, DISP_SP_OFFSET);
     write_p++;
   }
 
@@ -430,14 +430,14 @@ void arm_inline_hash_lookup(dbm_thread *thread_data, uint32_t **o_write_p, int b
   write_p++;
 
   // SUB sp, sp, #8
-  arm_sub(&write_p, IMM_PROC, 0, sp, sp, 8);
+  arm_sub(&write_p, IMM_PROC, 0, sp, sp, DISP_RES_WORDS*4);
   write_p++;
 
   // PUSH {r0 - r3}
   arm_push_regs((1 << r0) | (1 << r1) | (1 << r2) | (1 << r3));
 
   //ADD r3, sp, #24
-  arm_add(&write_p, IMM_PROC, 0, r3, sp, 24);
+  arm_add(&write_p, IMM_PROC, 0, r3, sp, DISP_SP_OFFSET);
   write_p++;
 
   // MOV r0, target
@@ -522,6 +522,9 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
   pass1_arm(thread_data, read_address, &bb_type);
   
   if (type == mambo_bb && bb_type == cond_imm_arm) {
+    arm_sub(&write_p, IMM_PROC, 0, sp, sp, 8);
+    write_p++;
+
     arm_push_regs((1 << r0) | (1 << r1) | (1 << r2) | (1 << lr));
 
     arm_copy_to_reg_32bit(&write_p, r0, basic_block);
@@ -1128,7 +1131,7 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
           write_p++;
         }
 
-        arm_sub(&write_p, IMM_PROC, 0, sp, sp, 4);
+        arm_sub(&write_p, IMM_PROC, 0, sp, sp, 8);
         write_p++;
 
         // PUSH {R0-R12, R14}

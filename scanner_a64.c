@@ -672,6 +672,7 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
               reg_spc = Rn;
               reg_tmp = x1;
             }
+            thread_data->code_cache_meta[basic_block].rn = reg_spc;
 
             a64_push_pair_reg(x0, x1);
 

@@ -41,6 +41,6 @@ static inline int64_t atomic_increment_i64(int64_t *loc, int64_t inc) {
 
 // syscall() without errno handling
 extern uintptr_t raw_syscall(long number, ...);
-void signal_trampoline(int i);
+void signal_trampoline(int i, siginfo_t *, void *);
 #endif
 

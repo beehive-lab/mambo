@@ -396,14 +396,14 @@ void thumb_b16_helper(uint16_t *write_p, uint32_t dest_addr, enum arm_cond_codes
 void branch_save_context(dbm_thread *thread_data, uint16_t **o_write_p, bool late_app_sp) {
   uint16_t *write_p = *o_write_p;
 
-  thumb_sub_sp_i16(&write_p, 2);
+  thumb_sub_sp_i16(&write_p, DISP_RES_WORDS);
   write_p++;
 
   thumb_push16(&write_p, (1 << r0) | (1 << r1) | (1 << r2) | (1 << r3));
   write_p++;
 
   if (!late_app_sp) {
-    thumb_addi32(&write_p, 0, 0, sp, 0, r3, 24);
+    thumb_addi32(&write_p, 0, 0, sp, 0, r3, DISP_SP_OFFSET);
     write_p += 2;
   }
 
@@ -426,7 +426,7 @@ void branch_jump(dbm_thread *thread_data, uint16_t **o_write_p, int bb_index, ui
   }
   if (flags & INSERT_BRANCH) {
     if (flags & LATE_APP_SP) {
-      thumb_addi32(&write_p, 0, 0, sp, 0, r3, 24);
+      thumb_addi32(&write_p, 0, 0, sp, 0, r3, DISP_SP_OFFSET);
       write_p += 2;
     }
     thumb_b32_helper(write_p, (uint32_t)thread_data->dispatcher_addr-4);
@@ -699,8 +699,8 @@ void thumb_inline_hash_lookup(dbm_thread *thread_data, uint16_t **o_write_p, int
   thumb_movh16(&write_p, r0 >> 3, target, r0);
   write_p++;
 
-  // ADD R3, SP, #24
-  thumb_addi32(&write_p, 0, 0, sp, 0, r3, 24);
+  // ADD r3, sp, #24
+  thumb_addi32(&write_p, 0, 0, sp, 0, r3, DISP_SP_OFFSET);
   write_p += 2;
 
   // LDMFD r3!, {r4-r6}
@@ -1076,6 +1076,9 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
       || bb_type == tb_indirect
   #endif
       )) {
+    thumb_sub_sp_i16(&write_p, 2);
+    write_p++;
+
     thumb_push16(&write_p, (1 << r0) | (1 << r1) | (1 << r2) | (1 << 8));
     write_p++;
 
@@ -1669,7 +1672,7 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
         break;
         
       case THUMB_SVC16:
-        thumb_sub_sp_i16(&write_p, 1);
+        thumb_sub_sp_i16(&write_p, 2);
         write_p++;
 
         // PUSH {R0-R12, R14}

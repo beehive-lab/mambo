@@ -125,9 +125,14 @@ signal_trampoline:
   SUB SP, SP, #4
   PUSH {r0-r3, r9, r12, lr}
   BL signal_dispatcher
+  CBZ R0, sigret
   STR R0, [SP, #28]
   POP {r0-r3, r9, r12, lr}
   POP {PC}
+sigret:
+  ADD SP, SP, #32
+  MOV R7, #173
+  SVC 0
 #endif
 #ifdef __aarch64__
   STP  X2,  X3, [SP, #-176]!
@@ -155,7 +160,13 @@ signal_trampoline:
   LDR X30,      [SP, #144]
   LDP  X2,  X3, [SP], #160
 
+  CBZ X0, sigret
+
   BR X0
+sigret:
+  ADD SP, SP, #16
+  MOV X8, #139
+  SVC 0
 #endif
 .endfunc
 

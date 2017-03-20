@@ -170,7 +170,7 @@ void install_trace(dbm_thread *thread_data) {
 }
 
 #ifdef __aarch64__
-void generate_trace_exit(dbm_thread *thread_data, uint32_t **o_write_p, int fragment_id, bool is_taken, bool record_link) {
+void generate_trace_exit(dbm_thread *thread_data, uint32_t **o_write_p, int fragment_id, bool is_taken) {
   dbm_code_cache_meta *bb_meta = &thread_data->code_cache_meta[fragment_id];
   uint32_t *write_p = *o_write_p;
 
@@ -194,11 +194,7 @@ void generate_trace_exit(dbm_thread *thread_data, uint32_t **o_write_p, int frag
   }
   uintptr_t addr = is_taken ? bb_meta->branch_skipped_addr : bb_meta->branch_taken_addr;
   write_p++;
-  if (record_link) {
-    a64_cc_branch(thread_data, write_p, active_trace_lookup_or_scan(thread_data, addr) + 4);
-  } else {
-    a64_b_helper(write_p, active_trace_lookup_or_scan(thread_data, addr) + 4);
-  }
+  a64_cc_branch(thread_data, write_p, active_trace_lookup_or_scan(thread_data, addr) + 4);
   write_p++;
 
   *o_write_p = write_p;
@@ -208,7 +204,7 @@ void generate_trace_exit(dbm_thread *thread_data, uint32_t **o_write_p, int frag
 
 /* This is called from trace_head_incr, which is called by trace heads */
 int hot_bb_cnt = 0;
-void create_trace(dbm_thread *thread_data, uint32_t bb_source, uintptr_t *trace_addr) {
+void create_trace(dbm_thread *thread_data, uint32_t bb_source, cc_addr_pair *ret_addr) {
 #ifdef DBM_TRACES
   uint16_t *source_addr;
   uint32_t fragment_len;
@@ -236,6 +232,7 @@ void create_trace(dbm_thread *thread_data, uint32_t bb_source, uintptr_t *trace_
       || thread_data->code_cache_meta[bb_source].exit_branch_type == uncond_imm_a64) {
 #endif
     source_addr = thread_data->code_cache_meta[bb_source].source_addr;
+    ret_addr->spc = (uintptr_t)source_addr;
 #ifdef __arm__
     is_thumb = (uintptr_t)source_addr & THUMB;
 #endif
@@ -247,17 +244,16 @@ void create_trace(dbm_thread *thread_data, uint32_t bb_source, uintptr_t *trace_
     if ((uintptr_t)thread_data->trace_cache_next >= (uintptr_t)thread_data->code_cache + MAX_BRANCH_RANGE - TRACE_LIMIT_OFFSET) {
       fprintf(stderr, "trace cache full, flushing the CC\n");
       flush_code_cache(thread_data);
-      *trace_addr = lookup_or_scan(thread_data, (uintptr_t)source_addr, NULL, NULL);
+      ret_addr->tpc = lookup_or_scan(thread_data, (uintptr_t)source_addr, NULL, NULL);
       return;
     }
 
-    debug("bb: %d, source: %p, ret to: 0x%x\n", bb_source, source_addr, *trace_addr);
+    debug("bb: %d, source: %p, ret to: 0x%x\n", bb_source, source_addr, ret_addr->tpc);
     hot_bb_cnt++;
 
     trace_entry = (uintptr_t)thread_data->trace_cache_next;
     trace_entry |= ((uintptr_t)source_addr) & THUMB;
 
-    assert(!thread_data->active_trace.active);
     thread_data->active_trace.active = true;
     thread_data->active_trace.id = thread_data->trace_id;
     thread_data->active_trace.source_bb = bb_source;
@@ -269,7 +265,7 @@ void create_trace(dbm_thread *thread_data, uint32_t bb_source, uintptr_t *trace_
           thread_data->active_trace.source_bb, thread_data->active_trace.entry_addr);
     debug("\n    Trace head: %p at 0x%x\n\n", source_addr, ret_addr->tpc);
 
-    *trace_addr = adjust_cc_entry(trace_entry);
+    ret_addr->tpc = adjust_cc_entry(trace_entry);
     fragment_len = scan_trace(thread_data, source_addr, mambo_trace_entry, &trace_id);
     debug("len: %d\n\n", fragment_len);
 
@@ -448,7 +444,7 @@ void trace_dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_in
     case cbz_a64:
     case cond_imm_a64:
     case tbz_a64:
-      generate_trace_exit(thread_data, &write_p, source_index, is_taken, true);
+      generate_trace_exit(thread_data, &write_p, source_index, is_taken);
       __clear_cache(write_p - 2, write_p);
       bb_meta->branch_cache_status = is_taken ? FALLTHROUGH_LINKED : BRANCH_LINKED;
       break;

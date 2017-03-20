@@ -195,6 +195,8 @@ typedef struct {
   volatile pid_t tid;
   sys_clone_args *clone_args;
   bool clone_vm;
+  int pending_signals[_NSIG];
+  uint32_t is_signal_pending;
 } dbm_thread;
 
 typedef enum {
@@ -217,6 +219,11 @@ typedef struct {
 #endif
 } dbm_global;
 
+typedef struct {
+  uintptr_t tpc;
+  uintptr_t spc;
+} cc_addr_pair;
+
 void dbm_exit(dbm_thread *thread_data, uint32_t code);
 
 extern void dispatcher_trampoline();
@@ -226,6 +233,8 @@ extern void* start_of_dispatcher_s;
 extern void* end_of_dispatcher_s;
 extern void th_to_arm();
 extern void th_enter(void *stack, uintptr_t cc_addr);
+extern void send_self_signal();
+extern void syscall_wrapper_svc();
 
 bool allocate_thread_data(dbm_thread **thread_data);
 void init_thread(dbm_thread *thread_data);
@@ -239,6 +248,11 @@ size_t   scan_a64(dbm_thread *thread_data, uint32_t *read_address, int basic_blo
 int allocate_bb(dbm_thread *thread_data, bool *cc_flushed);
 void trace_dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_index, dbm_thread *thread_data);
 void flush_code_cache(dbm_thread *thread_data);
+#ifdef __aarch64__
+void generate_trace_exit(dbm_thread *thread_data, uint32_t **o_write_p, int fragment_id, bool is_taken);
+#endif
+void insert_cond_exit_branch(dbm_code_cache_meta *bb_meta, void **o_write_p, int cond);
+void sigret_dispatcher_call(dbm_thread *thread_data, ucontext_t *cont, uintptr_t target);
 
 void thumb_encode_stub_bb(dbm_thread *thread_data, int basic_block, uint32_t target);
 void arm_encode_stub_bb(dbm_thread *thread_data, int basic_block, uint32_t target);
@@ -247,6 +261,7 @@ int addr_to_bb_id(dbm_thread *thread_data, uintptr_t addr);
 int addr_to_fragment_id(dbm_thread *thread_data, uintptr_t addr);
 void record_cc_link(dbm_thread *thread_data, uintptr_t linked_from, uintptr_t linked_to_addr);
 bool is_bb(dbm_thread *thread_data, uintptr_t addr);
+void install_system_sig_handlers();
 
 inline static uintptr_t adjust_cc_entry(uintptr_t addr) {
 #ifdef __arm__
@@ -259,6 +274,7 @@ inline static uintptr_t adjust_cc_entry(uintptr_t addr) {
 
 extern dbm_global global_data;
 extern dbm_thread *disp_thread_data;
+extern uint32_t *th_is_pending_ptr;
 extern __thread dbm_thread *current_thread;
 
 #ifdef PLUGINS_NEW
@@ -300,6 +316,23 @@ void mambo_deliver_callbacks(unsigned cb_id, dbm_thread *thread_data, inst_set i
 #define METADATA_SZ_ROUND(input) ROUND_UP(input, CC_PAGE_SIZE)
 
 #define PAGE_SIZE 4096
+
+#define trampolines_size_bytes         ((uintptr_t)&end_of_dispatcher_s - (uintptr_t)&start_of_dispatcher_s)
+#define trampolines_size_bbs           ((trampolines_size_bytes / sizeof(dbm_block)) \
+                                      + ((trampolines_size_bytes % sizeof(dbm_block)) ? 1 : 0))
+
+#define UNLINK_SIGNAL (SIGILL)
+#define CPSR_T (0x20)
+
+#ifdef __arm__
+  #define context_pc uc_mcontext.arm_pc
+  #define context_sp uc_mcontext.arm_sp
+  #define context_reg(reg) uc_mcontext.arm_r##reg
+#elif __aarch64__
+  #define context_pc uc_mcontext.pc
+  #define context_sp uc_mcontext.sp
+  #define context_reg(reg) uc_mcontext.regs[reg]
+#endif
 
 #endif
 

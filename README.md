@@ -2,6 +2,7 @@ MAMBO: A Low-Overhead Dynamic Binary Modification Tool for ARM
 ==============================================================
 
 News:
+* 2017-04-04: Significantly improved support for Linux signals was implemented.
 * 2017-04-03: The AArch64 port of MAMBO is officially released. The initial AArch64 porting was done by Guillermo Callaghan <guillermocallaghan at hotmail dot com>.
 * We have presented the TACO paper at [HiPEAC](https://www.hipeac.net/events/activities/7477/session-9-binary-translation/) 2017, on 25th of January. The slides are available [here](http://www.cs.man.ac.uk/~gorgovc9/slides_hipeac.pdf).
 
@@ -66,7 +67,7 @@ To build MAMBO with plugin support, uncomment the `-DPLUGINS_NEW` CFLAG in the `
 Known issues
 ------------
 
-* There are several issues around signal handling. Large applications which use signals might crash when running under MAMBO. We have started redesigning signal handling (out of tree) to fix this issue.
+* There are two limitations related to signal handling: the data in the `siginfo_t` structure passed to `SA_SIGINFO` signal handlers is incorrect: most signals will appear to have been sent via `kill()` from the application itself; and synchronous signal (SIGSEGV, SIGBUS, SIGFPE, SIGTRAP, SIGILL, SIGSYS) handlers cannot `sigreturn()`, but can `(sig)longjmp()`.
 * At the moment, code cache invalidation in response to the `munmap` and `__cache_flush` system calls are only done in the thread in which the system call is executed. This can potentially lead to execution of stale cached code in other threads.
 * All `munmap` system calls flush the code cache, instead of only those which unmap code that has been translated. This can increase the overhead for applications which call `munmap` often.
 

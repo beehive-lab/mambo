@@ -42,7 +42,8 @@ dispatcher_trampoline:
 
 #A subroutine must preserve the contents of the registers r4-r8, r10, r11 and SP (and r9 in PCS variants that designate r9 as v6).
   PUSH {r3 - r6, r9, r12, lr}
-  SUB R2, R3, #4
+  STR R0, [R3, #-4] // save the SPC
+  SUB R2, R3, #8    // set up the TPC pointer
   VPUSH {d16-d31}
   VPUSH {d0-d7}
 
@@ -65,14 +66,25 @@ dispatcher_trampoline:
   VPOP {d16-d31}
   POP {r3 - r6, r9, r12, lr}
 
+/*  SP ->  R0
+           R1
+           R2
+           R3
+       <0 or more words>
+           EMPTY
+           TPC
+           SPC
+    R3 ->
+  */
+
   LDR R1, [SP, #12]
-  STR R1, [R3, #-8]
+  STR R1, [R3, #-12]
   POP {R0, R1, R2}
-  SUB SP, R3, #8
-  POP {R3, PC}
-ret_addr: .word 0
+  SUB SP, R3, #12
+  POP {R3}
+  B checked_cc_return
+
 dispatcher_addr: .word dispatcher
-scratch_space: .word 0
 #endif
 
 #ifdef __aarch64__
@@ -145,6 +157,7 @@ dispatcher_trampoline:
   // X0 and X1 are pushed by the exit stub
   STP  X2,  X3, [SP, #-48]!
   STP X29, X30, [SP, #16]
+  STR  X0,      [SP, #40]
   BL push_x4_x21
 
   MRS X19, NZCV
@@ -165,10 +178,10 @@ dispatcher_trampoline:
 
   BL pop_x4_x21
   LDP X29, X30, [SP, #16]
-  LDR  X0,      [SP, #32]
+  LDP  X0,  X1, [SP, #32]
   LDP  X2,  X3, [SP], #48
 
-  BR X0
+  B checked_cc_return
 
 dispatcher_addr: .quad dispatcher
 #endif
@@ -181,26 +194,25 @@ dispatcher_addr: .quad dispatcher
   SUB PC, PC, #3
 .thumb_func
 trace_head_incr:
-  NOP
-  PUSH {LR}
+  STR LR, [SP, #16]
   NOP // MOVW R1, #counter_base & 0xFFFF    
   NOP
   NOP // MOVT R1, #counter_base >> 16
   NOP
-  //NOP // ADD R1, R1, R0
   LDRB R2, [R1, R0]
   SUBW  R2, R2, #1
   STRB R2, [R1, R0]
   CBZ  R2, create_trace_trampoline
-  ADD R2, SP, #4
-  LDM R2, {R0-R2, LR}
-  LDR PC, [SP], #20
+  POP {R0-R2, LR}
+  LDR PC, [SP], #8
+
 create_trace_trampoline:
   BX PC
-  NOP
+
+.align 2
 .code 32
+  ADD R2, SP, #16
   PUSH {R3 - R6, R9, R12}
-  ADD R2, SP, #24
   VPUSH {D16-D31}
   VPUSH {D0-D7}
 
@@ -223,9 +235,8 @@ create_trace_trampoline:
   VPOP {D16-D31}
   POP {R3 - R6, R9, R12}
 
-  ADD R2, SP, #4
-  LDM R2, {R0-R2, LR}
-  LDR PC, [SP], #20
+  POP {R0-R2, LR}
+  B checked_cc_return
 #endif // __arm__
 #ifdef __aarch64__
 trace_head_incr:
@@ -274,23 +285,29 @@ create_trace_trampoline:
   MSR FPSR, X21
 
   BL pop_x4_x21
-  LDR  X0,      [SP, #16]
+  /* Stack layout:
+     X29, X30
+     TPC  SPC
+     X2, X3 */
+  LDP  X0,  X1, [SP, #16]
   LDP  X2,  X3, [SP, #32]
   LDP X29, X30, [SP], #48
 
-  BR X0
+  B checked_cc_return
 
 #endif // __aarch64__
 .endfunc
 
 .global syscall_wrapper
+.global syscall_wrapper_svc
 .func   syscall_wrapper
 #ifdef __arm__
 .code 32
 syscall_wrapper:
   # R8 is the SPC of the following instruction
   # R14 is the address where to return in the code cache
-  STR LR, [SP, #56]
+  STR LR, [SP, #56] // save the TPC
+  STR R8, [SP, #60] // save the SPC
 
   MOV R0, R7 // syscall id
   MOV R1, SP // pointer to saved regs
@@ -314,11 +331,12 @@ syscall_wrapper:
 
   // Balance the stack on sigreturn and rt_sigreturn, which don't return here
   CMP R7, #119
-  ADDEQ SP, SP, #60
+  ADDEQ SP, SP, #64
   CMP R7, #173
-  ADDEQ SP, SP, #60
+  ADDEQ SP, SP, #64
 
   SVC 0
+syscall_wrapper_svc:
   STM SP, {R0-R7}
 
   MOV R0, R7
@@ -332,7 +350,8 @@ syscall_wrapper:
   BIC SP, #0x7
   BLX R4
   MOV SP, R5
-s_w_r: POP {R0-R12, R14, PC}
+s_w_r: POP {R0-R12, R14}
+  B checked_cc_return
 
 syscall_handler_pre_addr: .word syscall_handler_pre
 syscall_handler_post_addr: .word syscall_handler_post
@@ -340,7 +359,7 @@ syscall_handler_post_addr: .word syscall_handler_post
 
 #ifdef __aarch64__
 syscall_wrapper:
-  STR X30, [SP, #-16]!
+  STP X30, X29, [SP, #-16]!
   BL push_x4_x21
   STP X0, X1, [SP, #-32]!
   STP X2, X3, [SP, #16]
@@ -373,7 +392,7 @@ syscall_wrapper:
   ADD SP, SP, #(64 + 144 + 512)
 
 svc: SVC 0
-
+syscall_wrapper_svc:
   ADD X1, SP, #512
   STR X0, [X1, #0]
   MOV X0, X8
@@ -393,9 +412,9 @@ s_w_r:
   BL pop_x4_x21
   LDP X29, X30, [SP, #16]
   STP X0, X1, [SP, #16]
-  LDR X0, [SP], #16
+  LDP X0, X1, [SP], #16
 
-  BR X0
+  B checked_cc_return
 
 syscall_handler_pre_addr: .quad syscall_handler_pre
 syscall_handler_post_addr: .quad syscall_handler_post
@@ -409,6 +428,148 @@ disp_thread_data:
 #endif
 #ifdef __aarch64__
   .quad 0
+#endif
+
+.global send_self_signal
+
+.global checked_cc_return
+.func   checked_cc_return
+checked_cc_return:
+#ifdef __arm__
+.code 32
+  SUB PC, PC, #3
+.thumb_func
+  PUSH {R0}
+  LDR R0, th_is_pending_ptr
+  LDR R0, [R0]
+  CBZ R0, gotocc
+  B deliver_signals_trampoline
+gotocc:
+  POP {R0}
+  LDR PC, [SP], #8
+deliver_signals_trampoline:
+  LDR R0, [SP, #8] // load SPC
+  SUB SP, SP, #12
+  PUSH {r1 - r2}
+  PUSH {r3 - r6, r9, r12, lr}
+  ADD R1, SP, #36
+  VPUSH {d16-d31}
+  VPUSH {d0-d7}
+
+  MRS r5, CPSR
+  VMRS r6, FPSCR
+
+  LDR R9, =deliver_signals
+
+  # provide 8-byte alignment of the SP
+  MOV R4, SP
+  BIC R2, r4, #0x7
+  MOV SP, R2
+  BLX R9
+  MOV SP, R4
+
+  MSR CPSR, r5
+  VMSR FPSCR, r6
+
+  VPOP {d0-d7}
+  VPOP {d16-d31}
+  POP {r3 - r6, r9, r12, lr}
+
+  /*  SP-> r1
+           r2
+           PID
+           TID
+           SIGNO
+           R0
+           TPC
+           SPC
+  */
+
+  CBZ R0, abort_self_signal
+
+  PUSH {R7}
+
+  ADD R2, SP, #12
+  LDM R2, {R0-R2}
+  MOV R7, #268
+  SVC 0
+send_self_signal:
+  POP {r7}
+abort_self_signal:
+  POP {r1-r2}
+  ADD SP, SP, #12
+  POP {r0}
+  LDR PC, [SP], #8
+
+#elif __aarch64__
+  STR X2, [SP, #-16]!
+  LDR X2, th_is_pending_ptr
+  LDR W2, [X2]
+  CBNZ W2, deliver_signals_trampoline
+  LDR X2, [SP], #16
+  BR X0
+deliver_signals_trampoline:
+  STP X0, X1, [SP, #-16]!
+  MOV X0, X1 // set the SPC argument
+
+  STR X3, [SP, #-64]!
+  STP X29, X30, [SP, #16]
+  ADD X1, SP, #32
+  BL push_x4_x21
+  BL push_neon
+
+  MRS X19, NZCV
+  MRS X20, FPCR
+  MRS X21, FPSR
+
+  MOV X2, #0xd6db
+  CMP X0, X2
+  BEQ .
+
+  LDR X3, =deliver_signals
+  BLR X3
+
+  MSR NZCV, X19
+  MSR FPCR, X20
+  MSR FPSR, X21
+
+  BL pop_neon
+  BL pop_x4_x21
+  LDP X29, X30, [SP, #16]
+  LDR X3, [SP], #32
+
+  CBZ X0, abort_self_signal
+
+  LDR X2, [SP, #16]
+  LDP X0, X1, [SP], #32
+
+  STR X8, [SP, #24]
+
+  /*
+    TPC, SPC
+    X2, X8
+    X0, X1
+  */
+r:
+  MOV X8, #131
+  SVC 0
+send_self_signal:
+  LDP X2, X8, [SP, #16]
+  LDR X0, [SP], #32
+  BR X0
+abort_self_signal:
+  ADD SP, SP, #32
+  LDR X2, [SP, #16]
+  LDR X0, [SP], #32
+  BR X0
+#endif
+.endfunc
+
+.global th_is_pending_ptr
+#ifdef __arm__
+th_is_pending_ptr: .word 0
+#elif __aarch64__
+th_is_pending_ptr: .quad 0
 #endif
 
 # place the literal pool before the end_of_dispatcher_s symbol

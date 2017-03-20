@@ -27,7 +27,11 @@
 #define INSERT_BRANCH (1 << 2)
 #define LATE_APP_SP (1 << 3)
 
-#define APP_SP (r3)
+#ifdef __arm__
+  #define APP_SP (r3)
+  #define DISP_SP_OFFSET (28)
+  #define DISP_RES_WORDS (3)
+#endif
 
 #ifdef __arm__
 void thumb_cc_branch(dbm_thread *thread_data, uint16_t *write_p, uint32_t dest_addr);
@@ -58,6 +62,7 @@ void thumb_encode_cbz_branch(dbm_thread *thread_data,
 void arm_cc_branch(dbm_thread *thread_data, uint32_t *write_p, uint32_t target, uint32_t cond);
 void arm_b32_helper(uint32_t *write_p, uint32_t target, uint32_t cond);
 void arm_adjust_b_bl_target(uint32_t *write_p, uint32_t dest_addr);
+void branch_save_context(dbm_thread *thread_data, uint16_t **o_write_p, bool late_app_sp);
 #endif
 
 #ifdef __aarch64__

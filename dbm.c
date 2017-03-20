@@ -59,12 +59,10 @@
 #endif
 
 #define dispatcher_thread_data_offset ((uintptr_t)&disp_thread_data - (uintptr_t)&start_of_dispatcher_s)
+#define th_is_pending_ptr_offset      ((uintptr_t)&th_is_pending_ptr - (uintptr_t)&start_of_dispatcher_s)
 #define dispatcher_wrapper_offset     ((uintptr_t)dispatcher_trampoline - (uintptr_t)&start_of_dispatcher_s)
 #define syscall_wrapper_offset        ((uintptr_t)syscall_wrapper - (uintptr_t)&start_of_dispatcher_s)
 #define trace_head_incr_offset        ((uintptr_t)trace_head_incr - (uintptr_t)&start_of_dispatcher_s)
-#define trampolines_size_bytes         ((uintptr_t)&end_of_dispatcher_s - (uintptr_t)&start_of_dispatcher_s)
-#define trampolines_size_bbs           ((trampolines_size_bytes / sizeof(dbm_block)) \
-                                      + ((trampolines_size_bytes % sizeof(dbm_block)) ? 1 : 0))
 
 dbm_global global_data;
 __thread dbm_thread *current_thread;
@@ -347,6 +345,11 @@ void init_thread(dbm_thread *thread_data) {
   dispatcher_thread_data = (dbm_thread **)((uintptr_t)&thread_data->code_cache->blocks[0]
                                            + dispatcher_thread_data_offset);
   *dispatcher_thread_data = thread_data;
+
+  uint32_t **dispatcher_is_pending = (uint32_t **)((uintptr_t)&thread_data->code_cache->blocks[0]
+                                           + th_is_pending_ptr_offset);
+  *dispatcher_is_pending = &thread_data->is_signal_pending;
+
   debug("*thread_data in dispatcher at: %p\n", dispatcher_thread_data);
 
 #ifdef DBM_TRACES
@@ -467,6 +470,8 @@ void main(int argc, char **argv, char **envp) {
 
   ret = pthread_mutex_init(&global_data.signal_handlers_mutex, NULL);
   assert(ret == 0);
+
+  install_system_sig_handlers();
   
   load_elf(argv[1], &elf, &has_interp, &phdr, &phnum);
 

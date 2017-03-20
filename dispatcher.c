@@ -36,9 +36,27 @@
   #define debug(...)
 #endif
 
-#ifdef __aarch64__
-void insert_cond_exit_branch(dbm_code_cache_meta *bb_meta, uint32_t *write_p, int cond) {
+
+void insert_cond_exit_branch(dbm_code_cache_meta *bb_meta, void **o_write_p, int cond) {
+  void *write_p = *o_write_p;
   switch(bb_meta->exit_branch_type) {
+#ifdef __arm__
+    case cond_imm_thumb:
+      thumb_it16((uint16_t **)&write_p, cond, 0x8);
+      write_p += 2;
+      break;
+    case cbz_thumb:
+      if (bb_meta->branch_cache_status & FALLTHROUGH_LINKED) {
+        thumb_cbz16((uint16_t **)&write_p, 0, 0x01, bb_meta->rn);
+      } else {
+        thumb_cbnz16((uint16_t **)&write_p, 0, 0x01, bb_meta->rn);
+      }
+      write_p += 2;
+      break;
+    case cond_imm_arm:
+      break;
+#endif
+#ifdef __aarch64__
     case cond_imm_a64:
       a64_b_cond_helper(write_p, (uint64_t)write_p + 8, cond);
       break;
@@ -50,9 +68,17 @@ void insert_cond_exit_branch(dbm_code_cache_meta *bb_meta, uint32_t *write_p, in
       a64_tbz_tbnz_helper(write_p, cond, (uint64_t)write_p + 8,
                           bb_meta->rn & 0x1F, bb_meta->rn >> 5);
       break;
-  }
-}
 #endif
+    default:
+      fprintf(stderr, "insert_cond_exit_branch(): unknown branch type\n");
+      while(1);
+  }
+#ifdef __aarch64__
+  write_p += 4;
+#endif
+  *o_write_p = write_p;
+}
+
 
 void dispatcher(uintptr_t target, uint32_t source_index, uintptr_t *next_addr, dbm_thread *thread_data) {
   uintptr_t block_address;
@@ -105,7 +131,7 @@ void dispatcher(uintptr_t target, uint32_t source_index, uintptr_t *next_addr, d
   *next_addr = block_address;
 
   // Bypass any linking
-  if (cc_flushed) {
+  if (source_index == 0 || cc_flushed) {
     return;
   }
 
@@ -359,8 +385,7 @@ void dispatcher(uintptr_t target, uint32_t source_index, uintptr_t *next_addr, d
         if (is_taken) {
           cond = invert_cond(cond);
         }
-        insert_cond_exit_branch(&thread_data->code_cache_meta[source_index], branch_addr, cond);
-        branch_addr++;
+        insert_cond_exit_branch(&thread_data->code_cache_meta[source_index], (void **)&branch_addr, cond);
 
         thread_data->code_cache_meta[source_index].branch_cache_status =
                       (is_taken ? BRANCH_LINKED : FALLTHROUGH_LINKED);
