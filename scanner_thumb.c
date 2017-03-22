@@ -638,30 +638,31 @@ void thumb_inline_hash_lookup(dbm_thread *thread_data, uint16_t **o_write_p, int
   uint16_t *write_p = *o_write_p;
 
   bool target_reg_clean = (r_target >= r0);
-  int target = target_reg_clean ? r_target : r4;
+  int target = target_reg_clean ? r_target : r5;
+  int r_tmp = target_reg_clean ? r5 : r4;
 
-  // MOVW+MOVT r5, hash_mask
-  copy_to_reg_32bit(&write_p, r5, CODE_CACHE_HASH_SIZE);
+  // MOVW+MOVT r_tmp, hash_mask
+  copy_to_reg_32bit(&write_p, r_tmp, CODE_CACHE_HASH_SIZE);
 
   // MOVW+MOVT r6, hash_table
   copy_to_reg_32bit(&write_p, r6, (uint32_t)thread_data->entry_address.entries);
 
-  // AND R5, R4, R5
-  thumb_and32(&write_p, 0, target, 0, r5, 0, 0, r5);
+  // AND r_tmp, target, r_tmp
+  thumb_and32(&write_p, 0, target, 0, r_tmp, 0, 0, r_tmp);
   write_p += 2;
 
-  // ADD R5, R6, R5, LSL #3
-  thumb_add32(&write_p, 0, r6, 0, r5, 3, 0, r5);
+  // ADD r_tmp, r6, r_tmp, LSL #3
+  thumb_add32(&write_p, 0, r6, 0, r_tmp, 3, 0, r_tmp);
   write_p += 2;
 
   // loop:
   loop_start = write_p;
 
-  // LDR r6, [r5], #8
-  thumb_ldri32(&write_p, r5, r6, 8, 0, 1, 1);
+  // LDR r6, [r_tmp], #8
+  thumb_ldri32(&write_p, r_tmp, r6, 8, 0, 1, 1);
   write_p += 2;
 
-  // CMP r6, r4
+  // CMP r6, target
   thumb_cmp32(&write_p, r6, 0, 0, 0, target);
   write_p += 2;
 
@@ -669,24 +670,24 @@ void thumb_inline_hash_lookup(dbm_thread *thread_data, uint16_t **o_write_p, int
   branch_miss = write_p++;
 
   // jump:
+  // LDR r6, [r_tmp, #-4]
+  thumb_ldri32(&write_p, r_tmp, r6, 4, 1, 0, 0);
+  write_p += 2;
+
   if (!target_reg_clean) {
     // POP {R4}
     thumb_pop16(&write_p, (1 << r4));
     write_p++;
   }
 
-  // LDR R6, [R5, #-4]
-  thumb_ldri32(&write_p, r5, r6, 4, 1, 0, 0);
-  write_p += 2;
-
-  // BX R6
+  // BX r6
   thumb_bx16(&write_p, r6);
   write_p++;
 
   // miss:
   thumb_b16_helper(branch_miss, (uint32_t)write_p, NE);
 
-  // CMP R6, #0
+  // CMP r6, #0
   thumb_cmpri16(&write_p, r6, 0);
   write_p++;
 
@@ -694,11 +695,11 @@ void thumb_inline_hash_lookup(dbm_thread *thread_data, uint16_t **o_write_p, int
   thumb_b16_helper(write_p, (uint32_t)loop_start, NE);
   write_p++;
 
-  // SUB SP, SP, #8
+  // SUB sp, sp, #8
   // PUSH {R0 - R3}
   branch_save_context(thread_data, &write_p, true);
 
-  // MOV R0, R4
+  // MOV R0, target
   thumb_movh16(&write_p, r0 >> 3, target, r0);
   write_p++;
 
@@ -706,7 +707,7 @@ void thumb_inline_hash_lookup(dbm_thread *thread_data, uint16_t **o_write_p, int
   thumb_addi32(&write_p, 0, 0, sp, 0, r3, 24);
   write_p += 2;
 
-  // LDMFD R3!, {R4-R6}
+  // LDMFD r3!, {r4-r6}
   if (target_reg_clean) {
     thumb_ldmfd32(&write_p, 1, r3, (1 << r5) | (1 << r6));
   } else {
@@ -714,7 +715,7 @@ void thumb_inline_hash_lookup(dbm_thread *thread_data, uint16_t **o_write_p, int
   }
   write_p += 2;
 
-  // MOV R1, #bb_id
+  // MOV r1, #bb_id
   // B dispatcher
   branch_jump(thread_data, &write_p, basic_block, 0, SETUP | INSERT_BRANCH);
 
@@ -1208,7 +1209,7 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
 #ifdef DBM_INLINE_HASH
           thumb_push16(&write_p, (1 << r4) | (1 << r5) | (1 << r6));
           write_p++;
-          r_target = r4;
+          r_target = r5;
 #else
           branch_save_context(thread_data, &write_p, true);
 #endif
@@ -1365,7 +1366,7 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
         write_p++;
 
         if (r_target < r0) {
-          thumb_movh16(&write_p, 0, rm, r4);
+          thumb_movh16(&write_p, 0, rm, r5);
           write_p++;
         }
         thumb_inline_hash_lookup(thread_data, &write_p, basic_block, r_target);
@@ -1564,7 +1565,7 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
             thumb_push16(&write_p, (1 << r4) | (1 << r5));
             write_p++;
           }
-          thumb_ldr_sp16(&write_p, r4, 2);
+          thumb_ldr_sp16(&write_p, r5, 2);
           write_p++;
           thumb_str_sp16(&write_p, r6, 2);
           write_p++;
@@ -1891,7 +1892,7 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
                 if (imm8 == 4) {
                   thumb_push16(&write_p, (1 << r4) | (1 << r5));
                   write_p++;
-                  thumb_ldr_sp16(&write_p, r4, 2);
+                  thumb_ldr_sp16(&write_p, r5, 2);
                   write_p++;
                   thumb_str_sp16(&write_p, r6, 2);
                   write_p++;
@@ -1905,7 +1906,7 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
                   thumb_push16(&write_p, (1 << r4) | (1 << r5));
                   write_p++;
 
-                  thumb_movh16(&write_p, r4 >> 4, r6, r4);
+                  thumb_movh16(&write_p, r5 >> 4, r6, r5);
                   write_p++;
                 }
               } else { // !writeback
@@ -2036,7 +2037,7 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
 #ifdef DBM_INLINE_HASH
           thumb_push16(&write_p, (1 << r4) | (1 << r5) | (1 << r6));
           write_p++;
-          r_target = r4;
+          r_target = r5;
 #else
           branch_save_context(thread_data, &write_p, true);
 #endif
@@ -2748,7 +2749,7 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
 
             thumb_push16(&write_p, (1 << r4) | (1 << r5));
             write_p++;
-            thumb_ldr_sp16(&write_p, r4, 2);
+            thumb_ldr_sp16(&write_p, r5, 2);
             write_p++;
             thumb_str_sp16(&write_p, r6, 2);
             write_p++;
