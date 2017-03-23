@@ -577,31 +577,19 @@ void thumb_encode_cbz_branch(dbm_thread *thread_data,
     }
   } else {
     if (taken_in_cache) {
-      thumb_cbnz16(&write_p, 0, 0x03, rn);
+      thumb_cbnz16(&write_p, 0, 0x01, rn);
       write_p++;
       thumb_b32_helper(write_p, address_taken);
       write_p += 2;
-      thumb_nop16(&write_p);
-      write_p++;
-      thumb_nop16(&write_p);
-      write_p++;
     }
     if (skipped_in_cache) {
-      thumb_cbz16(&write_p, 0, 0x03, rn);
+      thumb_cbz16(&write_p, 0, 0x01, rn);
       write_p++;
       thumb_b32_helper(write_p, address_skipped);
       write_p += 2;
-      thumb_nop16(&write_p);
-      write_p++;
-      thumb_nop16(&write_p);
-      write_p++;
     }
     if (!update) {
       if (!taken_in_cache && !skipped_in_cache) {
-        thumb_nop16(&write_p);
-        write_p++;
-        thumb_nop16(&write_p);
-        write_p++;
         thumb_nop16(&write_p);
         write_p++;
         thumb_nop16(&write_p);
