@@ -635,6 +635,8 @@ void thumb_inline_hash_lookup(dbm_thread *thread_data, uint16_t **o_write_p, int
   int target = target_reg_clean ? r_target : r5;
   int r_tmp = target_reg_clean ? r5 : r4;
 
+  thread_data->code_cache_meta[basic_block].rn = target;
+
   // MOVW+MOVT r_tmp, hash_mask
   copy_to_reg_32bit(&write_p, r_tmp, CODE_CACHE_HASH_SIZE);
 
@@ -1196,7 +1198,6 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
           assert(rm != sp);
           thread_data->code_cache_meta[basic_block].exit_branch_type = uncond_reg_thumb;
           thread_data->code_cache_meta[basic_block].exit_branch_addr = write_p;
-          thread_data->code_cache_meta[basic_block].rn = rn;
 
           uint32_t r_target = r0;
 
