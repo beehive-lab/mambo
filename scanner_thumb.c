@@ -446,21 +446,27 @@ void set_cc_imm_links(dbm_thread *thread_data,
                          ) {
   uint32_t offset;
 
-  if (taken_in_cache
-      && (thread_data->code_cache_meta[basic_block].branch_cache_status & 2) == 0
-      && is_bb(thread_data, address_taken)) {
-    offset = (thread_data->code_cache_meta[basic_block].branch_cache_status & 1) ? 4 : 0;
-    record_cc_link(thread_data, ((uint32_t)write_p + 2 + offset)|THUMB, address_taken);
+  if ((taken_in_cache || skipped_in_cache) &&
+      thread_data->code_cache_meta[basic_block].branch_cache_status == 0) {
+    thread_data->code_cache_meta[basic_block].branch_cache_status = taken_in_cache ? BRANCH_LINKED : FALLTHROUGH_LINKED;
+    offset = ((uint32_t)write_p + 2) | THUMB;
+    if (taken_in_cache) {
+      record_cc_link(thread_data, offset, address_taken);
+    } else {
+      record_cc_link(thread_data, offset, address_skipped);
+    }
   }
-  thread_data->code_cache_meta[basic_block].branch_cache_status |= taken_in_cache ? 2 : 0;
 
-  if (skipped_in_cache
-      && (thread_data->code_cache_meta[basic_block].branch_cache_status & 1) == 0
-      && is_bb(thread_data, address_skipped)) {
-    offset = (thread_data->code_cache_meta[basic_block].branch_cache_status & 2) ? 4 : 0;
-    record_cc_link(thread_data, ((uint32_t)write_p + 2 + offset)|THUMB, address_skipped);
+  if (taken_in_cache && skipped_in_cache &&
+      (thread_data->code_cache_meta[basic_block].branch_cache_status & BOTH_LINKED) == 0) {
+    thread_data->code_cache_meta[basic_block].branch_cache_status |= BOTH_LINKED;
+    offset = ((uint32_t)write_p + 4 + 2) | THUMB;
+    if (thread_data->code_cache_meta[basic_block].branch_cache_status & BRANCH_LINKED) {
+      record_cc_link(thread_data, offset, address_skipped);
+    } else {
+      record_cc_link(thread_data, offset, address_taken);
+    }
   }
-  thread_data->code_cache_meta[basic_block].branch_cache_status |= skipped_in_cache ? 1 : 0;
 }
 
 #define IMM_SIZE 102
@@ -476,7 +482,7 @@ void thumb_encode_cond_imm_branch(dbm_thread *thread_data,
   uint16_t *write_p = *o_write_p;
 
   if (taken_in_cache && skipped_in_cache) {
-    if (update && thread_data->code_cache_meta[basic_block].branch_cache_status & 1) {
+    if (update && (thread_data->code_cache_meta[basic_block].branch_cache_status & FALLTHROUGH_LINKED)) {
       thumb_it16(&write_p, arm_inverse_cond_code[condition], 0x8);
       write_p++;
       thumb_b32_helper(write_p, address_skipped);
@@ -554,7 +560,7 @@ void thumb_encode_cbz_branch(dbm_thread *thread_data,
   uint16_t *write_p = *o_write_p;
               
   if (taken_in_cache && skipped_in_cache) {
-    if (update && (thread_data->code_cache_meta[basic_block].branch_cache_status & 1)) {
+    if (update && (thread_data->code_cache_meta[basic_block].branch_cache_status & FALLTHROUGH_LINKED)) {
       thumb_cbz16(&write_p, 0, 0x01, rn);
       write_p++;
       thumb_b32_helper(write_p, address_skipped);
