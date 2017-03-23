@@ -8,6 +8,7 @@
 #include <pthread.h>
 #include <sys/time.h>
 #include <setjmp.h>
+#include <errno.h>
 #ifdef __arm__
 #include "../pie/pie-arm-encoder.h"
 #elif __aarch64__
@@ -78,9 +79,12 @@ void *signal_parent(void *data) {
   int ret;
 
   for (int i = 0; i < SIGNAL_CNT; i++) {
-    ret = syscall(__NR_tgkill, pid, tid, SIGRTMIN);
+    do {
+      ret = syscall(__NR_tgkill, pid, tid, SIGRTMIN);
+      usleep((ret == 0) ? 10 : 1000);
+    } while (ret != 0 && errno == EAGAIN);
+
     assert(ret == 0);
-    usleep(10);
   }
 }
 
