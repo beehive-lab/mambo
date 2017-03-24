@@ -352,23 +352,21 @@ void dispatcher(uintptr_t target, uint32_t source_index, uintptr_t *next_addr, d
         }
         insert_cond_exit_branch(&thread_data->code_cache_meta[source_index], branch_addr, cond);
         branch_addr++;
+
+        thread_data->code_cache_meta[source_index].branch_cache_status =
+                      (is_taken ? BRANCH_LINKED : FALLTHROUGH_LINKED);
       } else {
         branch_addr += 2;
+        other_target_in_cache = false;
+        thread_data->code_cache_meta[source_index].branch_cache_status |= BOTH_LINKED;
       }
 
       a64_cc_branch(thread_data, branch_addr, block_address + 4);
       branch_addr++;
 
-      if (thread_data->code_cache_meta[source_index].branch_cache_status == 0) {
-        thread_data->code_cache_meta[source_index].branch_cache_status =
-                      (is_taken ? BRANCH_LINKED : FALLTHROUGH_LINKED);
-        if (other_target_in_cache) {
-          a64_cc_branch(thread_data, branch_addr, other_target + 4);
-          branch_addr++;
-          thread_data->code_cache_meta[source_index].branch_cache_status |= BOTH_LINKED;
-        }
-      } else {
-        // We have just linked the fallthrough
+      if (other_target_in_cache) {
+        a64_cc_branch(thread_data, branch_addr, other_target + 4);
+        branch_addr++;
         thread_data->code_cache_meta[source_index].branch_cache_status |= BOTH_LINKED;
       }
 
