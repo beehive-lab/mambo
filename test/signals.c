@@ -27,6 +27,7 @@ int sig_received = 0;
 int test_cbz(int count);
 int test_tbz(int count);
 int test_a32_direct(int count);
+int test_a32_indirect(int count);
 
 void sigusr_handler(int i, siginfo_t *info, void *ptr) {
   printf("success\n");
@@ -176,6 +177,14 @@ int main (int argc, char **argv) {
   count = test_a32_direct(AS_TEST_ITER);
   pthread_join(thread, NULL);
   assert(count == AS_TEST_ITER/4);
+  printf("success\n");
+
+  printf("Test signal handling in fragments containing A32 indirect branches: ");
+  fflush(stdout);
+  pthread_create(&thread, NULL, signal_parent, &tid);
+  count = test_a32_indirect(AS_TEST_ITER);
+  pthread_join(thread, NULL);
+  assert(count == AS_TEST_ITER/2);
   printf("success\n");
 #endif
 

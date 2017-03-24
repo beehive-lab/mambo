@@ -70,18 +70,43 @@ cbz_skip:
 .code 32
 test_a32_direct:
   MOV R1, #0
-a32_loop:
+a32d_loop:
   SUB R0, R0, #1
   ANDS R2, R0, #1
-  BEQ a32_skip
+  BEQ a32d_skip
   ANDS R2, R0, #2
-  BNE a32_skip
+  BNE a32d_skip
   ADD R1, R1, #1
-a32_skip:
+a32d_skip:
   CMP R0, #0
-  BNE a32_loop
+  BNE a32d_loop
   MOV R0, R1
   BX LR
+.endfunc
+
+.global test_a32_indirect
+.func
+.type test_a32_indirect, %function
+.code 32
+test_a32_indirect:
+  MOV R1, #0
+a32i_loop:
+  SUB R0, R0, #1
+  ANDS R2, R0, #1
+  ADREQ R2, a32i_skip
+  ADRNE R2, a32i_cont
+  BX R2
+a32i_cont:
+  ADD R1, R1, #1
+a32i_skip:
+  CMP R0, #0
+  ADREQ R2, a32i_ret
+  ADRNE R2, a32i_loop
+  BX R2
+a32i_ret:
+  MOV R0, R1
+  BX LR
+.endfunc
 #endif
 
 
