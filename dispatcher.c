@@ -68,13 +68,13 @@ void dispatcher(uintptr_t target, uint32_t source_index, uintptr_t *next_addr, d
   uint32_t reglist;
   bool use_bx_lr;
   bool is_taken;
+  uint32_t cond;
 #ifdef __arm__
   uint16_t *branch_addr;
 #endif // __arm__
 #ifdef __aarch64__
   uint32_t *branch_addr;
   bool insert_cond_br = false;
-  uint32_t cond;
 #endif // __arch64__
 
 /* It's essential to copy exit_branch_type before calling lookup_or_scan
@@ -184,38 +184,39 @@ void dispatcher(uintptr_t target, uint32_t source_index, uintptr_t *next_addr, d
     case cond_imm_arm:
       branch_addr = thread_data->code_cache_meta[source_index].exit_branch_addr;
       is_taken = target == thread_data->code_cache_meta[source_index].branch_taken_addr;
-      if (is_taken) {
-        other_target = cc_lookup(thread_data, thread_data->code_cache_meta[source_index].branch_skipped_addr);
+
+      if (thread_data->code_cache_meta[source_index].branch_cache_status == 0) {
+        if (is_taken) {
+          other_target = thread_data->code_cache_meta[source_index].branch_skipped_addr;
+        } else {
+          other_target = thread_data->code_cache_meta[source_index].branch_taken_addr;
+        }
+        other_target = cc_lookup(thread_data, other_target);
         other_target_in_cache = (other_target != UINT_MAX);
 
-        if (thread_data->code_cache_meta[source_index].branch_cache_status & 1) {
-          branch_addr += 2;
+        cond = thread_data->code_cache_meta[source_index].branch_condition;
+        if (!is_taken) {
+          cond = invert_cond(cond);
         }
 
-        arm_cc_branch(thread_data, (uint32_t *)branch_addr, (uint32_t)block_address,
-                      thread_data->code_cache_meta[source_index].branch_condition);
+        thread_data->code_cache_meta[source_index].branch_cache_status =
+                     (is_taken ? BRANCH_LINKED : FALLTHROUGH_LINKED);
       } else {
-        other_target = cc_lookup(thread_data, thread_data->code_cache_meta[source_index].branch_taken_addr);
-        other_target_in_cache = (other_target != UINT_MAX);
-
-        if (thread_data->code_cache_meta[source_index].branch_cache_status & 2) {
-          branch_addr += 2;
-        }
-
-        arm_cc_branch(thread_data, (uint32_t *)branch_addr, (uint32_t)block_address,
-                       arm_inverse_cond_code[thread_data->code_cache_meta[source_index].branch_condition]);
-      }
-      thread_data->code_cache_meta[source_index].branch_cache_status |= is_taken ? 2 : 1;
-
-      if (other_target_in_cache &&
-          (thread_data->code_cache_meta[source_index].branch_cache_status & (is_taken ? 1 : 2)) == 0) {
         branch_addr += 2;
-        arm_cc_branch(thread_data, (uint32_t *)branch_addr, (uint32_t)other_target, AL);
+        other_target_in_cache = false;
+        cond = AL;
+        thread_data->code_cache_meta[source_index].branch_cache_status |= BOTH_LINKED;
+      }
+      arm_cc_branch(thread_data, (uint32_t *)branch_addr, (uint32_t)block_address, cond);
+      branch_addr += 2;
 
-        thread_data->code_cache_meta[source_index].branch_cache_status |= is_taken ? 1 : 2;
+      if (other_target_in_cache) {
+        arm_cc_branch(thread_data, (uint32_t *)branch_addr, (uint32_t)other_target, AL);
+        branch_addr += 2;
+        thread_data->code_cache_meta[source_index].branch_cache_status |= BOTH_LINKED;
       }
 
-      __clear_cache((char *)branch_addr-4, (char *)branch_addr+8);
+      __clear_cache(thread_data->code_cache_meta[source_index].exit_branch_addr, branch_addr);
       break;
 
     case cond_imm_thumb:
