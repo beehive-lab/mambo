@@ -63,6 +63,27 @@ cbz_skip:
 
 .endfunc
 
+#ifdef __arm__
+.global test_a32_direct
+.func
+.type test_a32_direct, %function
+.code 32
+test_a32_direct:
+  MOV R1, #0
+a32_loop:
+  SUB R0, R0, #1
+  ANDS R2, R0, #1
+  BEQ a32_skip
+  ANDS R2, R0, #2
+  BNE a32_skip
+  ADD R1, R1, #1
+a32_skip:
+  CMP R0, #0
+  BNE a32_loop
+  MOV R0, R1
+  BX LR
+#endif
+
 
 #ifdef __aarch64__
 
