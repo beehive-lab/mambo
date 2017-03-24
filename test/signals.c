@@ -122,9 +122,9 @@ int main (int argc, char **argv) {
 
   struct itimerval it;
   it.it_interval.tv_sec = 0;
-  it.it_interval.tv_usec = 10;
+  it.it_interval.tv_usec = 100;
   it.it_value.tv_sec = 0;
-  it.it_value.tv_usec = 10;
+  it.it_value.tv_usec = 100;
 
   ret = setitimer(ITIMER_REAL, &it, NULL);
   assert(ret == 0);
