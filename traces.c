@@ -304,6 +304,34 @@ void create_trace(dbm_thread *thread_data, uint32_t bb_source, uintptr_t *trace_
   }
 }
 
+void early_trace_exit(dbm_thread *thread_data, dbm_code_cache_meta* bb_meta,
+                      void *write_p, uintptr_t spc, uintptr_t tpc) {
+#ifdef __arm__
+  if (spc & THUMB) {
+    thumb_cc_branch(thread_data, (uint16_t *)write_p, tpc);
+  } else {
+    arm_cc_branch(thread_data, (uint32_t *)write_p, tpc, AL);
+  }
+#endif
+#ifdef __aarch64__
+  a64_cc_branch(thread_data, (uint32_t *)write_p, tpc + 4);
+#endif
+  __clear_cache(write_p, write_p+4);
+  write_p += 4;
+  thread_data->active_trace.write_p = (uint8_t *)write_p;
+  install_trace(thread_data);
+
+#ifdef __arm__
+  if (bb_meta->exit_branch_type == cbz_thumb ||
+      bb_meta->exit_branch_type == cond_imm_thumb ||
+      bb_meta->exit_branch_type == cond_imm_arm) {
+#elif __aarch64__
+  if (bb_meta->exit_branch_type != uncond_imm_a64) {
+#endif
+    bb_meta->branch_cache_status |= BOTH_LINKED;
+  }
+}
+
 /* Handles dispatcher calls from traces */
 void trace_dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_index, dbm_thread *thread_data) {
   uintptr_t addr;
@@ -329,8 +357,9 @@ void trace_dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_in
       debug("other addr: %x %d\n", addr, bb_meta->branch_skipped_addr == target);
       thumb_cc_branch(thread_data, write_p, active_trace_lookup_or_stub(thread_data, addr));
       write_p += 2;
-
       __clear_cache(write_p - 4, write_p);
+
+      bb_meta->branch_cache_status = is_taken ? FALLTHROUGH_LINKED : BRANCH_LINKED;
 
       break;
     case cond_imm_thumb:
@@ -341,13 +370,15 @@ void trace_dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_in
       debug("other addr: %x %d\n", addr, bb_meta->branch_skipped_addr == target);
       thumb_cc_branch(thread_data, write_p, active_trace_lookup_or_stub(thread_data, addr));
       write_p += 2;
-
       __clear_cache(write_p - 4, write_p);
+
+      bb_meta->branch_cache_status = is_taken ? FALLTHROUGH_LINKED : BRANCH_LINKED;
 
       break;
     case uncond_imm_thumb:
     case uncond_b_to_bl_thumb:
     case uncond_imm_arm:
+      bb_meta->branch_cache_status = BRANCH_LINKED;
       break;
 
     case uncond_blxi_thumb:
@@ -406,8 +437,9 @@ void trace_dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_in
                     (bb_meta->branch_taken_addr == target) ?
                      arm_inverse_cond_code[bb_meta->branch_condition] : bb_meta->branch_condition);
       write_p += 2;
-
       __clear_cache(write_p-4, write_p);
+
+      bb_meta->branch_cache_status = is_taken ? FALLTHROUGH_LINKED : BRANCH_LINKED;
 
       break;
 #endif
@@ -418,9 +450,10 @@ void trace_dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_in
     case tbz_a64:
       generate_trace_exit(thread_data, &write_p, source_index, is_taken, true);
       __clear_cache(write_p - 2, write_p);
-      bb_meta->branch_cache_status |= is_taken ? 1 : 2;
+      bb_meta->branch_cache_status = is_taken ? FALLTHROUGH_LINKED : BRANCH_LINKED;
       break;
     case uncond_imm_a64:
+      bb_meta->branch_cache_status = BRANCH_LINKED;
       break;
     case uncond_branch_reg:
       *next_addr = lookup_or_scan(thread_data, target, NULL);
@@ -438,24 +471,8 @@ void trace_dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_in
   // Check if the fragment count has reached the max limit
   if (thread_data->trace_fragment_count > MAX_TRACE_FRAGMENTS) {
     debug("Trace fragment count limit, branch to: 0x%x, written at: %p\n", target, write_p);
-
     addr = active_trace_lookup_or_scan(thread_data, target);
-#ifdef __arm__
-    if (target & 1) {
-      thumb_cc_branch(thread_data, write_p, addr);
-    } else {
-      arm_b32_helper((uint32_t *)write_p, addr, AL);
-    }
-    write_p += 2;
-    __clear_cache(write_p - 2, write_p);
-#endif
-#ifdef __aarch64__
-    a64_cc_branch(thread_data, write_p, addr + 4);
-    write_p++;
-    __clear_cache(write_p - 1, write_p);
-#endif
-    thread_data->active_trace.write_p = (uint8_t *)write_p;
-    install_trace(thread_data);
+    early_trace_exit(thread_data, bb_meta, write_p, target, addr);
     *next_addr = addr;
     return;
   }
@@ -464,22 +481,7 @@ void trace_dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_in
   addr = active_trace_lookup(thread_data, target);
   debug("Hash lookup for 0x%x: 0x%x\n", target, addr);
   if (addr != UINT_MAX) {
-#ifdef __arm__
-    if (addr & 1) {
-      thumb_b32_helper(write_p, addr);
-    } else {
-      arm_b32_helper((uint32_t *)write_p, addr, AL);
-    }
-    write_p += 2;
-    __clear_cache(write_p - 2, write_p);
-#endif
-#ifdef __aarch64__
-    a64_b_helper(write_p, addr + 4);
-    write_p++;
-    __clear_cache(write_p - 1, write_p);
-#endif
-    thread_data->active_trace.write_p = (uint8_t *)write_p;
-    install_trace(thread_data);
+    early_trace_exit(thread_data, bb_meta, write_p, target, addr);
     *next_addr = addr;
     return;
   }
