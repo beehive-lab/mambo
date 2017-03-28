@@ -19,7 +19,7 @@
 FILE *nulldev;
 int count = 0;
 sigjmp_buf main_env;
-int sig_received = 0;
+volatile int sig_received = 0;
 
 #define SIGNAL_CNT (100*1000)
 #define AS_TEST_ITER (100*1000*1000)
@@ -30,6 +30,7 @@ int test_a32_direct(int count);
 int test_a32_indirect(int count);
 
 void sigusr_handler(int i, siginfo_t *info, void *ptr) {
+  sig_received++;
   printf("success\n");
 }
 
@@ -110,6 +111,26 @@ int main (int argc, char **argv) {
   fill_cc();
   ret = kill(getpid(), SIGUSR1);
   assert(ret == 0);
+
+  printf("Test sigsuspend: ");
+  fflush(stdout);
+  sig_received = 0;
+  sigset_t blocked_sigs;
+  ret = sigfillset(&blocked_sigs);
+  assert(ret == 0);
+  ret = sigprocmask(SIG_SETMASK, &blocked_sigs, NULL);
+  assert(ret == 0);
+  ret = sigemptyset(&blocked_sigs);
+  assert(ret == 0);
+  ret = kill(getpid(), SIGUSR1);
+  assert(ret == 0);
+  while(sig_received == 0) {
+    sigsuspend(&blocked_sigs);
+    assert(errno == EINTR);
+  }
+  ret = sigprocmask(SIG_SETMASK, &blocked_sigs, NULL);
+  assert(ret == 0);
+  sig_received = 0;
 
   printf("Test against race conditions between code generation and signals: ");
   fflush(stdout);
