@@ -25,6 +25,6 @@
 
 uintptr_t signal_dispatcher(int i) {
   assert(i >= 0 && i < _NSIG);
-  uintptr_t handler = lookup_or_scan(current_thread, global_data.signal_handlers[i], NULL);
+  uintptr_t handler = lookup_or_scan(current_thread, global_data.signal_handlers[i], NULL, NULL);
   return handler;
 }

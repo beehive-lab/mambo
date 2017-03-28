@@ -64,7 +64,7 @@ uintptr_t active_trace_lookup_or_scan(dbm_thread *thread_data, uintptr_t target)
   if (target == spc) {
     return adjust_cc_entry(thread_data->active_trace.entry_addr);
   }
-  return lookup_or_scan(thread_data, target, NULL);
+  return lookup_or_scan(thread_data, target, NULL, NULL);
 }
 
 uintptr_t active_trace_lookup_or_stub(dbm_thread *thread_data, uintptr_t target) {
@@ -247,7 +247,7 @@ void create_trace(dbm_thread *thread_data, uint32_t bb_source, uintptr_t *trace_
     if ((uintptr_t)thread_data->trace_cache_next >= (uintptr_t)thread_data->code_cache + MAX_BRANCH_RANGE - TRACE_LIMIT_OFFSET) {
       fprintf(stderr, "trace cache full, flushing the CC\n");
       flush_code_cache(thread_data);
-      *trace_addr = lookup_or_scan(thread_data, (uintptr_t)source_addr, NULL);
+      *trace_addr = lookup_or_scan(thread_data, (uintptr_t)source_addr, NULL, NULL);
       return;
     }
 
@@ -425,7 +425,7 @@ void trace_dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_in
     case tbh:
     case tbb:
     case uncond_reg_arm:
-      *next_addr = lookup_or_scan(thread_data, target, NULL);
+      *next_addr = lookup_or_scan(thread_data, target, NULL, NULL);
       return;
 
       break;
@@ -456,7 +456,7 @@ void trace_dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_in
       bb_meta->branch_cache_status = BRANCH_LINKED;
       break;
     case uncond_branch_reg:
-      *next_addr = lookup_or_scan(thread_data, target, NULL);
+      *next_addr = lookup_or_scan(thread_data, target, NULL, NULL);
       return;
       break;
 #endif

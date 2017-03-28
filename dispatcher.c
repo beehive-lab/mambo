@@ -69,6 +69,7 @@ void dispatcher(uintptr_t target, uint32_t source_index, uintptr_t *next_addr, d
   bool use_bx_lr;
   bool is_taken;
   uint32_t cond;
+  bool cc_flushed;
 #ifdef __arm__
   uint16_t *branch_addr;
 #endif // __arm__
@@ -94,13 +95,20 @@ void dispatcher(uintptr_t target, uint32_t source_index, uintptr_t *next_addr, d
 #endif
   
   debug("Reached the dispatcher, target: 0x%x, ret: %p, src: %d thr: %p\n", target, next_addr, source_index, thread_data);
-  block_address = lookup_or_scan(thread_data, target, &cached);
+  block_address = lookup_or_scan(thread_data, target, &cached, &cc_flushed);
   if (cached) {
     debug("Found block from %d for 0x%x in cache at 0x%x\n", source_index, target, block_address);
   } else {
     debug("Scanned at 0x%x for 0x%x\n", block_address, target);
   }
-  
+
+  *next_addr = block_address;
+
+  // Bypass any linking
+  if (cc_flushed) {
+    return;
+  }
+
   switch (source_branch_type) {
 #ifdef __arm__
 #ifdef DBM_TB_DIRECT
@@ -376,6 +384,4 @@ void dispatcher(uintptr_t target, uint32_t source_index, uintptr_t *next_addr, d
   #endif
 #endif // __arch64__
   }
-  
-  *next_addr = block_address;
 }
