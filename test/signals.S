@@ -23,9 +23,9 @@
 
 .global test_cbz
 .func
-test_cbz:
 
 #ifdef __aarch64__
+test_cbz:
   MOV W1, #0
 cbz_loop:
   SUB W0, W0, #1
@@ -42,7 +42,9 @@ cbz_skip:
 #endif
 
 #ifdef __arm__
+.type test_cbz, %function
 .thumb_func
+test_cbz:
   MOV R1, #0
 cbz_loop:
   SUB R0, R0, #1
