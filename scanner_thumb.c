@@ -2360,6 +2360,7 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
           } else {
             thread_data->code_cache_meta[basic_block].exit_branch_type = uncond_imm_thumb;
           }
+          thread_data->code_cache_meta[basic_block].branch_taken_addr = target;
           thread_data->code_cache_meta[basic_block].exit_branch_addr = write_p;
 #ifdef DBM_LINK_UNCOND_IMM
           block_address = cc_lookup(thread_data, target);
