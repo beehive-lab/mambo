@@ -330,6 +330,7 @@ void dispatcher(uintptr_t target, uint32_t source_index, uintptr_t *next_addr, d
       branch_addr = thread_data->code_cache_meta[source_index].exit_branch_addr;
       a64_cc_branch(thread_data, branch_addr, block_address + 4);
       __clear_cache((void *)branch_addr, (void *)branch_addr + 4 + 1);
+      thread_data->code_cache_meta[source_index].branch_cache_status = BRANCH_LINKED;
       break;
   #endif
   #ifdef DBM_LINK_COND_IMM
