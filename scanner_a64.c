@@ -31,7 +31,7 @@
 #include "pie/pie-a64-field-decoder.h"
 
 #define NOP 0xD503201F /* NOP Instruction (A64) */
-#define MIN_FSPACE 80
+#define MIN_FSPACE 60
 
 //#define DEBUG
 #ifdef DEBUG
@@ -611,6 +611,10 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
       case A64_BLR:
       case A64_RET:
         a64_BR_decode_fields(read_address, &Rn);
+
+#ifdef DBM_INLINE_HASH
+        a64_check_free_space(thread_data, &write_p, &data_p, 88, basic_block);
+#endif
 
         thread_data->code_cache_meta[basic_block].exit_branch_type = uncond_branch_reg;
         thread_data->code_cache_meta[basic_block].exit_branch_addr = write_p;
