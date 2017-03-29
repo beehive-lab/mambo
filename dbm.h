@@ -155,12 +155,20 @@ typedef struct {
   pid_t *ctid;
 } sys_clone_args;
 
+struct trace_exits {
+  uintptr_t from;
+  uintptr_t to;
+};
+
+#define MAX_TRACE_REC_EXITS (MAX_TRACE_FRAGMENTS+1)
 typedef struct {
   int id;
   int source_bb;
   void *write_p;
   uintptr_t entry_addr;
   bool active;
+  int free_exit_rec;
+  struct trace_exits exits[MAX_TRACE_REC_EXITS];
 } trace_in_prog;
 
 typedef struct {

@@ -152,6 +152,12 @@ void install_trace(dbm_thread *thread_data) {
   thread_data->trace_id = thread_data->active_trace.id;
   thread_data->trace_cache_next = thread_data->active_trace.write_p;
 
+  // Record the trace exits
+  for (int i = 0; i < thread_data->active_trace.free_exit_rec; i++) {
+    record_cc_link(thread_data, thread_data->active_trace.exits[i].from,
+                   thread_data->active_trace.exits[i].to);
+  }
+
   /* Add traps to the source basic block to detect if it remains reachable */
 #ifdef __arm__
   void *write_p = (void *)adjust_cc_entry(thread_data->code_cache_meta[bb_source].tpc);
@@ -168,6 +174,32 @@ void install_trace(dbm_thread *thread_data) {
   __clear_cache(write_p, write_p + 1);
 #endif
 }
+
+int trace_record_exit(dbm_thread *thread_data, uintptr_t from, uintptr_t to) {
+  int record = thread_data->active_trace.free_exit_rec++;
+  if (record >= MAX_TRACE_REC_EXITS) {
+    return -1;
+  }
+
+  thread_data->active_trace.exits[record].from = from;
+  thread_data->active_trace.exits[record].to = to;
+
+  return 0;
+}
+
+#ifdef __arm__
+void thumb_trace_exit_branch(dbm_thread *thread_data, uint16_t *write_p, uint32_t target) {
+  thumb_b32_helper(write_p, target);
+  int ret = trace_record_exit(thread_data, (uintptr_t)write_p|THUMB, target);
+  assert(ret == 0);
+}
+
+void arm_trace_exit_branch(dbm_thread *thread_data, uint32_t *write_p, uint32_t target, uint32_t cond) {
+  arm_b32_helper(write_p, target, cond);
+  int ret = trace_record_exit(thread_data, (uintptr_t)write_p, target);
+  assert(ret == 0);
+}
+#endif
 
 #ifdef __aarch64__
 void generate_trace_exit(dbm_thread *thread_data, uint32_t **o_write_p, int fragment_id, bool is_taken) {
@@ -192,9 +224,13 @@ void generate_trace_exit(dbm_thread *thread_data, uint32_t **o_write_p, int frag
       fprintf(stderr, "Unknown branch type\n");
       while(1);
   }
-  uintptr_t addr = is_taken ? bb_meta->branch_skipped_addr : bb_meta->branch_taken_addr;
   write_p++;
-  a64_cc_branch(thread_data, write_p, active_trace_lookup_or_scan(thread_data, addr) + 4);
+
+  uintptr_t addr = is_taken ? bb_meta->branch_skipped_addr : bb_meta->branch_taken_addr;
+  uintptr_t tpc = active_trace_lookup_or_scan(thread_data, addr) + 4;
+  int ret = trace_record_exit(thread_data, (uintptr_t)write_p, tpc);
+  assert(ret == 0);
+  a64_b_helper(write_p, tpc);
   write_p++;
 
   *o_write_p = write_p;
@@ -259,6 +295,7 @@ void create_trace(dbm_thread *thread_data, uint32_t bb_source, cc_addr_pair *ret
     thread_data->active_trace.source_bb = bb_source;
     thread_data->active_trace.write_p = thread_data->trace_cache_next;
     thread_data->active_trace.entry_addr = trace_entry;
+    thread_data->active_trace.free_exit_rec = 0;
 
     debug("Create trace: %d (%p), source_bb: %d, entry: %lx\n",
           thread_data->active_trace.id, thread_data->active_trace.write_p,
@@ -351,7 +388,7 @@ void trace_dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_in
 
       addr = (bb_meta->branch_skipped_addr == target) ? bb_meta->branch_taken_addr : bb_meta->branch_skipped_addr;
       debug("other addr: %x %d\n", addr, bb_meta->branch_skipped_addr == target);
-      thumb_cc_branch(thread_data, write_p, active_trace_lookup_or_stub(thread_data, addr));
+      thumb_trace_exit_branch(thread_data, write_p, active_trace_lookup_or_stub(thread_data, addr));
       write_p += 2;
       __clear_cache(write_p - 4, write_p);
 
@@ -364,7 +401,7 @@ void trace_dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_in
 
       addr = (bb_meta->branch_taken_addr == target) ? bb_meta->branch_skipped_addr : bb_meta->branch_taken_addr;
       debug("other addr: %x %d\n", addr, bb_meta->branch_skipped_addr == target);
-      thumb_cc_branch(thread_data, write_p, active_trace_lookup_or_stub(thread_data, addr));
+      thumb_trace_exit_branch(thread_data, write_p, active_trace_lookup_or_stub(thread_data, addr));
       write_p += 2;
       __clear_cache(write_p - 4, write_p);
 
@@ -429,9 +466,8 @@ void trace_dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_in
     case cond_imm_arm:
       addr = (bb_meta->branch_taken_addr == target) ? bb_meta->branch_skipped_addr : bb_meta->branch_taken_addr;
 
-      arm_cc_branch(thread_data, (uint32_t *)write_p, active_trace_lookup_or_stub(thread_data, addr),
-                    (bb_meta->branch_taken_addr == target) ?
-                     arm_inverse_cond_code[bb_meta->branch_condition] : bb_meta->branch_condition);
+      arm_trace_exit_branch(thread_data, (uint32_t *)write_p, active_trace_lookup_or_stub(thread_data, addr),
+                            is_taken ? invert_cond(bb_meta->branch_condition) : bb_meta->branch_condition);
       write_p += 2;
       __clear_cache(write_p-4, write_p);
 
