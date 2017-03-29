@@ -1613,6 +1613,8 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
         break;
         
       case THUMB_NOP16:
+      case THUMB_BKPT16:
+      case THUMB_UDF16:
         copy_thumb_16();
         it_cond_handled = true;
         break;
