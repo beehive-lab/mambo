@@ -57,7 +57,7 @@ void handle_sync(int i, siginfo_t *info, void *ptr) {
 #endif
 
 // Fill the CC
-#define JUNK_CODE_SIZE (10*1024*1024)
+#define JUNK_CODE_SIZE (8*1024*1024)
 void fill_cc() {
   int i;
   uint32_t *code = mmap(NULL, JUNK_CODE_SIZE, PROT_EXEC | PROT_READ | PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
