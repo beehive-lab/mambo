@@ -218,8 +218,14 @@ void unlink_fragment(int fragment_id, uintptr_t pc) {
   #endif
     fragment_id++;
     bb_meta = &current_thread->code_cache_meta[fragment_id];
-    assert(fragment_id < current_thread->trace_id ||
-           (current_thread->active_trace.active && fragment_id < current_thread->active_trace.id));
+    // Signal delivered in active trace ending with unlinked unconditional branch
+    if (fragment_id >= current_thread->active_trace.id) {
+      uintptr_t cache = current_thread->code_cache_meta[
+                        current_thread->active_trace.id - 1].branch_cache_status;
+      assert(cache == 0);
+      assert(current_thread->active_trace.active);
+      return;
+    }
   }
 #endif
 
