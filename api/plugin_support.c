@@ -24,8 +24,10 @@
 #include "../dbm.h"
 #include "../common.h"
 
+#ifdef __aarch64__
 #include "../pie/pie-a64-decoder.h"
 #include "../pie/pie-a64-field-decoder.h"
+#endif
 
 #ifdef PLUGINS_NEW
 
@@ -173,11 +175,15 @@ int mambo_get_inst_len(mambo_context *ctx) {
   if (inst == -1) {
     return -1;
   }
+#ifdef __arm__
   if (mambo_get_inst_type(ctx) == ARM_INST) {
     return 4;
   } else {
     return (inst < THUMB_ADCI32) ? 2 : 4;
   }
+#elif __aarch64__
+  return 4;
+#endif
 }
 
 void *mambo_get_source_addr(mambo_context *ctx) {

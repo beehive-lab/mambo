@@ -22,9 +22,12 @@
 #include <stdio.h>
 #include <assert.h>
 #include "../plugins.h"
+#ifdef __arm__
 #include "../pie/pie-thumb-encoder.h"
+#elif __aarch64__
 #include "../pie/pie-a64-encoder.h"
 #include "../api/emit_a64.h"
+#endif
 
 #define not_implemented() \
   fprintf(stderr, "%s: Implement me\n", __PRETTY_FUNCTION__); \

@@ -31,7 +31,7 @@
 #include "pie/pie-a64-field-decoder.h"
 
 #define NOP 0xD503201F /* NOP Instruction (A64) */
-#define MIN_FSPACE 80
+#define MIN_FSPACE 60
 
 //#define DEBUG
 #ifdef DEBUG
@@ -73,6 +73,12 @@ void a64_branch_helper(uint32_t *write_p, uint64_t target, bool link) {
 
 void a64_b_helper(uint32_t *write_p, uint64_t target) {
   a64_branch_helper(write_p, target, false);
+}
+
+void a64_cc_branch(dbm_thread *thread_data, uint32_t *write_p, uint64_t target) {
+  a64_b_helper(write_p, target);
+
+  record_cc_link(thread_data, (uintptr_t)write_p, target);
 }
 
 void a64_bl_helper(uint32_t *write_p, uint64_t target) {
@@ -317,17 +323,50 @@ void a64_branch_imm_reg(dbm_thread *thread_data, uint32_t **o_write_p,
 }
 
 void a64_check_free_space(dbm_thread *thread_data, uint32_t **write_p,
-                          uint32_t **data_p, uint32_t size) {
+                          uint32_t **data_p, uint32_t size, int cur_block) {
   int basic_block;
 
   if ((((uint64_t)*write_p) + size) >= (uint64_t)*data_p) {
-    basic_block = allocate_bb(thread_data);
+    basic_block = allocate_bb(thread_data, NULL);
+    thread_data->code_cache_meta[basic_block].actual_id = cur_block;
     if ((uint32_t *)&thread_data->code_cache->blocks[basic_block] != *data_p) {
       a64_b_helper(*write_p, (uint64_t)&thread_data->code_cache->blocks[basic_block]);
       *write_p = (uint32_t *)&thread_data->code_cache->blocks[basic_block];
     }
     *data_p = (uint32_t *)&thread_data->code_cache->blocks[basic_block];
     *data_p += BASIC_BLOCK_SIZE;
+  }
+}
+
+void pass1_a64(uint32_t *read_address, branch_type *bb_type) {
+
+  *bb_type = unknown;
+
+  while(*bb_type == unknown) {
+    a64_instruction instruction = a64_decode(read_address);
+
+    switch(instruction) {
+      case A64_B_BL:
+        *bb_type = uncond_imm_a64;
+        break;
+      case A64_CBZ_CBNZ:
+        *bb_type = cbz_a64;
+        break;
+      case A64_B_COND:
+        *bb_type = cond_imm_a64;
+        break;
+      case A64_TBZ_TBNZ:
+        *bb_type = tbz_a64;
+        break;
+      case A64_BR:
+      case A64_BLR:
+      case A64_RET:
+        *bb_type = uncond_branch_reg;
+        break;
+      case A64_INVALID:
+        return;
+    }
+    read_address++;
   }
 }
 
@@ -363,7 +402,7 @@ bool a64_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id, 
             }
           }
           write_p = ctx.write_p;
-          a64_check_free_space(thread_data, &write_p, &data_p, MIN_FSPACE);
+          a64_check_free_space(thread_data, &write_p, &data_p, MIN_FSPACE, basic_block);
         } else {
           assert(ctx.write_p == write_p);
         }
@@ -407,8 +446,7 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
   if (type == mambo_bb) {
     data_p = write_p + BASIC_BLOCK_SIZE;
   } else { // mambo_trace
-    // TODO
-    assert(0);
+    data_p = (uint32_t *)&thread_data->code_cache->traces + (TRACE_CACHE_SIZE / 4);
   }
 
   /*
@@ -416,9 +454,31 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
    * address and the Basic Block number respectively. Before
    * overwriting the values of these two registers they are pushed to the
    * Stack. This means that at the start of every Basic Block X0 and X1 have
-   * to be popped from the Stack.
+   * to be popped from the Stack. The same is true for trace entries, however
+   * trace fragments do not need a pop instruction.
    */
-  a64_pop_pair_reg(x0, x1);
+  if (type != mambo_trace) {
+    a64_pop_pair_reg(x0, x1);
+  }
+
+#ifdef DBM_TRACES
+  branch_type bb_type;
+  pass1_a64(read_address, &bb_type);
+
+  if (type == mambo_bb && bb_type != uncond_branch_reg && bb_type != unknown) {
+    a64_push_pair_reg(x0, x1);
+
+    a64_copy_to_reg_64bits(&write_p, x0, (int)basic_block);
+
+    a64_ADR(&write_p, 0, 0, 2, x1);
+    write_p++;
+
+    a64_b_helper(write_p, thread_data->trace_head_incr_addr);
+    write_p++;
+
+    a64_pop_pair_reg(x0, x1);
+  }
+#endif
 
   while(!stop) {
     debug("A64 scan read_address: %p, w: : %p, bb: %d\n", read_address, write_p, basic_block);
@@ -462,7 +522,7 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
         a64_copy_to_reg_64bits(&write_p, x29, (uint64_t)read_address + 4);
         a64_bl_helper(write_p, thread_data->syscall_wrapper_addr);
         write_p++;
-        a64_pop_pair_reg(x29, x30);
+        a64_pop_pair_reg(x0, x1);
         break;
 
       case A64_MRS_MSR_REG:
@@ -550,26 +610,27 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
       case A64_BR:
       case A64_BLR:
       case A64_RET:
-        switch(inst){
-          case A64_BLR:
-            a64_BLR_decode_fields(read_address, &Rn);
-            if (Rn != lr) {
-              a64_copy_to_reg_64bits(&write_p, lr, (uint64_t)read_address + 4);
-            }
-            break;
-          case A64_BR:
-            a64_BR_decode_fields(read_address, &Rn);
-            break;
-          case A64_RET:
-            a64_RET_decode_fields(read_address, &Rn);
-        }
+        a64_BR_decode_fields(read_address, &Rn);
 
-#ifndef DBM_D_INLINE_HASH
+#ifdef DBM_INLINE_HASH
+        a64_check_free_space(thread_data, &write_p, &data_p, 88, basic_block);
+#endif
+
+        thread_data->code_cache_meta[basic_block].exit_branch_type = uncond_branch_reg;
+        thread_data->code_cache_meta[basic_block].exit_branch_addr = write_p;
+        thread_data->code_cache_meta[basic_block].rn = Rn;
+
+#ifndef DBM_INLINE_HASH
         a64_branch_save_context(&write_p);
 
         // MOV X0, Rn (Alias of ORR X0, Rn, XZR)
         a64_logical_reg(&write_p, 1, 1, 0, 0, Rn, 0, xzr, x0);
         write_p++;
+
+        if (inst == A64_BLR) {
+          // MOV LR, read_address+4
+          a64_copy_to_reg_64bits(&write_p, lr, (uint64_t)read_address + 4);
+        }
 
         a64_branch_jump(thread_data, &write_p, basic_block, 0, INSERT_BRANCH);
 #else
@@ -577,89 +638,101 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
              * Indirect Branch LookUp
              * ======== ====== ======
              *
-             *                 STP  X0, X1, [SP, #-16]
-             *                 STP  X2, [SP, #-16]     **
-             *                 MOV  X2, Rn             **
-             *                 AND  X1, Rn, #hash_mask
-             *                 ADD  X0, X0, X1, LSL #4
+             *                 STP  X0, X1, [SP, #-16]!
+             *                 STP  X2, [SP, #-16]!        **
+             *                 MOV  X1, Rn                 ** Rn = X1
+             *                 MOV  LR, read_address + 4   ##
+             *                 MOV  X0, #hash_table
+             *                 AND  Xtmp, Rn, #(hash_mask << 2)
+             *                 ADD  X0, X0, Xtmp, LSL #2
              *          loop:
-             *                 LDR  X1, [X0], #16
-             *                 CBZ  X1, not_found
-             *                 SUB  X1, X1, Rn
-             *                 CBNZ X1, loop
+             *                 LDR  Xtmp, [X0], #16
+             *                 CBZ  Xtmp, not_found
+             *                 SUB  Xtmp, Xtmp, Rn
+             *                 CBNZ Xtmp, loop
              *                 LDR  X0, [X0,  #-8]
-             *                 LDR  X2, [SP], #16      **
+             *                 LDR  X2, [SP], #16           **
              *                 BR   X0
              *     not_found:
              *                 MOV  X0, Rn
              *                 MOV  X1, #bb
-             *                 LDR  X2, [SP], #16      **
+             *                 LDR  X2, [SP], #16           **
              *                 B    dispatcher
              *
-             * ** if Rn is X0 or X1
+             * ** if Rn is X0, X1 or (BLR LR)
+             * ## for BLR
              */
 
             uint32_t *loop;
             uint32_t *branch_to_not_found;
+            uint32_t reg_spc, reg_tmp;
+            bool use_x2 = false;
 
-            int realRn = (Rn == x0) || (Rn == x1) ? x2 : Rn;
+            if ((Rn == x0) || (Rn == x1) || (inst == A64_BLR && Rn == lr)) {
+              reg_spc = x1;
+              reg_tmp = x2;
+              use_x2 = true;
+            } else {
+              reg_spc = Rn;
+              reg_tmp = x1;
+            }
+            thread_data->code_cache_meta[basic_block].rn = reg_spc;
 
             a64_push_pair_reg(x0, x1);
 
-            if ((Rn == x0) || (Rn == x1)) {
+            if (use_x2) {
               a64_push_reg(x2);
-              a64_logical_reg(&write_p, 1, 1, 0, 0, Rn, 0, xzr, x2);
-              write_p++;
+              if (Rn != reg_spc) {
+                a64_logical_reg(&write_p, 1, 1, 0, 0, Rn, 0, xzr, reg_spc);
+                write_p++;
+              }
+            }
+
+            if (inst == A64_BLR) {
+              // MOV LR, read_address+4
+              a64_copy_to_reg_64bits(&write_p, lr, (uint64_t)read_address + 4);
             }
 
             a64_copy_to_reg_64bits(&write_p, x0,
                                     (uint64_t)&thread_data->entry_address.entries);
 
-            a64_logical_immed(&write_p, 1, 0, 1, 62, 16, realRn, x1);
+            a64_logical_immed(&write_p, 1, 0, 1, 62, 18, reg_spc, reg_tmp);
             write_p++;
 
-            a64_ADD_SUB_shift_reg(&write_p, 1, 0, 0, 0, x1, 0x2, x0, x0);
+            a64_ADD_SUB_shift_reg(&write_p, 1, 0, 0, 0, reg_tmp, 0x2, x0, x0);
             write_p++;
 
             loop = write_p;
-            a64_LDR_STR_immed(&write_p, 3, 0, 1, 16, 1, x0, x1);
+            a64_LDR_STR_immed(&write_p, 3, 0, 1, 16, 1, x0, reg_tmp);
             write_p++;
 
             branch_to_not_found = write_p++;
 
-            a64_ADD_SUB_shift_reg(&write_p, 1, 1, 0, 0, realRn, 0, x1, x1);
+            a64_ADD_SUB_shift_reg(&write_p, 1, 1, 0, 0, reg_spc, 0, reg_tmp, reg_tmp);
             write_p++;
 
-            a64_cbnz_helper(write_p, (uint64_t)loop, 1, x1);
+            a64_cbnz_helper(write_p, (uint64_t)loop, 1, reg_tmp);
             write_p++;
 
             a64_LDR_STR_immed(&write_p, 3, 0, 1, -8, 0, x0, x0);
             write_p++;
 
-            if ((Rn == x0) || (Rn == x1)) {
+            if (use_x2) {
               a64_pop_reg(x2);
-            }
-
-            if (inst == A64_BLR && Rn == lr) {
-              a64_copy_to_reg_64bits(&write_p, lr, (uint64_t)read_address + 4);
             }
 
             a64_BR(&write_p, x0);
             write_p++;
 
-            a64_cbz_helper(branch_to_not_found, (uint64_t)write_p, 1, x1);
+            a64_cbz_helper(branch_to_not_found, (uint64_t)write_p, 1, reg_tmp);
 
-            a64_logical_reg(&write_p, 1, 1, 0, 0, realRn, 0, xzr, x0);
+            a64_logical_reg(&write_p, 1, 1, 0, 0, reg_spc, 0, xzr, x0);
             write_p++;
 
             a64_copy_to_reg_64bits(&write_p, x1, basic_block);
 
-            if ((Rn == x0) || (Rn == x1)) {
+            if (use_x2) {
               a64_pop_reg(x2);
-            }
-
-            if (inst == A64_BLR && Rn == lr) {
-              a64_copy_to_reg_64bits(&write_p, lr, (uint64_t)read_address + 4);
             }
 
             a64_b_helper(write_p, (uint64_t)thread_data->dispatcher_addr);
@@ -765,6 +838,7 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
         a64_copy_to_reg_64bits(&write_p, Rd, PC_relative_address);
         break;
 
+      case A64_HVC:
       case A64_BRK:
       case A64_HINT:
       case A64_CLREX:
@@ -836,7 +910,7 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
           a64_branch_jump(thread_data, &write_p, basic_block, (uint64_t)read_address,
                           REPLACE_TARGET | INSERT_BRANCH);
           stop = true;
-          fprintf(stderr, "WARN: deferred scanning because of unknown instruction at: %p\n", read_address);
+          debug("WARN: deferred scanning because of unknown instruction at: %p\n", read_address);
         } else {
           fprintf(stderr, "Unknown A64 instruction: %d at %p\n", inst, read_address);
           while(1);
@@ -859,7 +933,7 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
     }
 
     if (!stop) {
-      a64_check_free_space(thread_data, &write_p, &data_p, MIN_FSPACE);
+      a64_check_free_space(thread_data, &write_p, &data_p, MIN_FSPACE, basic_block);
     }
 #ifdef PLUGINS_NEW
     a64_scanner_deliver_callbacks(thread_data, POST_INST_C, read_address, inst, &write_p, &data_p, basic_block, type, !stop);

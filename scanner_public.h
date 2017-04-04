@@ -21,6 +21,8 @@
 #ifndef __SCANNER_PUBLIC_H__
 #define __SCANNER_PUBLIC_H__
 
+#include <stdint.h>
+
 #define IMM_LDR 0
 #define LDR_REG 1
 #define IMM_PROC 1

@@ -19,7 +19,6 @@
 
 #include <stdio.h>
 #include <asm/unistd.h>
-#include <signal.h>
 #include <pthread.h>
 #include <sys/mman.h>
 #include <unistd.h>
@@ -30,6 +29,8 @@
 #include <errno.h>
 
 #include "dbm.h"
+#include "kernel_sigaction.h"
+#include "scanner_common.h"
 
 #ifdef DEBUG
   #define debug(...) fprintf(stderr, __VA_ARGS__)
@@ -48,7 +49,7 @@ void *dbm_start_thread_pth(void *ptr) {
   assert(thread_data->clone_args->child_stack);
 
   current_thread = thread_data;
-  uintptr_t addr = scan(thread_data, thread_data->clone_ret_addr, ALLOCATE_BB);
+  uintptr_t addr = scan(thread_data, thread_data->clone_ret_addr, ALLOCATE_BB, NULL);
   pid_t tid = syscall(__NR_gettid);
 
   if (thread_data->clone_args->flags & CLONE_PARENT_SETTID) {
@@ -173,6 +174,10 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
         fprintf(stderr, "Error freeing code cache on exit()\n");
         while(1);
       }
+      if (munmap(thread_data->cc_links, METADATA_SZ_ROUND(sizeof(ll) + sizeof(ll_entry) * MAX_CC_LINKS)) != 0) {
+        fprintf(stderr, "Error freeing CC link struct on exit()\n");
+        while(1);
+      }
       if (munmap(thread_data, METADATA_SZ_ROUND(sizeof(dbm_thread))) != 0) {
         fprintf(stderr, "Error freeing thread private structure on exit()\n");
         while(1);
@@ -180,15 +185,22 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
       pthread_exit(NULL); // this should never return
       while(1); 
       break;
+#ifdef __arm__
+    case __NR_sigaction:
+      fprintf(stderr, "check sigaction()\n");
+      while(1);
+#endif
     case __NR_rt_sigaction: {
       uintptr_t handler = 0xdead;
+      assert(args[3] == 8 && args[0] >= 0 && args[0] < _NSIG);
 
-      struct sigaction *act = (struct sigaction *)args[1];
-      // On ARM, sa_handler and sa_sigaction are in a union, so we don't have to check for the SA_SIGINFO flag
+      struct kernel_sigaction *act = (struct kernel_sigaction *)args[1];
       if (act != NULL) {
-        handler = (uintptr_t)act->sa_handler;
-        if (act->sa_handler != SIG_IGN && act->sa_handler != SIG_DFL) {
-          act->sa_handler = signal_trampoline;
+        handler = (uintptr_t)act->k_sa_handler;
+        // Never remove the UNLINK_SIGNAL handler, which is used internally by MAMBO
+        if (args[0] == UNLINK_SIGNAL || (act->k_sa_handler != SIG_IGN && act->k_sa_handler != SIG_DFL)) {
+          act->k_sa_handler = (__sighandler_t)signal_trampoline;
+          act->sa_flags |= SA_SIGINFO;
         }
       }
 
@@ -198,11 +210,9 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
 
       uintptr_t syscall_ret = raw_syscall(syscall_no, args[0], args[1], args[2], args[3]);
       if (syscall_ret == 0) {
-        assert(args[0] >= 0 && args[0] < _NSIG);
-
-        struct sigaction *oldact = (struct sigaction *)args[2];
-        if (oldact != NULL && oldact->sa_handler != SIG_IGN && oldact->sa_handler != SIG_DFL) {
-          oldact->sa_handler = (void *)global_data.signal_handlers[args[0]];
+        struct kernel_sigaction *oldact = (struct kernel_sigaction *)args[2];
+        if (oldact != NULL && oldact->k_sa_handler != SIG_IGN && oldact->k_sa_handler != SIG_DFL) {
+          oldact->k_sa_handler = (void *)global_data.signal_handlers[args[0]];
         }
 
         if (act != NULL) {
@@ -315,12 +325,31 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
     }
 
 #ifdef __arm__
+    case __NR_sigreturn:
+#endif
+    case __NR_rt_sigreturn: {
+      void *app_sp = args;
+#ifdef __arm__
+      /* We force all signal handler to the SA_SIGINFO type, which must return
+         with rt_sigreturn() and not sigreturn(). Some applications don't return
+         to the rt_sigreturn wrapper set by the kernel in the LR, so we need to
+         override it here. See linux/arm/kernel/signal.c for the difference
+         between the two types of signal handlers.
+      */
+      args[7] = __NR_rt_sigreturn;
+      app_sp += 64;
+#elif __aarch64__
+      app_sp += 64 + 144;
+#endif
+      ucontext_t *cont = (ucontext_t *)(app_sp + sizeof(siginfo_t));
+      sigret_dispatcher_call(thread_data, cont, cont->context_pc);
+      break;
+    }
+
+#ifdef __arm__
     case __NR_vfork:
       assert(thread_data->is_vfork_child == false);
       thread_data->is_vfork_child = true;
-      for (int i = 0; i < 3; i++) {
-        thread_data->parent_scratch_regs[i] = thread_data->scratch_regs[i];
-      }
       break;
     case __ARM_NR_cacheflush:
       fprintf(stderr, "cache flush\n");
@@ -359,9 +388,6 @@ void syscall_handler_post(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_
 #ifdef __arm__
     case __NR_vfork:
       if (args[0] != 0) { // in the parent
-        for (int i = 0; i < 3; i++) {
-          thread_data->scratch_regs[i] = thread_data->parent_scratch_regs[i];
-        }
         thread_data->is_vfork_child = false;
       }
       break;

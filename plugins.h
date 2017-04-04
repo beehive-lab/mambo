@@ -19,7 +19,11 @@
 
 #include "dbm.h"
 #include "scanner_public.h"
-#include "api/emit_thumb.h"
-#include "api/emit_arm.h"
+#ifdef __arm__
+  #include "api/emit_thumb.h"
+  #include "api/emit_arm.h"
+#elif __aarch64__
+  #include "api/emit_a64.h"
+#endif
 #include "api/helpers.h"
 #include "scanner_common.h"
