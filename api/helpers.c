@@ -175,17 +175,65 @@ void emit_a64_pop(mambo_context *ctx, uint32_t regs) {
 }
 #endif
 
-void emit_counter64_incr(mambo_context *ctx, void *counter, uint64_t incr) {
+void emit_counter64_incr(mambo_context *ctx, void *counter, unsigned incr) {
 #ifdef __arm__
-  fprintf(stderr, "emit_counter64_incr()make not yet implemented for ARM\n");
-  exit(EXIT_FAILURE);
+  /* On AArch32 we use NEON rather than ADD and ADC to avoid having to save
+     and restore the PSR register, which is slow.
+
+     VPUSH {D0, D1}
+     PUSH {R0}
+
+     MOV{W,T} R0, counter
+     VLDR D1, [R0]
+     VMOV.I32 D0, #incr
+     VSHR.U64 D0, D0, #32
+     VADD.I64 D0, D1, D0
+     VSTR D0, [R0]
+
+     POP {R0}
+     VPOP {D0, D1}
+  */
+  assert(incr <= 255);
+
+  switch(mambo_get_inst_type(ctx)) {
+    case THUMB_INST: {
+      emit_thumb_vfp_vpush(ctx, 1, 0, 0, 4);
+      emit_thumb_push(ctx, 1 << r0);
+
+      emit_thumb_copy_to_reg_32bit(ctx, r0, (uintptr_t)counter);
+      emit_thumb_vfp_vldr_dp(ctx, 1, r0, 0, 1, 0);
+      emit_thumb_neon_vmovi(ctx, 0, 0, 0, 0, 0, incr >> 7, incr >> 4, incr);
+      emit_thumb_neon_vshr(ctx, 1, 0, 0, 0, 0, 0, 1, 32);
+      emit_thumb_neon_vadd_i(ctx, 3, 0, 0, 0, 0, 1, 0, 0);
+      emit_thumb_vfp_vstr_dp(ctx, 1, 0, r0, 0, 0);
+
+      emit_thumb_pop(ctx, 1 << r0);
+      emit_thumb_vfp_vpop(ctx, 1, 0, 0, 4);
+      break;
+    }
+
+    case ARM_INST:
+      emit_arm_vfp_vpush_dp(ctx, 0, 0, 4);
+      emit_arm_push(ctx, (1 << r0));
+
+      emit_arm_copy_to_reg_32bit(ctx, r0, (uintptr_t)counter);
+      emit_arm_vfp_vldr_dp(ctx, 1, 0, r0, 1, 0);
+      emit_arm_neon_vmovi(ctx, 0, 0, 0, 0, 0, incr >> 7, incr >> 4, incr);
+      emit_arm_neon_vshr(ctx, 1, 0, 0, 0, 0, 0, 1, 32);
+      emit_arm_neon_vadd_i(ctx, 3, 0, 0, 0, 0, 1, 0, 0);
+      emit_arm_vfp_vstr_dp(ctx, 1, 0, r0, 0, 0);
+
+      emit_arm_pop(ctx, (1 << r0));
+      emit_arm_vfp_vpop_dp(ctx, 0, 0, 4);
+      break;
+  }
 #endif
 #ifdef __aarch64__
+  assert(incr <= 0xFFF);
   emit_a64_push(ctx, (1 << x0) | (1 << x1));
   a64_copy_to_reg_64bits((uint32_t **)&ctx->write_p, x0, (uintptr_t)counter);
   emit_a64_LDR_STR_immed(ctx, 3, 0, 1, 0, 3, x0, x1);
   emit_a64_LDR_STR_unsigned_immed(ctx, 3, 0, 1, 0, x0, x1);
-  assert(incr <= 0xFFF);
   emit_a64_ADD_SUB_immed(ctx, 1, 0, 0, 0, incr, x1, x1);
   emit_a64_LDR_STR_unsigned_immed(ctx, 3, 0, 0, 0, x0, x1);
   emit_a64_pop(ctx, (1 << x0) | (1 << x1));

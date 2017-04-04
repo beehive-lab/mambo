@@ -41,6 +41,6 @@ void emit_a64_push(mambo_context *ctx, uint32_t regs);
 void emit_a64_pop(mambo_context *ctx, uint32_t regs);
 #endif
 
-void emit_counter64_incr(mambo_context *ctx, void *counter, uint64_t incr);
+void emit_counter64_incr(mambo_context *ctx, void *counter, unsigned incr);
 
 #endif
