@@ -1264,7 +1264,7 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
       case THUMB_BX16:
       case THUMB_BLX16:
         thumb_bx_16_decode_fields(read_address, &link, &rm);
-        assert(rm != sp && (inst != THUMB_BLX16 || rm != lr));
+        assert(rm != sp && (rm != pc || inst == THUMB_BX16));
         /* Handle conditional execution: either a direct branch to the basic block for
            read_address + 2 or a call to the dispatcher */
         thread_data->code_cache_meta[basic_block].exit_branch_type = uncond_reg_thumb;
@@ -1348,25 +1348,25 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
           break;
         }
 
-        if (inst == THUMB_BLX16) {
-          copy_to_reg_32bit(&write_p, lr, ((uint32_t)read_address) + 2 + 1);
-        }
-
 #ifdef DBM_INLINE_HASH
         assert(rm != sp && rm != pc);
         int r_target = -1;
-        if (rm != r5 && rm != r6) {
+        if (rm != r5 && rm != r6 && (inst != THUMB_BLX16 || rm != lr)) {
           r_target = rm;
           thumb_push16(&write_p, (1 << r5) | (1 << r6));
         } else {
           thumb_push16(&write_p, (1 << r4) | (1 << r5) | (1 << r6));
         }
         write_p++;
-
         if (r_target < r0) {
           thumb_movh16(&write_p, 0, rm, r5);
           write_p++;
         }
+
+        if (inst == THUMB_BLX16) {
+          copy_to_reg_32bit(&write_p, lr, ((uint32_t)read_address) + 2 + 1);
+        }
+
         thumb_inline_hash_lookup(thread_data, &write_p, basic_block, r_target);
 #else
         branch_save_context(thread_data, &write_p, true);
@@ -1376,6 +1376,9 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
         } else {
           thumb_movh16(&write_p, 0, rm, 0);
           write_p++;
+          if (inst == THUMB_BLX16) {
+            copy_to_reg_32bit(&write_p, lr, ((uint32_t)read_address) + 2 + 1);
+          }
         }
 
         branch_jump(thread_data, &write_p, basic_block, 0, SETUP|INSERT_BRANCH|LATE_APP_SP);
