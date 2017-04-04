@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <assert.h>
 #include <locale.h>
+#include <inttypes.h>
 #include "../plugins.h"
 
 struct br_count {
@@ -43,9 +44,9 @@ int branch_count_pre_thread_handler(mambo_context *ctx) {
 int branch_count_post_thread_handler(mambo_context *ctx) {
   struct br_count *counters = mambo_get_thread_plugin_data(ctx);
 
-  fprintf(stderr, "direct branches: %'lld\n", counters->direct_branch_count);
-  fprintf(stderr, "indirect branches: %'lld\n", counters->indirect_branch_count);
-  fprintf(stderr, "returns: %'lld\n\n", counters->return_branch_count);
+  fprintf(stderr, "direct branches: %'" PRIu64 "\n", counters->direct_branch_count);
+  fprintf(stderr, "indirect branches: %'" PRIu64 "\n", counters->indirect_branch_count);
+  fprintf(stderr, "returns: %'" PRIu64 "\n", counters->return_branch_count);
 
   mambo_free(ctx, counters);
 }
