@@ -1149,17 +1149,6 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
         break;
       }
 
-      case ARM_UDF: {
-        if (start_address != (uint32_t)write_p) {
-          arm_cc_branch(thread_data, write_p, lookup_or_stub(thread_data, (uint32_t)read_address), AL);
-          write_p++;
-          stop = true;
-        } else {
-          fprintf(stderr, "TODO: generate SIGILL\n");
-        }
-        break;
-      }
-
       /* Instructions which could access the PC, but shouldn't. */
       case ARM_AND:
       case ARM_BIC:
@@ -1508,6 +1497,7 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
       case ARM_ISB:
       case ARM_MSRI:
       case ARM_NOP:
+      case ARM_UDF:
         copy_arm();
         break;
 
