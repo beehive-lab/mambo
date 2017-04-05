@@ -870,7 +870,7 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
   #endif
             uint32_t saved_regs;
             assert(rm != pc);
-            if (rn == sp) {
+            if (rn == sp && (writeback || !prepostindex)) {
               // POP {PC}
               assert(immediate == IMM_LDR && !prepostindex && updown
                        && !writeback && (offset & 3) == 0 && offset >= 4);
@@ -897,10 +897,14 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
                 write_p++;
               }
             } else {
-              assert(!writeback || (rn != r4 && rn != r5 && rn != r6));
+              assert((!writeback && prepostindex) || (rn != r4 && rn != r5 && rn != r6 && rn != sp));
               saved_regs =  (1 << r4) | (1 << r5) | (1 << r6);
               arm_push_regs(saved_regs);
               arm_ihl_tr_rn_rm(&write_p, read_address, saved_regs, &rn, &rm, &offset);
+              if (rn == sp) {
+                assert(rm == reg_invalid && updown);
+                offset += 12;
+              }
               arm_ldr(&write_p, immediate, r5, rn, offset, prepostindex, updown, writeback);
               write_p++;
             }
