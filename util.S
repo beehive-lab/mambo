@@ -230,6 +230,7 @@ atomic_increment_u32:
 
 .global atomic_decrement_if_positive_i32
 .func atomic_decrement_if_positive_i32
+.type atomic_decrement_if_positive_i32, %function
 
 atomic_decrement_if_positive_i32:
 #ifdef __arm__
