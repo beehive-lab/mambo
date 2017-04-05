@@ -25,7 +25,7 @@ SOURCES+=api/helpers.c api/plugin_support.c
 SOURCES+=elf_loader/elf_loader.o
 
 ARCH=$(shell $(CROSS_COMPILE)$(CC) -dumpmachine | awk -F '-' '{print $$1}')
-ifeq ($(ARCH),arm)
+ifeq ($(findstring arm, $(ARCH)), arm)
 	CFLAGS += -mfpu=neon
 	HEADERS += api/emit_arm.h api/emit_thumb.h
 	PIE = pie/pie-arm-encoder.o pie/pie-arm-decoder.o pie/pie-arm-field-decoder.o
