@@ -63,6 +63,8 @@ typedef enum {
   BRANCH_COND_TBZ = (1 << 7), // A64-only
   BRANCH_COND_IT = (1 << 8),  // T32-only
   BRANCH_CALL = (1 << 9),
+  BRANCH_INTERWORKING = (1 << 10), // A32 and T32
+  BRANCH_TABLE = (1 << 11),        // T32-only
 } mambo_branch_type;
 
 typedef struct {

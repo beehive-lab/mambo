@@ -2,7 +2,7 @@
   This file is part of MAMBO, a low-overhead dynamic binary modification tool:
       https://github.com/beehive-lab/mambo
 
-  Copyright 2013-2016 Cosmin Gorgovan <cosmin at linux-geek dot org>
+  Copyright 2013-2017 Cosmin Gorgovan <cosmin at linux-geek dot org>
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -23,11 +23,6 @@
 
 #include "../dbm.h"
 #include "../common.h"
-
-#ifdef __aarch64__
-#include "../pie/pie-a64-decoder.h"
-#include "../pie/pie-a64-field-decoder.h"
-#endif
 
 #ifdef PLUGINS_NEW
 
@@ -218,50 +213,5 @@ mambo_cond mambo_get_inverted_cond(mambo_context *ctx, mambo_cond cond) {
 void mambo_replace_inst(mambo_context *ctx) {
   ctx->replace = true;
 }
-
-mambo_branch_type mambo_get_branch_type(mambo_context *ctx) {
-  mambo_branch_type type = BRANCH_NONE;
-
-#ifdef __arm__
-  fprintf(stderr, "mambo_get_branch_type() not yet implemented for ARM\n");
-  exit(EXIT_FAILURE);
-#endif
-#ifdef __aarch64__
-  switch (ctx->inst) {
-    case A64_CBZ_CBNZ:
-      type = BRANCH_DIRECT | BRANCH_COND | BRANCH_COND_CBZ;
-      break;
-    case A64_B_COND:
-      type = BRANCH_DIRECT | BRANCH_COND | BRANCH_COND_PSR;
-      break;
-    case A64_TBZ_TBNZ:
-      type = BRANCH_DIRECT | BRANCH_COND | BRANCH_COND_TBZ;
-      break;
-    case A64_BR:
-      type = BRANCH_INDIRECT;
-      break;
-    case A64_BLR:
-      type = BRANCH_INDIRECT | BRANCH_CALL;
-      break;
-    case A64_RET:
-      type = BRANCH_INDIRECT | BRANCH_RETURN;
-      break;
-    case A64_B_BL: {
-      uint32_t op, imm26;
-      a64_B_BL_decode_fields(ctx->read_address, &op, &imm26);
-
-      type = BRANCH_DIRECT;
-      if (op == 1) { // BL
-        type |= BRANCH_CALL;
-      }
-      break;
-    }
-  }
-#endif
-
-  return type;
-}
-
-
 
 #endif
