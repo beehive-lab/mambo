@@ -1,5 +1,5 @@
 ARCH=$(shell $(CC) -dumpmachine | awk -F '-' '{print $$1}')
-ifeq ($(ARCH),arm)
+ifeq ($(findstring arm, $(ARCH)), arm)
 	PIE = ../pie/pie-arm-encoder.o
 	CFLAGS+=-march=armv7-a
 endif
