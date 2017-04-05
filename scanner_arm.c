@@ -591,6 +591,7 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
             arm_data_proc(&write_p, immediate, opcode, set_flags, r5, rn, operand2);
             write_p++;
 
+            arm_check_free_space(thread_data, &write_p, &data_p, IHL_SPACE, basic_block);
             arm_inline_hash_lookup(thread_data, &write_p, basic_block, -1);
 
             stop = true;
