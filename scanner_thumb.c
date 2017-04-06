@@ -44,6 +44,8 @@
   #define debug(...)
 #endif
 
+#define MIN_FSPACE (60)
+#define IHL_FSPACE (76)
 
 #define copy_thumb_16() *(write_p++) = *read_address;
 #define copy_thumb_32() *(write_p++) = *read_address;\
@@ -899,7 +901,7 @@ bool thumb_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id
           }
 
           thumb_check_free_space(thread_data, (uint16_t **)&ctx.write_p, &data_p, state,
-                                 set_addr_prev_block, false, 82, basic_block);
+                                 set_addr_prev_block, false, MIN_FSPACE, basic_block);
         } else {
           assert(ctx.write_p == write_p);
         }
@@ -1228,6 +1230,8 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
           write_p += 2;
 
 #ifdef DBM_INLINE_HASH
+          thumb_check_free_space(thread_data, &write_p, &data_p, &it_state,
+                               &set_addr_prev_block, true, IHL_FSPACE, basic_block);
           thumb_inline_hash_lookup(thread_data, &write_p, basic_block, -1);
 #else
           branch_jump(thread_data, &write_p, basic_block, 0, SETUP|INSERT_BRANCH|LATE_APP_SP);
@@ -1367,6 +1371,8 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
           copy_to_reg_32bit(&write_p, lr, ((uint32_t)read_address) + 2 + 1);
         }
 
+        thumb_check_free_space(thread_data, &write_p, &data_p, &it_state,
+                               &set_addr_prev_block, true, IHL_FSPACE, basic_block);
         thumb_inline_hash_lookup(thread_data, &write_p, basic_block, r_target);
 #else
         branch_save_context(thread_data, &write_p, true);
@@ -1571,6 +1577,8 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
           thumb_str_sp16(&write_p, r6, 2);
           write_p++;
 
+          thumb_check_free_space(thread_data, &write_p, &data_p, &it_state,
+                               &set_addr_prev_block, true, IHL_FSPACE, basic_block);
           thumb_inline_hash_lookup(thread_data, &write_p, basic_block, -1);
 #else
           thumb_pop16(&write_p, reglist & 0xFF);
@@ -1936,6 +1944,8 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
               while(1);
             }
 
+            thumb_check_free_space(thread_data, &write_p, &data_p, &it_state,
+                               &set_addr_prev_block, true, IHL_FSPACE, basic_block);
             thumb_inline_hash_lookup(thread_data, &write_p, basic_block, -1);
 #else
             scratch_reg = (rn == r0) ? 1 : 0;
@@ -2048,6 +2058,8 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
           write_p += 2;
 
 #ifdef DBM_INLINE_HASH
+        thumb_check_free_space(thread_data, &write_p, &data_p, &it_state,
+                               &set_addr_prev_block, true, IHL_FSPACE, basic_block);
           thumb_inline_hash_lookup(thread_data, &write_p, basic_block, -1);
 #else
           branch_jump(thread_data, &write_p, basic_block, target, SETUP|INSERT_BRANCH|LATE_APP_SP);
@@ -2765,6 +2777,8 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
             thumb_load_store_multiple32(&write_p, opcode, writeback, load_store, r0, reglist);
             write_p += 2;
           }
+          thumb_check_free_space(thread_data, &write_p, &data_p, &it_state,
+                               &set_addr_prev_block, true, IHL_FSPACE, basic_block);
           thumb_inline_hash_lookup(thread_data, &write_p, basic_block, -1);
 #else
           branch_save_context(thread_data, &write_p, false);
@@ -3033,7 +3047,7 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
     
     if (!stop) {
       thumb_check_free_space(thread_data, &write_p, &data_p, &it_state,
-                             &set_addr_prev_block, true, 86, basic_block);
+                             &set_addr_prev_block, true, MIN_FSPACE, basic_block);
     }
     debug("\n");
 #ifdef PLUGINS_NEW
