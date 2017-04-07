@@ -174,7 +174,7 @@ int mambo_get_inst_len(mambo_context *ctx) {
   if (mambo_get_inst_type(ctx) == ARM_INST) {
     return 4;
   } else {
-    return (inst < THUMB_ADCI32) ? 2 : 4;
+    return (inst < THUMB_ADC32) ? 2 : 4;
   }
 #elif __aarch64__
   return 4;

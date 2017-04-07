@@ -834,7 +834,7 @@ void pass1_thumb(dbm_thread *thread_data, uint16_t *read_address, branch_type *b
         break;
     }
 
-    if (inst < THUMB_ADCI32) {
+    if (inst < THUMB_ADC32) {
       read_address++;
     } else {
       read_address+= 2;
@@ -1096,7 +1096,7 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
     thumb_instruction inst = thumb_decode(read_address);
     debug("Instruction enum: %d\n", (inst == THUMB_INVALID) ? -1 : inst);
     
-    debug("instruction word: 0x%x\n", (inst < THUMB_ADCI32) ? *read_address : ((*read_address) << 16) |*(read_address+1)); 
+    debug("instruction word: 0x%x\n", (inst < THUMB_ADC32) ? *read_address : ((*read_address) << 16) |*(read_address+1));
     it_cond_handled = false;
 
 #ifdef PLUGINS_NEW
