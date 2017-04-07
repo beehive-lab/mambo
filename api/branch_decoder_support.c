@@ -63,7 +63,7 @@ mambo_branch_type __get_thumb_branch_type(mambo_context *ctx) {
     }
     case THUMB_LDRI32: {
       uint32_t rn, rt, imm8, p, u, w;
-      thumb_ldri32_decode_fields(ctx->read_address, &rn, &rt, &imm8, &p, &u, &w);
+      thumb_ldri32_decode_fields(ctx->read_address, &rt, &rn, &imm8, &p, &u, &w);
       if (rt == pc) {
         type =  BRANCH_INDIRECT | BRANCH_INTERWORKING;
         if (rn == sp) {

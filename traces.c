@@ -450,7 +450,7 @@ void trace_dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_in
     #endif
 
     #if 0
-      thumb_ldri32(&write_p, 0, 1, pc, pc, ((uint32_t)write_p & 2) << 1);
+      thumb_ldrl32(&write_p, pc, ((uint32_t)write_p & 2) << 1, 1);
       __clear_cache(write_p, write_p + 3);
       write_p += ((uint32_t)write_p & 2) ? 3 : 2;
       *((uint32_t *)write_p) = (uint32_t)write_p + 4;

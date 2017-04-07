@@ -657,7 +657,7 @@ void thumb_inline_hash_lookup(dbm_thread *thread_data, uint16_t **o_write_p, int
   loop_start = write_p;
 
   // LDR r6, [r_tmp], #8
-  thumb_ldri32(&write_p, r_tmp, r6, 8, 0, 1, 1);
+  thumb_ldri32(&write_p, r6, r_tmp, 8, 0, 1, 1);
   write_p += 2;
 
   // CMP r6, target
@@ -669,7 +669,7 @@ void thumb_inline_hash_lookup(dbm_thread *thread_data, uint16_t **o_write_p, int
 
   // jump:
   // LDR r6, [r_tmp, #-4]
-  thumb_ldri32(&write_p, r_tmp, r6, 4, 1, 0, 0);
+  thumb_ldri32(&write_p, r6, r_tmp, 4, 1, 0, 0);
   write_p += 2;
 
   if (!target_reg_clean) {
@@ -1595,7 +1595,7 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
             while(1);
           }
   #endif
-          thumb_ldri32(&write_p, APP_SP, r0, 4, 0, 1, 1);
+          thumb_ldri32(&write_p, r0, APP_SP, 4, 0, 1, 1);
           write_p += 2;
           branch_jump(thread_data, &write_p, basic_block, 0, SETUP|INSERT_BRANCH);
 #endif
@@ -1881,7 +1881,7 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
       case THUMB_LDRSHI32:
       case THUMB_LDRBI32:
       case THUMB_LDRSBI32:
-        thumb_ldri32_decode_fields(read_address, &rn, &rdn, &imm8, &pre_index, &upwards, &writeback);
+        thumb_ldri32_decode_fields(read_address, &rdn, &rn, &imm8, &pre_index, &upwards, &writeback);
 
         assert(rn != pc);
 
@@ -1911,7 +1911,7 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
                   thumb_str_sp16(&write_p, r6, (imm8 >> 2) - 1);
                   write_p++;
 
-                  thumb_ldri32(&write_p, sp, r6, imm8 - 4, 0, 1, 1);
+                  thumb_ldri32(&write_p, r6, sp, imm8 - 4, 0, 1, 1);
                   write_p += 2;
 
                   thumb_push16(&write_p, (1 << r4) | (1 << r5));
@@ -1935,7 +1935,7 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
                 thumb_push16(&write_p, (1 << r4) | (1 << r5) | (1 << r6));
                 write_p++;
 
-                thumb_ldri32(&write_p, rn, rdn, imm8, pre_index, upwards, writeback);
+                thumb_ldri32(&write_p, rdn, rn, imm8, pre_index, upwards, writeback);
                 write_p += 2;
 
                 while(1);
@@ -1955,7 +1955,7 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
             if (rn == sp) {
               rn = APP_SP;
             }
-            thumb_ldri32(&write_p, rn, r0, imm8, pre_index, upwards, writeback);
+            thumb_ldri32(&write_p, r0, rn, imm8, pre_index, upwards, writeback);
             write_p+=2;
 
             branch_jump(thread_data, &write_p, basic_block, target, SETUP|INSERT_BRANCH);
