@@ -1970,16 +1970,13 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
       case THUMB_LDRSHWI32:
       case THUMB_LDRBWI32:
       case THUMB_LDRSBWI32:
-        thumb_ldrwi32_decode_fields(read_address, &rn, &rdn, &imm1);
-        assert(rn != pc);
-
-        if (rdn != pc) {
-          copy_thumb_32();
-          it_cond_handled = true;
-        } else {
-          while(1);
-        }
-
+      case THUMB_STRWI32:
+      case THUMB_STRBWI32:
+      case THUMB_STRHWI32:
+        thumb_strwi32_decode_fields(read_address, &rdn, &rn, &imm1);
+        assert(rdn != pc && rn != pc);
+        copy_thumb_32();
+        it_cond_handled = true;
         break;
 
       case THUMB_LDRL32:
@@ -2025,15 +2022,6 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
           while(1);
         }
 
-        break;
-        
-      case THUMB_STRWI32:
-      case THUMB_STRBWI32:
-      case THUMB_STRHWI32:
-        thumb_strwi32_decode_fields(read_address, &rdn, &rn, &imm1);
-        assert(rdn != pc && rn != pc);
-        copy_thumb_32();
-        it_cond_handled = true;
         break;
 
       case THUMB_LDR32:
