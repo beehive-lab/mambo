@@ -173,6 +173,7 @@ typedef struct {
 
 typedef struct {
   int free_block;
+  bool was_flushed;
   uintptr_t dispatcher_addr;
   uintptr_t syscall_wrapper_addr;
   bool is_vfork_child;
@@ -247,13 +248,13 @@ extern void syscall_wrapper_svc();
 bool allocate_thread_data(dbm_thread **thread_data);
 void init_thread(dbm_thread *thread_data);
 uintptr_t cc_lookup(dbm_thread *thread_data, uintptr_t target);
-uintptr_t lookup_or_scan(dbm_thread *thread_data, uintptr_t target, bool *cached, bool *cc_flushed);
+uintptr_t lookup_or_scan(dbm_thread *thread_data, uintptr_t target, bool *cached);
 uintptr_t lookup_or_stub(dbm_thread *thread_data, uintptr_t target);
-uintptr_t scan(dbm_thread *thread_data, uint16_t *address, int basic_block, bool *cc_flushed);
+uintptr_t scan(dbm_thread *thread_data, uint16_t *address, int basic_block);
 uint32_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block, cc_type type, uint32_t *write_p);
 uint32_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_block, cc_type type, uint16_t *write_p);
 size_t   scan_a64(dbm_thread *thread_data, uint32_t *read_address, int basic_block, cc_type type, uint32_t *write_p);
-int allocate_bb(dbm_thread *thread_data, bool *cc_flushed);
+int allocate_bb(dbm_thread *thread_data);
 void trace_dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_index, dbm_thread *thread_data);
 void flush_code_cache(dbm_thread *thread_data);
 #ifdef __aarch64__

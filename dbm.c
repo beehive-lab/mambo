@@ -68,6 +68,7 @@ dbm_global global_data;
 __thread dbm_thread *current_thread;
 
 void flush_code_cache(dbm_thread *thread_data) {
+  thread_data->was_flushed = true;
   thread_data->free_block = trampolines_size_bbs;
   hash_init(&thread_data->entry_address, CODE_CACHE_HASH_SIZE + CODE_CACHE_HASH_OVERP);
 #ifdef DBM_TRACES
@@ -117,7 +118,7 @@ uintptr_t cc_lookup(dbm_thread *thread_data, uintptr_t target) {
   return adjust_cc_entry(addr);
 }
 
-uintptr_t lookup_or_scan(dbm_thread *thread_data, uintptr_t target, bool *cached, bool *cc_flush) {
+uintptr_t lookup_or_scan(dbm_thread *thread_data, uintptr_t target, bool *cached) {
   uintptr_t block_address;
   bool from_cache = true;
   uintptr_t basic_block;
@@ -128,13 +129,11 @@ uintptr_t lookup_or_scan(dbm_thread *thread_data, uintptr_t target, bool *cached
 
   if (block_address == UINT_MAX) {
     from_cache = false;
-    block_address = scan(thread_data, (uint16_t *)target, ALLOCATE_BB, cc_flush);
+    block_address = scan(thread_data, (uint16_t *)target, ALLOCATE_BB);
   } else {
     basic_block = ((uintptr_t)block_address - (uintptr_t)(thread_data->code_cache)) >> 8;
     if (thread_data->code_cache_meta[basic_block].exit_branch_type == stub) {
-      block_address = scan(thread_data, (uint16_t *)target, basic_block, cc_flush);
-    } else if (cc_flush != NULL) {
-      *cc_flush = false;
+      block_address = scan(thread_data, (uint16_t *)target, basic_block);
     }
   }
   
@@ -145,7 +144,7 @@ uintptr_t lookup_or_scan(dbm_thread *thread_data, uintptr_t target, bool *cached
   return block_address;
 }
 
-int allocate_bb(dbm_thread *thread_data, bool *cc_flushed) {
+int allocate_bb(dbm_thread *thread_data) {
   unsigned int basic_block;
   bool flushed = false;
 
@@ -154,10 +153,6 @@ int allocate_bb(dbm_thread *thread_data, bool *cc_flushed) {
     fprintf(stderr, "code cache full, flushing it\n");
     flush_code_cache(thread_data);
     flushed = true;
-  }
-
-  if (cc_flushed != NULL) {
-    *cc_flushed = flushed;
   }
   
   basic_block = thread_data->free_block++;
@@ -173,7 +168,7 @@ uintptr_t stub_bb(dbm_thread *thread_data, uintptr_t target) {
   uintptr_t block_address;
   uintptr_t thumb = target & THUMB;
   
-  basic_block = allocate_bb(thread_data, NULL);
+  basic_block = allocate_bb(thread_data);
   block_address = (uintptr_t)&thread_data->code_cache->blocks[basic_block];
   
   debug("Stub BB: 0x%x\n", block_address + thumb);
@@ -230,7 +225,7 @@ void set_mambo_context(mambo_context *ctx, dbm_thread *thread_data, inst_set ins
 }
 #endif
 
-uintptr_t scan(dbm_thread *thread_data, uint16_t *address, int basic_block, bool *cc_flushed) {
+uintptr_t scan(dbm_thread *thread_data, uint16_t *address, int basic_block) {
   uintptr_t thumb = (uintptr_t)address & THUMB;
   uintptr_t block_address;
   size_t block_size;
@@ -240,12 +235,9 @@ uintptr_t scan(dbm_thread *thread_data, uint16_t *address, int basic_block, bool
 
   // Alocate a basic block
   if (basic_block == ALLOCATE_BB) {
-    basic_block = allocate_bb(thread_data, cc_flushed);
+    basic_block = allocate_bb(thread_data);
   } else {
     stub = true;
-    if (cc_flushed != NULL) {
-      *cc_flushed = false;
-    }
   }
 
   block_address = (uintptr_t)&thread_data->code_cache->blocks[basic_block];
@@ -490,7 +482,7 @@ void main(int argc, char **argv, char **envp) {
   init_thread(thread_data);
   thread_data->tid = syscall(__NR_gettid);
 
-  block_address = scan(thread_data, (uint16_t *)entry_address, ALLOCATE_BB, NULL);
+  block_address = scan(thread_data, (uint16_t *)entry_address, ALLOCATE_BB);
   debug("Address of first basic block is: 0x%x\n", block_address);
   
   arg_diff = has_interp ? 1 : 2;

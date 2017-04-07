@@ -119,9 +119,10 @@ void dispatcher(uintptr_t target, uint32_t source_index, uintptr_t *next_addr, d
       return trace_dispatcher(target, next_addr, source_index, thread_data);
   }
 #endif
-  
+
   debug("Reached the dispatcher, target: 0x%x, ret: %p, src: %d thr: %p\n", target, next_addr, source_index, thread_data);
-  block_address = lookup_or_scan(thread_data, target, &cached, &cc_flushed);
+  thread_data->was_flushed = false;
+  block_address = lookup_or_scan(thread_data, target, &cached);
   if (cached) {
     debug("Found block from %d for 0x%x in cache at 0x%x\n", source_index, target, block_address);
   } else {
@@ -131,7 +132,7 @@ void dispatcher(uintptr_t target, uint32_t source_index, uintptr_t *next_addr, d
   *next_addr = block_address;
 
   // Bypass any linking
-  if (source_index == 0 || cc_flushed) {
+  if (source_index == 0 || thread_data->was_flushed) {
     return;
   }
 

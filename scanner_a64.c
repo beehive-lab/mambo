@@ -327,7 +327,7 @@ void a64_check_free_space(dbm_thread *thread_data, uint32_t **write_p,
   int basic_block;
 
   if ((((uint64_t)*write_p) + size) >= (uint64_t)*data_p) {
-    basic_block = allocate_bb(thread_data, NULL);
+    basic_block = allocate_bb(thread_data);
     thread_data->code_cache_meta[basic_block].actual_id = cur_block;
     if ((uint32_t *)&thread_data->code_cache->blocks[basic_block] != *data_p) {
       a64_b_helper(*write_p, (uint64_t)&thread_data->code_cache->blocks[basic_block]);

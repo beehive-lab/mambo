@@ -49,7 +49,7 @@ void *dbm_start_thread_pth(void *ptr) {
   assert(thread_data->clone_args->child_stack);
 
   current_thread = thread_data;
-  uintptr_t addr = scan(thread_data, thread_data->clone_ret_addr, ALLOCATE_BB, NULL);
+  uintptr_t addr = scan(thread_data, thread_data->clone_ret_addr, ALLOCATE_BB);
   pid_t tid = syscall(__NR_gettid);
 
   if (thread_data->clone_args->flags & CLONE_PARENT_SETTID) {

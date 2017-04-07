@@ -219,7 +219,7 @@ void thumb_check_free_space(dbm_thread *thread_data, uint16_t **o_write_p, uint3
     while(1);
   }
   if ((((uint32_t)write_p + size) >= (uint32_t)data_p)) {
-    int new_block = allocate_bb(thread_data, NULL);
+    int new_block = allocate_bb(thread_data);
     thread_data->code_cache_meta[new_block].actual_id = cur_block;
 
     if ((uint32_t *)&thread_data->code_cache->blocks[new_block] != data_p) {
