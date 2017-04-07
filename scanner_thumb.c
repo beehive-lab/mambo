@@ -2027,6 +2027,15 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
 
         break;
         
+      case THUMB_STRWI32:
+      case THUMB_STRBWI32:
+      case THUMB_STRHWI32:
+        thumb_strwi32_decode_fields(read_address, &rdn, &rn, &imm1);
+        assert(rdn != pc && rn != pc);
+        copy_thumb_32();
+        it_cond_handled = true;
+        break;
+
       case THUMB_LDR32:
       case THUMB_LDRH32:
       case THUMB_LDRSH32:
@@ -2704,7 +2713,7 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
 
         // Save the index for use by the TB linker
         copy_to_reg_32bit(&write_p, scratch_reg, (uint32_t)&thread_data->code_cache_meta[basic_block].rn);
-        thumb_stri32(&write_p, 0, 1, scratch_reg, rm, 0);
+        thumb_strwi32(&write_p, rm, scratch_reg, 0);
         write_p += 2;
  
         copy_to_reg_32bit(&write_p, scratch_reg, (uint32_t)read_address + 4);
