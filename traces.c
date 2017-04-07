@@ -386,6 +386,7 @@ void trace_dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_in
   uint32_t *write_p = (uint32_t *) bb_meta->exit_branch_addr;
 #endif
   size_t fragment_len;
+  thread_data->was_flushed = false;
 
   debug("Trace dispatcher (target: 0x%x)\n", target);
 
@@ -508,6 +509,12 @@ void trace_dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_in
 
   *next_addr = (uintptr_t)write_p + (target & THUMB);
   thread_data->active_trace.write_p = (uint8_t *)write_p;
+
+  // If the CC was flushed to generate exits, then abort the active trace
+  if (thread_data->was_flushed) {
+    *next_addr = lookup_or_scan(thread_data, target, NULL);
+    return;
+  }
 
   // Check if the fragment count has reached the max limit
   if (thread_data->trace_fragment_count > MAX_TRACE_FRAGMENTS) {
