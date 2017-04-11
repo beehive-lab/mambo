@@ -1881,6 +1881,11 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
       case THUMB_LDRSHI32:
       case THUMB_LDRBI32:
       case THUMB_LDRSBI32:
+      case THUMB_LDRT32:
+      case THUMB_LDRBT32:
+      case THUMB_LDRHT32:
+      case THUMB_LDRSBT32:
+      case THUMB_LDRSHT32:
         thumb_ldri32_decode_fields(read_address, &rdn, &rn, &imm8, &pre_index, &upwards, &writeback);
 
         assert(rn != pc);
@@ -2010,6 +2015,9 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
       case THUMB_STRI32:
       case THUMB_STRHI32:
       case THUMB_STRBI32:
+      case THUMB_STRT32:
+      case THUMB_STRBT32:
+      case THUMB_STRHT32:
         // check if src or address is pc
         thumb_load_store_single_reg_imm12_32_decode_fields(read_address, &sign_ext, &upwards, &datasize, &loadstore, &rn, &rdn, &imm1);
         
@@ -2506,11 +2514,17 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
         break;
         
       case THUMB_LDREXB32:
+      case THUMB_LDREXH32:
       case THUMB_STREXB32:
+      case THUMB_STREXH32:
         thumb_strexb32_decode_fields(read_address, &rn, &rt, &rdn);
         assert(rn != pc && rt != pc);
-        if (inst == THUMB_STREXB32) assert(rdn != pc);
-
+        if (inst == THUMB_STREXB32 || inst == THUMB_STREXH32) {
+          assert(rdn != pc);
+          ldrex = false;
+        } else {
+          ldrex = true;
+        }
         copy_thumb_32();
         it_cond_handled = true;
 
