@@ -2535,7 +2535,7 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
         thumb_strexd32_decode_fields(read_address, &rn, &rt, &rt2, &rdn);
         assert(rn != pc && rt != pc && rt2 != pc);
         if (inst == THUMB_STREX32) assert(rdn != pc);
-
+        ldrex = (inst == THUMB_STREXD32);
         copy_thumb_32();
         it_cond_handled = true;
 
