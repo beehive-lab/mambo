@@ -232,7 +232,6 @@ void emit_counter64_incr(mambo_context *ctx, void *counter, unsigned incr) {
   assert(incr <= 0xFFF);
   emit_a64_push(ctx, (1 << x0) | (1 << x1));
   a64_copy_to_reg_64bits((uint32_t **)&ctx->write_p, x0, (uintptr_t)counter);
-  emit_a64_LDR_STR_immed(ctx, 3, 0, 1, 0, 3, x0, x1);
   emit_a64_LDR_STR_unsigned_immed(ctx, 3, 0, 1, 0, x0, x1);
   emit_a64_ADD_SUB_immed(ctx, 1, 0, 0, 0, incr, x1, x1);
   emit_a64_LDR_STR_unsigned_immed(ctx, 3, 0, 0, 0, x0, x1);
