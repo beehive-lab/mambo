@@ -2459,8 +2459,8 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
       case THUMB_DSB32:
       case THUMB_DMB32:
       case THUMB_ISB32:
+      case THUMB_CLREX32:
         copy_thumb_32();
-        
         break;
 
       case THUMB_MSR32:
