@@ -2477,13 +2477,23 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
         
       case THUMB_LDRD32:
         thumb_ldrd32_decode_fields(read_address, &pre_index, &upwards, &writeback, &rn, &rt, &rdn, &imm8);
-        
-        assert(rn != pc && rt != pc && rdn != pc);
-        copy_thumb_32();
+        assert(rt != pc && rdn != pc);
+
+        if (rn == pc) {
+          assert(pre_index == 1 && writeback == 0);
+          imm8 <<= 2;
+          uint32_t addr = get_original_pc() + (upwards ? imm8 : -imm8);
+          modify_in_it_pre(5);
+          copy_to_reg_32bit(&write_p, rdn, addr);
+          thumb_ldrd32(&write_p, 1, 1, 0, rdn, rt, rdn, 0);
+          write_p += 2;
+          modify_in_it_post();
+        } else {
+          copy_thumb_32();
+        }
         it_cond_handled = true;
-        
         break;
-        
+
       case THUMB_STRD32:
         thumb_strd32_decode_fields(read_address, &pre_index, &upwards, &writeback, &rn, &rt, &rdn, &imm8);
         
