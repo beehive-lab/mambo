@@ -1984,23 +1984,23 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
         it_cond_handled = true;
         break;
 
+      case THUMB_LDRBL32:
+      case THUMB_LDRHL32:
       case THUMB_LDRL32:
-        thumb_ldrl32_decode_fields(read_address, &rdn, &imm1, &upwards);
+      case THUMB_LDRSBL32:
+      case THUMB_LDRSHL32:
+        thumb_load_store_single_reg_imm12_32_decode_fields(read_address, &sign_ext, &upwards,
+                                                           &size, &loadstore, &rn, &rdn, &imm1);
+        assert(rdn != pc);
 
-        if (rdn != pc) {
-          original_pc = get_original_pc();
+        modify_in_it_pre(5);
+        copy_to_reg_32bit(&write_p, rdn, get_original_pc() + (upwards ? imm1 : -imm1));
+        thumb_load_store_single_reg_imm12_32(&write_p, sign_ext, upwards, size,
+                                             loadstore, rdn, rdn, 0);
+        write_p += 2;
+        modify_in_it_post();
 
-          modify_in_it_pre(5);
-          copy_to_reg_32bit(&write_p, rdn, original_pc + (upwards ? imm1 : -imm1));
-          thumb_ldrwi32(&write_p, rdn, rdn, 0);
-          write_p += 2;
-          modify_in_it_post();
-
-          it_cond_handled = true;
-        } else {
-          while(1);
-        }
-
+        it_cond_handled = true;
         break;
 
       case THUMB_PLDI32:
