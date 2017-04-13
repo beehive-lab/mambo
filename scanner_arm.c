@@ -1222,7 +1222,8 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
 
       case ARM_LDREX:
       case ARM_LDREXB:
-      case ARM_LDREXD: {
+      case ARM_LDREXD:
+      case ARM_LDREXH: {
         uint32_t rd, rn;
         arm_ldrex_decode_fields(read_address, &rd, &rn);
         assert(rd != pc && rn != pc);
@@ -1232,7 +1233,8 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
 
       case ARM_STREX:
       case ARM_STREXB:
-      case ARM_STREXD: {
+      case ARM_STREXD:
+      case ARM_STREXH: {
         uint32_t rd, rn, rm;
         arm_strex_decode_fields(read_address, &rd, &rn, &rm);
         assert(rd != pc && rn != pc && rm != pc);
