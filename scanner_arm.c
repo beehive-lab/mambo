@@ -1500,6 +1500,7 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
 
       /* ARM instructions which can be copied directly */
       case ARM_BKPT:
+      case ARM_CLREX:
       case ARM_DMB:
       case ARM_ISB:
       case ARM_MSRI:
