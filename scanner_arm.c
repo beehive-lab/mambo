@@ -1346,7 +1346,9 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
       }
 
       case ARM_LDRBT:
-      case ARM_LDRT: {
+      case ARM_LDRT:
+      case ARM_STRBT:
+      case ARM_STRT: {
         uint32_t immediate, rd, rn, updown, operand2;
         arm_ldrt_decode_fields(read_address, &immediate, &rd, &rn, &updown, &operand2);
         assert(rd != pc && rn != pc);
