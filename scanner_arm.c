@@ -1217,10 +1217,21 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
       case ARM_STRH:
       case ARM_STRHT: {
         uint32_t opcode, size, opcode2, immediate, rd, rn, rm, imm4h, prepostindex, updown, writeback;
-        arm_h_data_transfer_decode_fields(read_address, &opcode, &size, &opcode2, &immediate, &rd, &rn, &rm, &imm4h, &prepostindex, &updown, &writeback);
-        assert(rd != pc && rn != pc);
+        arm_h_data_transfer_decode_fields(read_address, &opcode, &size, &opcode2, &immediate,
+                                          &rd, &rn, &rm, &imm4h, &prepostindex, &updown, &writeback);
+        assert(rd != pc);
         if (immediate == REG_PROC) assert(rm != pc);
-        copy_arm();
+        if (rn == pc) {
+          assert(inst != ARM_STRD && inst != ARM_STRH && inst != ARM_STRHT);
+          assert(prepostindex && !writeback);
+          condition_code = *read_address >> 28;
+          arm_cond_copy_to_reg_32bit(&write_p, condition_code, rd, (uint32_t)read_address + 8);
+          arm_h_data_transfer_cond(&write_p, condition_code, opcode, size, opcode2, immediate, rd,
+                                   rd, rm, imm4h, prepostindex, updown, writeback);
+          write_p++;
+        } else {
+          copy_arm();
+        }
         break;
       }
 
