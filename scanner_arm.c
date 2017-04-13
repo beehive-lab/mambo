@@ -1206,12 +1206,16 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
         break;
       }
 
+      case ARM_LDRD:
       case ARM_LDRH:
       case ARM_LDRHT:
-      case ARM_STRH:
-      case ARM_LDRD:
+      case ARM_LDRSB:
+      case ARM_LDRSBT:
+      case ARM_LDRSH:
+      case ARM_LDRSHT:
       case ARM_STRD:
-      case ARM_LDRSH: {
+      case ARM_STRH:
+      case ARM_STRHT: {
         uint32_t opcode, size, opcode2, immediate, rd, rn, rm, imm4h, prepostindex, updown, writeback;
         arm_h_data_transfer_decode_fields(read_address, &opcode, &size, &opcode2, &immediate, &rd, &rn, &rm, &imm4h, &prepostindex, &updown, &writeback);
         assert(rd != pc && rn != pc);
@@ -1332,15 +1336,6 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
         arm_extend_decode_fields(read_address, &opcode, &rd, &rn, &rm, &rotate);
         // if rn == pc, it's the version without add which doesn't use pc
         assert(rd != pc && rm != pc);
-        copy_arm();
-        break;
-      }
-
-      case ARM_LDRSB: {
-        uint32_t immediate, rd, rn, rm, imm4h, prepostindex, updown, writeback;
-        arm_ldrsb_decode_fields(read_address, &immediate, &rd, &rn, &rm, &imm4h, &prepostindex, &updown, &writeback);
-        assert(rd != pc && rn != pc);
-        if (immediate == REG_PROC) assert(rm != pc);
         copy_arm();
         break;
       }
