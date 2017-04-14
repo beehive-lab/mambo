@@ -105,6 +105,10 @@ void load_segment(ELF_PHDR *phdr, int fd, Elf32_Half type, uintptr_t *auxv_phdr)
   if (phdr->p_offset == 0) {
     *auxv_phdr = (uint32_t)phdr->p_vaddr;
   }
+
+  if ((aligned_vaddr + aligned_msize) > global_data.brk) {
+    global_data.brk = aligned_vaddr + aligned_msize;
+  }
 }
 
 //void main(int argc, char **argv, char **envp) {

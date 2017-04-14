@@ -464,8 +464,18 @@ void main(int argc, char **argv, char **envp) {
   assert(ret == 0);
 
   install_system_sig_handlers();
-  
+
+  global_data.brk = 0;
   load_elf(argv[1], &elf, &has_interp, &phdr, &phnum);
+
+  // Set up brk emulation
+  ret = pthread_mutex_init(&global_data.brk_mutex, NULL);
+  assert(ret == 0);
+  global_data.initial_brk = global_data.brk;
+  void *map = mmap((void *)global_data.brk, PAGE_SIZE, PROT_READ | PROT_WRITE,
+                     MAP_PRIVATE|MAP_ANONYMOUS|MAP_FIXED, -1, 0);
+  assert(map != MAP_FAILED);
+  global_data.brk += PAGE_SIZE;
 
   ELF_EHDR *ehdr = ELF_GETEHDR(elf);
   uintptr_t entry_address = ehdr->e_entry;

@@ -222,6 +222,9 @@ typedef struct {
   interval_map exec_allocs;
   uintptr_t signal_handlers[_NSIG];
   pthread_mutex_t signal_handlers_mutex;
+  uintptr_t brk;
+  uintptr_t initial_brk;
+  pthread_mutex_t brk_mutex;
 #ifdef PLUGINS_NEW
   int free_plugin;
   mambo_plugin plugins[MAX_PLUGIN_NO];

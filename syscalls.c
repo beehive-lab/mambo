@@ -115,6 +115,33 @@ dbm_thread *dbm_create_thread(dbm_thread *thread_data, void *next_inst, sys_clon
   return new_thread_data;
 }
 
+uintptr_t emulate_brk(uintptr_t addr) {
+  int ret;
+
+  // Fast path
+  if (addr == 0 || addr == global_data.brk) {
+    return global_data.brk;
+  }
+
+  ret = pthread_mutex_lock(&global_data.brk_mutex);
+  assert(ret == 0);
+
+  /* We use mremap for non-overlapping re-allocation, therefore
+     we must always always keep at least one allocated page. */
+  if (addr >= (global_data.initial_brk + PAGE_SIZE)) {
+    void *map = mremap((void *)global_data.initial_brk,
+                       global_data.brk - global_data.initial_brk,
+                       addr - global_data.initial_brk, 0);
+    if (map != MAP_FAILED) {
+      global_data.brk = addr;
+    }
+  }
+
+  ret = pthread_mutex_unlock(&global_data.brk_mutex);
+  assert(ret == 0);
+
+  return global_data.brk;
+}
 
 // return 0 to skip the syscall
 int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_inst, dbm_thread *thread_data) {
@@ -138,6 +165,9 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
 #endif
 
   switch(syscall_no) {
+    case __NR_brk:
+      args[0] = emulate_brk(args[0]);
+      return 0;
     case __NR_clone:
       clone_args = (sys_clone_args *)args;
 
