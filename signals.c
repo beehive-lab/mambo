@@ -225,7 +225,7 @@ void unlink_fragment(int fragment_id, uintptr_t pc) {
   while (type == uncond_imm_a64 &&
   #endif
          (bb_meta->branch_cache_status & BOTH_LINKED) == 0 &&
-         fragment_id >= CODE_CACHE_SIZE &&
+         fragment_id >= BB_META_SIZE &&
          fragment_id < current_thread->active_trace.id);
 
   fragment_id--;
@@ -522,8 +522,8 @@ uintptr_t signal_dispatcher(int i, siginfo_t *info, void *context) {
   ucontext_t *cont = (ucontext_t *)context;
 
   uintptr_t pc = (uintptr_t)cont->pc_field;
-  uintptr_t cc_start = (uintptr_t)&current_thread->code_cache->blocks[trampolines_size_bbs];
-  uintptr_t cc_end = cc_start + MAX_BRANCH_RANGE;
+  uintptr_t cc_start = (uintptr_t)&current_thread->code_cache->bbs[trampolines_size_bytes];
+  uintptr_t cc_end = cc_start + TOTAL_CC_SIZE;
 
   if (global_data.exit_group > 0) {
     if (pc >= cc_start && pc < cc_end) {

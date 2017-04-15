@@ -45,9 +45,6 @@
   #define debug(...)
 #endif
 
-#define MIN_FSPACE (60)
-#define IHL_FSPACE (76)
-
 #define copy_thumb_16() *(write_p++) = *read_address;
 #define copy_thumb_32() *(write_p++) = *read_address;\
         *(write_p++) = *(read_address + 1)
@@ -141,6 +138,21 @@ int it_get_no_of_inst(uint32_t mask) {
   return cond_inst_after_it;
 }
 
+int thumb_queue(scanner_queue_t *queue, void *write_p, uintptr_t target,
+                bool raw_addr, bool is_stub) {
+  int ret = scanner_queue_add(queue, write_p, target, 0, true, raw_addr, is_stub);
+  assert(ret == 0);
+  return ret;
+}
+
+int thumb_queue_stub(scanner_queue_t *queue, void *write_p, uintptr_t target, bool raw_addr) {
+  return thumb_queue(queue, write_p, target, raw_addr, true);
+}
+
+int thumb_queue_scan(scanner_queue_t *queue, void *write_p, uintptr_t target, bool raw_addr) {
+  return thumb_queue(queue, write_p, target, raw_addr, false);
+}
+
 void it_clip_len(uint16_t *write_p, uint32_t cond, uint32_t mask, int it_len) {
   switch (it_len) {
     case 1:
@@ -207,40 +219,6 @@ bool close_it_gap(uint16_t **write_p, thumb_it_state *it_state) {
     return true;
   }
   return false;
-}
-
-void thumb_check_free_space(dbm_thread *thread_data, uint16_t **o_write_p, uint32_t **o_data_p,
-                            thumb_it_state *it_state, uint32_t *addr_prev_block, bool handle_it,
-                            size_t size, int cur_block) {
-  uint16_t *write_p = *o_write_p;
-  uint32_t *data_p = *o_data_p;
-
-  if ((uint16_t *)data_p <= (write_p + 2)) {
-    fprintf(stderr, "Thumb fragment overflowed: limit %p, write_p: %p\n", data_p, write_p);
-    while(1);
-  }
-  if ((((uint32_t)write_p + size) >= (uint32_t)data_p)) {
-    int new_block = allocate_bb(thread_data);
-    thread_data->code_cache_meta[new_block].actual_id = cur_block;
-
-    if ((uint32_t *)&thread_data->code_cache->blocks[new_block] != data_p) {
-      if (handle_it && it_state->cond_inst_after_it > 0) {
-        create_it_gap(&write_p, it_state);
-      }
-
-      thumb_b32_helper(write_p, (uint32_t)&thread_data->code_cache->blocks[new_block]);
-      write_p = (uint16_t *)&thread_data->code_cache->blocks[new_block];
-
-      if (handle_it && it_state->cond_inst_after_it > 0) {
-        close_it_gap(&write_p, it_state);
-      }
-    }
-    *addr_prev_block = (uint32_t)write_p;
-    data_p = (uint32_t *)&thread_data->code_cache->blocks[new_block + 1];
-  }
-
-  *o_write_p = write_p;
-  *o_data_p = data_p;
 }
 
 void copy_to_reg_16bit(uint16_t **write_p, enum reg reg, uint32_t value) {
@@ -457,6 +435,23 @@ void branch_jump(dbm_thread *thread_data, uint16_t **o_write_p, int bb_index, ui
   }
   
   *o_write_p = write_p;
+}
+
+bool thumb_check_free_space(dbm_thread *thread_data, uint16_t *read_address,
+                            uint16_t **write_p, uint32_t **data_p,
+                            thumb_it_state *it_state, size_t size, int fragment_id) {
+  if ((((uintptr_t)*write_p) + size) >= (uintptr_t)*data_p &&
+      it_state->cond_inst_after_it == 0) {
+    thread_data->code_cache_meta[fragment_id].exit_branch_type = uncond_imm_thumb;
+    thread_data->code_cache_meta[fragment_id].exit_branch_addr = *write_p;
+    thread_data->code_cache_meta[fragment_id].branch_taken_addr = (uintptr_t)read_address + 1;
+
+    branch_save_context(thread_data, write_p, false);
+    branch_jump(thread_data, write_p, fragment_id, (uint32_t)read_address + 1,
+                SETUP | REPLACE_TARGET | INSERT_BRANCH);
+    return true;
+  }
+  return false;
 }
 
 void set_cc_imm_links(dbm_thread *thread_data,
@@ -741,14 +736,14 @@ void thumb_inline_hash_lookup(dbm_thread *thread_data, uint16_t **o_write_p, int
   *o_write_p = write_p;
 }
 
-bool link_bx_alt(dbm_thread *thread_data, uint16_t **write_p, int cond_inst_after_it, uint32_t alt_addr) {
+bool link_bx_alt(dbm_thread *thread_data, scanner_queue_t *queue, uint16_t **write_p,
+                 int cond_inst_after_it, uint32_t alt_addr) {
 #ifdef LINK_BX_ALT
   if (cond_inst_after_it > 0) {
     assert(cond_inst_after_it == 1);
     thumb_b16(write_p, 1);
     (*write_p)++;
-    uint32_t block_address = lookup_or_stub(thread_data, (uint32_t)alt_addr);
-    thumb_cc_branch(thread_data, *write_p, block_address);
+    thumb_queue_stub(queue, *write_p, alt_addr, false);
     *write_p += 2;
     return true;
   }
@@ -974,19 +969,19 @@ bool thumb_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id
   return replaced;
 }
 
-size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_block, cc_type type, uint16_t *write_p) {
+size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_block,
+                  cc_type type, uint16_t *write_p, scanner_queue_t *scan_queue) {
   bool stop = false;
 
   uint16_t *start_scan = read_address;
-  if (write_p == NULL) {
-    write_p = (uint16_t *)&thread_data->code_cache->blocks[basic_block];
-  }
+  assert(write_p != NULL);
   uint32_t start_address = (uint32_t)write_p;
+
   uint32_t *data_p;
   if (type == mambo_bb) {
-    data_p = (uint32_t *)write_p + BASIC_BLOCK_SIZE;
+    data_p = (uint32_t *)&thread_data->code_cache->traces;
   } else {
-    data_p = (uint32_t *)&thread_data->code_cache->traces + (TRACE_CACHE_SIZE/4);
+    data_p = (uint32_t *)(&thread_data->code_cache->traces[0] + TRACE_CACHE_SIZE);
   }
   
   debug("write_p: %p\n", write_p);
@@ -1271,8 +1266,6 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
           write_p += 2;
 
 #ifdef DBM_INLINE_HASH
-          thumb_check_free_space(thread_data, &write_p, &data_p, &it_state,
-                               &set_addr_prev_block, true, IHL_FSPACE, basic_block);
           thumb_inline_hash_lookup(thread_data, &write_p, basic_block, -1);
 #else
           branch_jump(thread_data, &write_p, basic_block, 0, SETUP|INSERT_BRANCH|LATE_APP_SP);
@@ -1325,9 +1318,6 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
           if (inst_pop_regs) {
             write_p = inst_pop_regs;
             data_p = inst_pop_regs_data;
-            
-            thumb_check_free_space(thread_data, &write_p, &data_p, &it_state,
-                                   &set_addr_prev_block, true, 8, basic_block);
 
             thumb_b16(&write_p, 3);
             write_p++;
@@ -1339,8 +1329,7 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
             write_p++;
           }
 
-          target = lookup_or_stub(thread_data, (uint32_t)read_address + 2 + 1);
-          thumb_cc_branch(thread_data, write_p, target);
+          thumb_queue_stub(scan_queue, write_p, (uint32_t)read_address + 2 + 1, false);
           write_p += 2;
           
           if (inst_pop_regs) {
@@ -1374,8 +1363,6 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
 
         /* BX PC can be handled as an immediate branch to ARM mode*/
         if (inst == THUMB_BX16 && rm == pc) {
-          target = lookup_or_stub(thread_data, get_original_pc());
-
           if (((uint32_t)write_p) & 2) {
             thumb_ldrl32(&write_p, pc, 4, 1);
             write_p += 3;
@@ -1384,8 +1371,7 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
             write_p += 2;
           }
 
-          *(uint32_t *)write_p = target;
-          record_cc_link(thread_data, (uint32_t)write_p|FULLADDR, target);
+          thumb_queue_stub(scan_queue, write_p, get_original_pc(), true);
           write_p += 2;
 
           stop = true;
@@ -1411,9 +1397,6 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
         if (inst == THUMB_BLX16) {
           copy_to_reg_32bit(&write_p, lr, ((uint32_t)read_address) + 2 + 1);
         }
-
-        thumb_check_free_space(thread_data, &write_p, &data_p, &it_state,
-                               &set_addr_prev_block, true, IHL_FSPACE, basic_block);
         thumb_inline_hash_lookup(thread_data, &write_p, basic_block, r_target);
 #else
         branch_save_context(thread_data, &write_p, true);
@@ -1547,9 +1530,6 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
         target = (uint32_t)read_address + branch_offset + 4 + 1;
         debug("Branch taken: 0x%x\n", target);
 
-        thumb_check_free_space(thread_data, &write_p, &data_p, &it_state,
-                               &set_addr_prev_block, true, CBZ_SIZE, basic_block);
-
         // Mark this as the beggining of code emulating B
         thread_data->code_cache_meta[basic_block].exit_branch_type = cbz_thumb;
         thread_data->code_cache_meta[basic_block].exit_branch_addr = write_p;
@@ -1601,7 +1581,7 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
           thread_data->code_cache_meta[basic_block].exit_branch_type = uncond_reg_thumb;
           thread_data->code_cache_meta[basic_block].exit_branch_addr = write_p;
 
-          if (link_bx_alt(thread_data, &write_p, it_state.cond_inst_after_it, (uint32_t)read_address + 3)) {
+          if (link_bx_alt(thread_data, scan_queue, &write_p, it_state.cond_inst_after_it, (uint32_t)read_address + 3)) {
             it_cond_handled = true;
           }
 #ifdef DBM_INLINE_HASH
@@ -1618,8 +1598,6 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
           thumb_str_sp16(&write_p, r6, 2);
           write_p++;
 
-          thumb_check_free_space(thread_data, &write_p, &data_p, &it_state,
-                               &set_addr_prev_block, true, IHL_FSPACE, basic_block);
           thumb_inline_hash_lookup(thread_data, &write_p, basic_block, -1);
 #else
           thumb_pop16(&write_p, reglist & 0xFF);
@@ -1689,9 +1667,6 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
         target = (uint32_t)read_address + 4 + 1 + branch_offset;
         debug("Branch taken: 0x%x\n", target);
 
-        thumb_check_free_space(thread_data, &write_p, &data_p, &it_state,
-                               &set_addr_prev_block, true, IMM_SIZE, basic_block);
-
         // Mark this as the beggining of code emulating B
         thread_data->code_cache_meta[basic_block].exit_branch_type = cond_imm_thumb;
         thread_data->code_cache_meta[basic_block].exit_branch_addr = write_p;
@@ -1753,8 +1728,7 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
 #ifdef DBM_INLINE_UNCOND_IMM
         if ((target - 1) <= (uint32_t)read_address) {
           if (inline_back_count >= MAX_BACK_INLINE) {
-            block_address = lookup_or_stub(thread_data, target);
-            thumb_cc_branch(thread_data, write_p, block_address);
+            thumb_queue_stub(scan_queue, write_p, target, false);
             write_p += 2;
 
             thread_data->code_cache_meta[basic_block].exit_branch_type = trace_inline_max;
@@ -1999,8 +1973,6 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
               while(1);
             }
 
-            thumb_check_free_space(thread_data, &write_p, &data_p, &it_state,
-                               &set_addr_prev_block, true, IHL_FSPACE, basic_block);
             thumb_inline_hash_lookup(thread_data, &write_p, basic_block, -1);
 #else
             scratch_reg = (rn == r0) ? 1 : 0;
@@ -2113,8 +2085,6 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
           write_p += 2;
 
 #ifdef DBM_INLINE_HASH
-        thumb_check_free_space(thread_data, &write_p, &data_p, &it_state,
-                               &set_addr_prev_block, true, IHL_FSPACE, basic_block);
           thumb_inline_hash_lookup(thread_data, &write_p, basic_block, -1);
 #else
           branch_jump(thread_data, &write_p, basic_block, target, SETUP|INSERT_BRANCH|LATE_APP_SP);
@@ -2389,7 +2359,7 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
 
         debug("branch_offset = 0x%x\n", branch_offset);
 
-        if (link_bx_alt(thread_data, &write_p, it_state.cond_inst_after_it, (uint32_t)read_address + 5)) {
+        if (link_bx_alt(thread_data, scan_queue, &write_p, it_state.cond_inst_after_it, (uint32_t)read_address + 5)) {
           it_cond_handled = true;
         }
 
@@ -2407,8 +2377,7 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
         if (inst != THUMB_BL_ARM32 && (type == mambo_trace || type == mambo_trace_entry)) {
           if ((target - 1) <= (uint32_t)read_address) {
             if (inline_back_count >= MAX_BACK_INLINE) {
-              block_address = lookup_or_stub(thread_data, target);
-              thumb_cc_branch(thread_data, write_p, block_address);
+              thumb_queue_stub(scan_queue, write_p, target, false);
               write_p += 2;
 
               thread_data->code_cache_meta[basic_block].exit_branch_type = trace_inline_max;
@@ -2428,9 +2397,6 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
           read_address = (uint16_t *)(target - 4 - 1);
         } else {
 #endif
-          thumb_check_free_space(thread_data, &write_p, &data_p, &it_state,
-                                 &set_addr_prev_block, true, DISP_CALL_SIZE, basic_block);
-
           if (inst == THUMB_BL_ARM32) {
             thread_data->code_cache_meta[basic_block].exit_branch_type = uncond_blxi_thumb;
           } else {
@@ -2471,9 +2437,6 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
         // Seems ok, but keep an eye on this
         target = (uint32_t)read_address + branch_offset + 4 + 1;
         debug("Computed target: 0x%x\n", target);
-
-        thumb_check_free_space(thread_data, &write_p, &data_p, &it_state,
-                               &set_addr_prev_block, true, IMM_SIZE, basic_block);
 
         // Mark this as the beggining of code emulating B
         thread_data->code_cache_meta[basic_block].exit_branch_type = cond_imm_thumb;
@@ -2639,14 +2602,7 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
         if (rn == pc) {
           debug("TB: w: %p r: %p, BB: %d\n", write_p, read_address, basic_block);
 
-  #ifndef DBM_TRACES
-          // At least two consecutive BBs are needed
-          assert(thread_data->free_block == basic_block+1);
-          /*basic_block = */thread_data->free_block++;
-          data_p += BASIC_BLOCK_SIZE;
-          thumb_check_free_space(thread_data, &write_p, &data_p, &it_state,
-                                 &set_addr_prev_block, true, 472, basic_block);
-  #else
+  #ifdef DBM_TRACES
           if (type == mambo_trace || type == mambo_trace_entry) {
   #endif
             thread_data->code_cache_meta[basic_block].rn = INT_MAX;
@@ -2738,9 +2694,6 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
           reglist = (1 << sr[0]) | (1 << sr[1]) | (1 << sr[2]);
           thumb_push16(&write_p, reglist);
           write_p++;
-
-          thumb_check_free_space(thread_data, &write_p, &data_p, &it_state,
-                                 &set_addr_prev_block, true, 118, basic_block);
    
           if (rn == pc) {
             copy_to_reg_32bit(&write_p, sr[1], (uint32_t)read_address + 4);
@@ -2824,7 +2777,7 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
         assert(rn != pc && (!writeback || (reglist & (1 << rn)) == 0));
 
         if (reglist & (1<<pc)) {
-          if (link_bx_alt(thread_data, &write_p, it_state.cond_inst_after_it, (uint32_t)read_address + 5)) {
+          if (link_bx_alt(thread_data, scan_queue, &write_p, it_state.cond_inst_after_it, (uint32_t)read_address + 5)) {
             it_cond_handled = true;
           }
 
@@ -2854,8 +2807,6 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
             thumb_load_store_multiple32(&write_p, opcode, writeback, load_store, r0, reglist);
             write_p += 2;
           }
-          thumb_check_free_space(thread_data, &write_p, &data_p, &it_state,
-                               &set_addr_prev_block, true, IHL_FSPACE, basic_block);
           thumb_inline_hash_lookup(thread_data, &write_p, basic_block, -1);
 #else
           branch_save_context(thread_data, &write_p, false);
@@ -3095,7 +3046,8 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
       case THUMB_INVALID:
       default:
         if (read_address != start_scan) {
-          thumb_b32_helper(write_p, lookup_or_stub(thread_data, (uint32_t)read_address + 1));
+          thumb_queue_stub(scan_queue, write_p, (uint32_t)read_address + 1, false);
+          write_p += 2;
           stop = true;
           it_cond_handled = true; // If execution actually reached this inst, something is broken anyway
           fprintf(stderr, "WARN: deferred scanning because of unknown instruction at: %p\n", read_address);
@@ -3118,17 +3070,12 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
 #ifdef PLUGINS_NEW
     } // if(!skip_inst)
 #endif
-    
+
     if ((uint16_t *)data_p <= write_p) {
       fprintf(stderr, "%d, inst: %p, :write: %p\n", inst, data_p, write_p);
       while(1);
     }
-    
-    if (!stop) {
-      thumb_check_free_space(thread_data, &write_p, &data_p, &it_state,
-                             &set_addr_prev_block, true, MIN_FSPACE, basic_block);
-    }
-    debug("\n");
+
 #ifdef PLUGINS_NEW
     thumb_scanner_deliver_callbacks(thread_data, POST_INST_C, &it_state, read_address, inst, &write_p,
                                     &data_p, basic_block, type, &set_addr_prev_block, !stop);
@@ -3138,6 +3085,11 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
       read_address++;
     } else {
       read_address+= 2;
+    }
+
+    if (!stop) {
+      stop = thumb_check_free_space(thread_data, read_address, &write_p, &data_p,
+                                    &it_state, MIN_FSPACE, basic_block);
     }
   }
 
@@ -3154,16 +3106,16 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
   return ((uint32_t)write_p - start_address + 4);
 }
 
-void thumb_encode_stub_bb(dbm_thread *thread_data, int basic_block, uint32_t target) {
-  uint16_t *write_p = (uint16_t *)&thread_data->code_cache->blocks[basic_block];
-  uint32_t *data_p = (uint32_t *)write_p;
-  data_p += BASIC_BLOCK_SIZE;
+void thumb_encode_stub_bb(dbm_thread *thread_data, uint16_t **o_write_p, int basic_block, uint32_t target) {
+  uint16_t *write_p = *o_write_p;
 
   thumb_pop16(&write_p, (1 << r5) | (1 << r6));
   write_p++;
 
   branch_save_context(thread_data, &write_p, false);
   branch_jump(thread_data, &write_p, basic_block, target, SETUP|REPLACE_TARGET|INSERT_BRANCH);
+
+  *o_write_p = write_p;
 }
 
 #endif // __arm__

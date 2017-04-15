@@ -76,11 +76,35 @@ uintptr_t active_trace_lookup_or_stub(dbm_thread *thread_data, uintptr_t target)
   return lookup_or_stub(thread_data, target);
 }
 
+bool trace_cache_flush_if_full(dbm_thread *thread_data) {
+  bool flushed = false;
+  uintptr_t trace_write_p = thread_data->active_trace.active ?
+                            (uintptr_t)thread_data->active_trace.write_p :
+                            (uintptr_t)thread_data->trace_cache_next;
+  int trace_id = thread_data->active_trace.active ?
+                 thread_data->active_trace.id :
+                 thread_data->trace_id;
+  if (((uintptr_t)&thread_data->code_cache->traces[TRACE_CACHE_SIZE] -
+      trace_write_p) < MIN_FSPACE) {
+    debug("Trace cache full, flushing the CC\n");
+    flush_code_cache(thread_data);
+    flushed = true;
+  } else if(trace_id >= (TRACE_META_SIZE + BB_META_SIZE - 1)) {
+    debug("Trace metadata full, flushing the CC\n");
+    flush_code_cache(thread_data);
+    flushed = true;
+  }
+  return flushed;
+}
+
 uint32_t scan_trace(dbm_thread *thread_data, void *address, cc_type type, int *set_trace_id) {
   size_t fragment_len;
   uint8_t *write_p = thread_data->active_trace.write_p;
   unsigned long thumb = (unsigned long)address & THUMB;
   int trace_id = thread_data->active_trace.id++;
+  scanner_queue_t scan_queue;
+  scan_queue.len = 0;
+
   if (set_trace_id != NULL) {
     *set_trace_id = trace_id;
   }
@@ -93,13 +117,17 @@ uint32_t scan_trace(dbm_thread *thread_data, void *address, cc_type type, int *s
 
 #ifdef __arm__
   if (thumb) {
-    fragment_len = scan_thumb(thread_data, (uint16_t *)(((uint32_t)address)-1), trace_id, type, (uint16_t*)write_p);
+    fragment_len = scan_thumb(thread_data, (uint16_t *)(((uint32_t)address)-1),
+                              trace_id, type, (uint16_t*)write_p, &scan_queue);
   } else {
-    fragment_len = scan_arm(thread_data, (uint32_t *)address, trace_id, type, (uint32_t*)write_p);
+    fragment_len = scan_arm(thread_data, (uint32_t *)address, trace_id, type,
+                            (uint32_t*)write_p, &scan_queue);
   }
+  scanner_queue_process(thread_data, &scan_queue);
 #endif // __arm__
 #ifdef __aarch64__
-  fragment_len = scan_a64(thread_data, (uint32_t *)address, trace_id, type, (uint32_t*)write_p);
+  fragment_len = scan_a64(thread_data, (uint32_t *)address, trace_id, type,
+                          (uint32_t*)write_p, &scan_queue);
 #endif
 
 #ifdef __arm__
@@ -126,28 +154,13 @@ void install_trace(dbm_thread *thread_data) {
   uintptr_t spc = (uintptr_t)thread_data->code_cache_meta[bb_source].source_addr;
   uintptr_t tpc = thread_data->active_trace.entry_addr;
   uintptr_t tpc_direct = adjust_cc_entry(tpc);
+#ifdef __aarch64__
+  tpc_direct += 4;
+#endif
   assert(thread_data->active_trace.active);
   thread_data->active_trace.active = false;
 
-  cc_link = thread_data->code_cache_meta[bb_source].linked_from;
-  while(cc_link != NULL) {
-    debug("Link from: 0x%lx, update to: 0x%lx\n", cc_link->data, tpc);
-    orig_branch = cc_link->data;
-#ifdef __arm__
-    orig_branch &= 0xFFFFFFFE;
-    if (cc_link->data & THUMB) {
-      thumb_adjust_b_bl_target(thread_data, (uint16_t *)orig_branch, tpc_direct);
-    } else if ((cc_link->data & 3) == FULLADDR) {
-      *(uint32_t *)(orig_branch & (~FULLADDR)) = tpc_direct;
-    } else {
-      arm_adjust_b_bl_target((uintptr_t *)orig_branch, tpc_direct);
-    }
-#elif __aarch64__
-    a64_b_helper((uint32_t *)orig_branch, tpc + 4);
-#endif
-    cc_link = cc_link->next;
-    __clear_cache((void *)orig_branch, (void *)orig_branch + 4);
-  }
+  rewrite_cc_branches(thread_data, bb_source, tpc_direct);
 
   hash_add(&thread_data->trace_entry_address, spc, tpc);
   hash_add(&thread_data->entry_address, spc, tpc);
@@ -252,14 +265,6 @@ void create_trace(dbm_thread *thread_data, uint32_t bb_source, cc_addr_pair *ret
   int trace_id;
   uintptr_t trace_entry;
 
-#ifdef __arm__
-  uint16_t *bb_addr = (uint16_t *)&thread_data->code_cache->blocks[bb_source];
-  bool is_thumb;
-#endif
-#ifdef __aarch64__
-  uint32_t  *bb_addr = (uint32_t *)&thread_data->code_cache->blocks[bb_source];
-#endif
-
   thread_data->trace_fragment_count = 0;
 #ifdef __arm__
   if (thread_data->code_cache_meta[bb_source].exit_branch_type == cbz_thumb ||
@@ -280,16 +285,12 @@ void create_trace(dbm_thread *thread_data, uint32_t bb_source, cc_addr_pair *ret
 #endif
     source_addr = thread_data->code_cache_meta[bb_source].source_addr;
     ret_addr->spc = (uintptr_t)source_addr;
-#ifdef __arm__
-    is_thumb = (uintptr_t)source_addr & THUMB;
-#endif
 
     /* Alignment doesn't seem to make much of a difference */
     thread_data->trace_cache_next += (TRACE_ALIGN -
                                      ((uintptr_t)thread_data->trace_cache_next & TRACE_ALIGN_MASK))
                                      & TRACE_ALIGN_MASK;
-    if ((uintptr_t)thread_data->trace_cache_next >= (uintptr_t)thread_data->code_cache + MAX_BRANCH_RANGE - TRACE_LIMIT_OFFSET) {
-      fprintf(stderr, "trace cache full, flushing the CC\n");
+    if (trace_cache_flush_if_full(thread_data)) {
       flush_code_cache(thread_data);
       ret_addr->tpc = lookup_or_scan(thread_data, (uintptr_t)source_addr, NULL);
       return;
@@ -506,7 +507,9 @@ void trace_dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_in
   *next_addr = (uintptr_t)write_p + (target & THUMB);
   thread_data->active_trace.write_p = (uint8_t *)write_p;
 
-  // If the CC was flushed to generate exits, then abort the active trace
+  /* If the CC was flushed to generate exits
+     or the trace cache is full, then abort the active trace */
+  trace_cache_flush_if_full(thread_data);
   if (thread_data->was_flushed) {
     *next_addr = lookup_or_scan(thread_data, target, NULL);
     return;

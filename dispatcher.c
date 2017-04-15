@@ -115,7 +115,7 @@ void dispatcher(uintptr_t target, uint32_t source_index, uintptr_t *next_addr, d
 
 #ifdef DBM_TRACES
   // Handle trace exits separately
-  if (source_index >= CODE_CACHE_SIZE) {
+  if (source_index >= BB_META_SIZE) {
 #ifdef __arm__
     if (source_branch_type != tbb && source_branch_type != tbh)
 #endif

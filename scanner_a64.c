@@ -34,7 +34,6 @@
 #include "api/helpers.h"
 
 #define NOP 0xD503201F /* NOP Instruction (A64) */
-#define MIN_FSPACE 60
 
 //#define DEBUG
 #ifdef DEBUG
@@ -329,20 +328,20 @@ void a64_branch_imm_reg(dbm_thread *thread_data, uint32_t **o_write_p,
   *o_write_p = write_p;
 }
 
-void a64_check_free_space(dbm_thread *thread_data, uint32_t **write_p,
-                          uint32_t **data_p, uint32_t size, int cur_block) {
-  int basic_block;
-
+bool a64_check_free_space(dbm_thread *thread_data, uint32_t *read_address, uint32_t **write_p,
+                          uint32_t **data_p, uint32_t size, int fragment_id) {
   if ((((uint64_t)*write_p) + size) >= (uint64_t)*data_p) {
-    basic_block = allocate_bb(thread_data);
-    thread_data->code_cache_meta[basic_block].actual_id = cur_block;
-    if ((uint32_t *)&thread_data->code_cache->blocks[basic_block] != *data_p) {
-      a64_b_helper(*write_p, (uint64_t)&thread_data->code_cache->blocks[basic_block]);
-      *write_p = (uint32_t *)&thread_data->code_cache->blocks[basic_block];
-    }
-    *data_p = (uint32_t *)&thread_data->code_cache->blocks[basic_block];
-    *data_p += BASIC_BLOCK_SIZE;
+    thread_data->code_cache_meta[fragment_id].exit_branch_type = uncond_imm_a64;
+    thread_data->code_cache_meta[fragment_id].exit_branch_addr = *write_p;
+    thread_data->code_cache_meta[fragment_id].branch_taken_addr = (uintptr_t)read_address;
+
+    a64_branch_save_context(write_p);
+    a64_branch_jump(thread_data, write_p, fragment_id, (uintptr_t)read_address,
+                    REPLACE_TARGET | INSERT_BRANCH);
+    return true;
   }
+
+  return false;
 }
 
 void pass1_a64(uint32_t *read_address, branch_type *bb_type) {
@@ -439,8 +438,8 @@ bool a64_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id, 
   return replaced;
 }
 
-size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
-                int basic_block, cc_type type, uint32_t *write_p) {
+size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address, int basic_block,
+                cc_type type, uint32_t *write_p, scanner_queue_t *scan_queue) {
   bool stop = false;
 
   uint32_t *start_scan = read_address;
@@ -460,16 +459,13 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
 
   bool TPIDR_EL0;
 
-  if (write_p == NULL) {
-    write_p = (uint32_t *) &thread_data->code_cache->blocks[basic_block];
-  }
-
+  assert(write_p != NULL);
   start_address = write_p;
 
   if (type == mambo_bb) {
-    data_p = write_p + BASIC_BLOCK_SIZE;
+    data_p = (uint32_t *)&thread_data->code_cache->traces;
   } else { // mambo_trace
-    data_p = (uint32_t *)&thread_data->code_cache->traces + (TRACE_CACHE_SIZE / 4);
+    data_p = (uint32_t *)(&thread_data->code_cache->traces[0] + TRACE_CACHE_SIZE);
   }
 
   /*
@@ -645,10 +641,6 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
       case A64_BLR:
       case A64_RET:
         a64_BR_decode_fields(read_address, &Rn);
-
-#ifdef DBM_INLINE_HASH
-        a64_check_free_space(thread_data, &write_p, &data_p, 88, basic_block);
-#endif
 
         thread_data->code_cache_meta[basic_block].exit_branch_type = uncond_branch_reg;
         thread_data->code_cache_meta[basic_block].exit_branch_addr = write_p;
@@ -965,14 +957,16 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
       while(1);
     }
 
-    if (!stop) {
-      a64_check_free_space(thread_data, &write_p, &data_p, MIN_FSPACE, basic_block);
-    }
 #ifdef PLUGINS_NEW
     a64_scanner_deliver_callbacks(thread_data, POST_INST_C, read_address, inst, &write_p, &data_p, basic_block, type, !stop);
 #endif
 
     read_address++;
+
+    if (!stop) {
+      stop = a64_check_free_space(thread_data, read_address, &write_p,
+                                  &data_p, MIN_FSPACE, basic_block);
+    }
   } // while(!stop)
 
   return ((write_p - start_address + 1) * sizeof(*write_p));

@@ -35,19 +35,31 @@
 #include "util.h"
 
 /* Various parameters which can be tuned */
-
-// BASIC_BLOCK_SIZE should be a power of 2
-#define BASIC_BLOCK_SIZE 64
+#define TOTAL_CC_SIZE (16*1024*1024)
 #ifdef DBM_TRACES
-  #define CODE_CACHE_SIZE 55000
+  #define BB_META_SIZE 55000
+  #define TRACE_CACHE_SIZE (2*1024*1024)
+  #define TRACE_META_SIZE 60000
 #else
-  #define CODE_CACHE_SIZE 65000
+  #define BB_META_SIZE 65000
+  #define TRACE_CACHE_SIZE 0
+  #define TRACE_META_SIZE 0
 #endif
-#define TRACE_FRAGMENT_NO 60000
-#define CODE_CACHE_OVERP 30
-#define MAX_BRANCH_RANGE (16*1024*1024)
-#define TRACE_CACHE_SIZE (MAX_BRANCH_RANGE - (CODE_CACHE_SIZE*BASIC_BLOCK_SIZE * 4))
-#define TRACE_LIMIT_OFFSET (1024)
+#define BB_CACHE_SIZE (TOTAL_CC_SIZE - TRACE_CACHE_SIZE)
+
+#define MIN_FSPACE_UNIT 1024
+#ifdef PLUGINS_NEW
+  #define MIN_FSPACE (MIN_FSPACE_UNIT * (1 + global_data.free_plugin))
+#else
+  #define MIN_FSPACE (MIN_FSPACE_UNIT)
+#endif
+
+#if (TRACE_CACHE_SIZE >= TOTAL_CC_SIZE)
+  #error The trace cache size must be smaller than the total code cache size
+  // Redefine this to prevent array size errors from showing up later
+  #undef  TRACE_CACHE_SIZE
+  #define TRACE_CACHE_SIZE TOTAL_CC_SIZE
+#endif
 
 #define TRACE_ALIGN 4 // must be a power of 2
 #define TRACE_ALIGN_MASK (TRACE_ALIGN-1)
@@ -116,12 +128,8 @@ typedef enum {
 } branch_type;
 
 typedef struct {
-  uint32_t words[BASIC_BLOCK_SIZE];
-} dbm_block;
-
-typedef struct {
-  dbm_block blocks[CODE_CACHE_SIZE];
-  uint8_t  traces[TRACE_CACHE_SIZE];
+  uint8_t bbs[BB_CACHE_SIZE];
+  uint8_t traces[TRACE_CACHE_SIZE];
 } dbm_code_cache;
 
 #define FALLTHROUGH_LINKED (1 << 0)
@@ -132,7 +140,6 @@ typedef struct {
   uint16_t *source_addr;
   uintptr_t tpc;
   branch_type exit_branch_type;
-  int actual_id;
 #ifdef __arm__
   uint16_t *exit_branch_addr;
 #endif // __arm__
@@ -189,12 +196,13 @@ struct dbm_thread_s {
   uintptr_t syscall_wrapper_addr;
 
   dbm_code_cache *code_cache;
-  dbm_code_cache_meta code_cache_meta[CODE_CACHE_SIZE + TRACE_FRAGMENT_NO];
+  dbm_code_cache_meta code_cache_meta[BB_META_SIZE + TRACE_META_SIZE];
   hash_table entry_address;
+  void *bb_cache_next;
 #ifdef DBM_TRACES
   hash_table trace_entry_address;
 
-  uint8_t   exec_count[CODE_CACHE_SIZE];
+  uint8_t   exec_count[BB_META_SIZE];
   uintptr_t trace_head_incr_addr;
   uint8_t  *trace_cache_next;
   int       trace_id;
@@ -253,6 +261,22 @@ typedef struct {
   uintptr_t spc;
 } cc_addr_pair;
 
+#define MAX_SCAN_QUEUE_LEN (10)
+#define QUEUE_COND_MASK (0xF)
+#define QUEUE_STUB_ONLY (1 << 4)
+#define QUEUE_IS_RAW_ADDR (1 << 5)
+#define QUEUE_IS_THUMB (1 << 6)
+typedef struct {
+  uintptr_t spc;
+  void *link_to;
+  uint32_t info;
+} scanner_queue_entry;
+
+typedef struct {
+  int len;
+  scanner_queue_entry entries[MAX_SCAN_QUEUE_LEN];
+} scanner_queue_t;
+
 void dbm_exit(dbm_thread *thread_data, uint32_t code);
 void thread_abort(dbm_thread *thread_data);
 
@@ -278,10 +302,13 @@ void reset_process(dbm_thread *thread_data);
 uintptr_t cc_lookup(dbm_thread *thread_data, uintptr_t target);
 uintptr_t lookup_or_scan(dbm_thread *thread_data, uintptr_t target, bool *cached);
 uintptr_t lookup_or_stub(dbm_thread *thread_data, uintptr_t target);
-uintptr_t scan(dbm_thread *thread_data, uint16_t *address, int basic_block);
-uint32_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block, cc_type type, uint32_t *write_p);
-uint32_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_block, cc_type type, uint16_t *write_p);
-size_t   scan_a64(dbm_thread *thread_data, uint32_t *read_address, int basic_block, cc_type type, uint32_t *write_p);
+uintptr_t scan(dbm_thread *thread_data, uint16_t *address, int stub_id);
+size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block, cc_type type,
+                  uint32_t *write_p, scanner_queue_t *scan_queue);
+size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_block, cc_type type,
+                    uint16_t *write_p, scanner_queue_t *scan_queue);
+size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address, int basic_block, cc_type type,
+                  uint32_t *write_p, scanner_queue_t *scan_queue);
 int allocate_bb(dbm_thread *thread_data);
 void trace_dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_index, dbm_thread *thread_data);
 void flush_code_cache(dbm_thread *thread_data);
@@ -291,8 +318,16 @@ void generate_trace_exit(dbm_thread *thread_data, uint32_t **o_write_p, int frag
 void insert_cond_exit_branch(dbm_code_cache_meta *bb_meta, void **o_write_p, int cond);
 void sigret_dispatcher_call(dbm_thread *thread_data, ucontext_t *cont, uintptr_t target);
 
-void thumb_encode_stub_bb(dbm_thread *thread_data, int basic_block, uint32_t target);
-void arm_encode_stub_bb(dbm_thread *thread_data, int basic_block, uint32_t target);
+void thumb_encode_stub_bb(dbm_thread *thread_data, uint16_t **o_write_p, int basic_block, uint32_t target);
+void arm_encode_stub_bb(dbm_thread *thread_data, uint32_t **o_write_p, int basic_block, uint32_t target);
+#ifdef __arm__
+int scanner_queue_add(scanner_queue_t *queue, void *link_to, uintptr_t spc, mambo_cond cond, bool is_thumb,
+                      bool is_raw_addr, bool stub_only);
+#else
+int scanner_queue_add(scanner_queue_t *queue, void *link_to, uintptr_t spc, bool is_raw_addr, bool stub_only);
+#endif
+void scanner_queue_process(dbm_thread *thread_data, scanner_queue_t *queue);
+void rewrite_cc_branches(dbm_thread *thread_data, int bb_id, uintptr_t new_target);
 
 int addr_to_bb_id(dbm_thread *thread_data, uintptr_t addr);
 int addr_to_fragment_id(dbm_thread *thread_data, uintptr_t addr);
