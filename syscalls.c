@@ -172,13 +172,8 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
     case __NR_clone:
       clone_args = (sys_clone_args *)args;
 
-      if (clone_args->flags & CLONE_VFORK) {
-        assert(clone_args->child_stack == &args[SYSCALL_WRAPPER_STACK_OFFSET]
-               || clone_args->child_stack == NULL);
-        clone_args->child_stack = args;
-        clone_args->flags &= ~CLONE_VM;
-      }
-      if (clone_args->flags & CLONE_VM) {
+      if (clone_args->flags & CLONE_THREAD) {
+        assert(clone_args->flags & CLONE_VM);
         if (!(clone_args->flags & CLONE_SETTLS)) {
           clone_args->tls = thread_data->tls;
         }
@@ -189,12 +184,26 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
         args[0] = child_data->tid;
 
         return 0;
-      } else {
-        thread_data->child_tls = (clone_args->flags & CLONE_SETTLS) ? clone_args->tls : thread_data->tls;
-        clone_args->flags &= ~CLONE_SETTLS;
-
-        thread_data->clone_vm = false;
       }
+
+      if (clone_args->flags & CLONE_VFORK) {
+        clone_args->flags &= ~CLONE_VM;
+      }
+      assert((clone_args->flags & CLONE_VM) == 0);
+      thread_data->clone_vm = false;
+
+      thread_data->child_tls = (clone_args->flags & CLONE_SETTLS) ? clone_args->tls : thread_data->tls;
+      clone_args->flags &= ~CLONE_SETTLS;
+
+      if (clone_args->child_stack != NULL) {
+        if (clone_args->child_stack == &args[SYSCALL_WRAPPER_STACK_OFFSET]) {
+          clone_args->child_stack = args;
+        } else {
+          size_t copy_size = SYSCALL_WRAPPER_STACK_OFFSET * sizeof(uintptr_t);
+          clone_args->child_stack -= copy_size;
+          mambo_memcpy(clone_args->child_stack, args, copy_size);
+        }
+      } // if child_stack != NULL
       break;
     case __NR_exit:
       debug("thread exit\n");
