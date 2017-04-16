@@ -31,6 +31,7 @@
 #include "dbm.h"
 #include "kernel_sigaction.h"
 #include "scanner_common.h"
+#include "syscalls.h"
 
 #ifdef DEBUG
   #define debug(...) fprintf(stderr, __VA_ARGS__)
@@ -172,7 +173,7 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
       clone_args = (sys_clone_args *)args;
 
       if (clone_args->flags & CLONE_VFORK) {
-        assert(clone_args->child_stack == &args[32]
+        assert(clone_args->child_stack == &args[SYSCALL_WRAPPER_STACK_OFFSET]
                || clone_args->child_stack == NULL);
         clone_args->child_stack = args;
         clone_args->flags &= ~CLONE_VM;
