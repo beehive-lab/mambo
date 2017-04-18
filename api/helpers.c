@@ -236,6 +236,23 @@ void emit_fcall(mambo_context *ctx, void *function_ptr) {
 #endif
 }
 
+void emit_mov(mambo_context *ctx, enum reg rd, enum reg rn) {
+#ifdef __arm__
+  assert(rd >= 0 && rd < pc && rn >= 0 && rn < pc);
+  if (mambo_get_inst_type(ctx) == THUMB_INST) {
+    emit_thumb_movh16(ctx, rd >> 3, rn, rd);
+  } else {
+    emit_arm_mov(ctx, REG_PROC, 0, rd, rn);
+  }
+#elif __aarch64__
+  if (rn == sp) {
+    emit_a64_ADD_SUB_immed(ctx, 1, 0, 0, 0, 0, rn, rd);
+  } else {
+    emit_a64_logical_reg(ctx, 1, 1, 0, 0, rn, 0, 0x1F, rd);
+  }
+#endif
+}
+
 void emit_counter64_incr(mambo_context *ctx, void *counter, unsigned incr) {
 #ifdef __arm__
   /* On AArch32 we use NEON rather than ADD and ADC to avoid having to save
