@@ -1,6 +1,7 @@
 #PLUGINS+=plugins/branch_count.c
 #PLUGINS+=plugins/soft_div.c
 #PLUGINS+=plugins/tb_count.c
+#PLUGINS+=plugins/mtrace.c plugins/mtrace.S
 
 OPTS= -DDBM_LINK_UNCOND_IMM
 OPTS+=-DDBM_INLINE_UNCOND_IMM
