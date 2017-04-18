@@ -20,6 +20,16 @@
 #ifndef __API_HELPERS_H__
 #define __API_HELPERS_H__
 
+void emit_counter64_incr(mambo_context *ctx, void *counter, unsigned incr);
+void emit_push(mambo_context *ctx, uint32_t regs);
+void emit_pop(mambo_context *ctx, uint32_t regs);
+void emit_set_reg(mambo_context *ctx, enum reg reg, uintptr_t value);
+void emit_fcall(mambo_context *ctx, void *function_ptr);
+
+static inline void emit_set_reg_ptr(mambo_context *ctx, enum reg reg, void *ptr) {
+  emit_set_reg(ctx, reg, (uintptr_t)ptr);
+}
+
 #ifdef __arm__
 void emit_thumb_push_cpsr(mambo_context *ctx, enum reg reg);
 void emit_arm_push_cpsr(mambo_context *ctx, enum reg reg);
@@ -40,7 +50,5 @@ void emit_arm_fcall(mambo_context *ctx, void *function_ptr);
 void emit_a64_push(mambo_context *ctx, uint32_t regs);
 void emit_a64_pop(mambo_context *ctx, uint32_t regs);
 #endif
-
-void emit_counter64_incr(mambo_context *ctx, void *counter, unsigned incr);
 
 #endif

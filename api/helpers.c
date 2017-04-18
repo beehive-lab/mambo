@@ -182,6 +182,60 @@ void emit_a64_pop(mambo_context *ctx, uint32_t regs) {
 }
 #endif
 
+void emit_push(mambo_context *ctx, uint32_t regs) {
+#ifdef __arm__
+  inst_set isa = mambo_get_inst_type(ctx);
+  if (isa == ARM_INST) {
+    emit_arm_push(ctx, regs);
+  } else {
+    emit_thumb_push(ctx, regs);
+  }
+#elif __aarch64__
+  emit_a64_push(ctx, regs);
+#endif
+}
+
+void emit_pop(mambo_context *ctx, uint32_t regs) {
+  assert(ctx->plugin_pushed_reg_count >= 0);
+#ifdef __arm__
+  inst_set isa = mambo_get_inst_type(ctx);
+  if (isa == ARM_INST) {
+    emit_arm_pop(ctx, regs);
+  } else {
+    emit_thumb_pop(ctx, regs);
+  }
+#elif __aarch64__
+  emit_a64_pop(ctx, regs);
+#endif
+}
+
+void emit_set_reg(mambo_context *ctx, enum reg reg, uintptr_t value) {
+#ifdef __arm__
+  inst_set isa = mambo_get_inst_type(ctx);
+  if (isa == ARM_INST) {
+    emit_arm_copy_to_reg_32bit(ctx, reg, value);
+  } else {
+    emit_thumb_copy_to_reg_32bit(ctx, reg, value);
+  }
+#elif __aarch64__
+  a64_copy_to_reg_64bits((uint32_t **)&ctx->write_p, reg, value);
+#endif
+}
+
+void emit_fcall(mambo_context *ctx, void *function_ptr) {
+  emit_set_reg(ctx, lr, (uintptr_t)function_ptr);
+#ifdef __arm__
+  inst_set type = mambo_get_inst_type(ctx);
+  if (type == ARM_INST) {
+    emit_arm_blx(ctx, lr);
+  } else {
+    emit_thumb_blx16(ctx, lr);
+  }
+#elif __aarch64__
+  emit_a64_BLR(ctx, lr);
+#endif
+}
+
 void emit_counter64_incr(mambo_context *ctx, void *counter, unsigned incr) {
 #ifdef __arm__
   /* On AArch32 we use NEON rather than ADD and ADC to avoid having to save
