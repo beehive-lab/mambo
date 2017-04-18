@@ -20,9 +20,11 @@
 #include <stdio.h>
 #include <assert.h>
 #include <sys/mman.h>
+#include <stdarg.h>
 
 #include "../dbm.h"
 #include "../common.h"
+#include "helpers.h"
 
 #ifdef PLUGINS_NEW
 
@@ -214,4 +216,64 @@ void mambo_replace_inst(mambo_context *ctx) {
   ctx->replace = true;
 }
 
+/* Allows scratch registers to be shared by multiple plugins
+  This will likely be modified in the future to allocate dead
+  application registers if available.
+*/
+int mambo_get_scratch_regs(mambo_context *ctx, int count, ...) {
+  int *regp;
+  int min_pushed_reg = 8; // subject to change; selected for thumb-16 push/pops
+  int allocated_regs = 0;
+  uint32_t to_push = 0;
+
+  va_list args;
+  va_start(args, count);
+
+  if (ctx->pushed_regs) {
+    min_pushed_reg = next_reg_in_list(ctx->pushed_regs, 0);
+  }
+
+  for (int i = 0; i < count; i++) {
+    regp = va_arg(args, int *);
+    int reg = next_reg_in_list(ctx->available_regs, 0);
+    if (reg != reg_invalid) {
+      ctx->available_regs &= ~(1 << reg);
+    } else {
+      min_pushed_reg--;
+      if (min_pushed_reg >= 0) {
+        to_push |= 1 << min_pushed_reg;
+        reg = min_pushed_reg;
+      }
+    }
+    if (reg >= 0 && reg < reg_invalid) {
+      *regp = reg;
+      allocated_regs++;
+    } else {
+      break;
+    }
+  }
+
+  ctx->pushed_regs |= to_push;
+  if (to_push) {
+    emit_push(ctx, to_push);
+  }
+
+  return allocated_regs;
+}
+
+int mambo_get_scratch_reg(mambo_context *ctx, int *regp) {
+  return mambo_get_scratch_regs(ctx, 1, regp);
+}
+
+int mambo_free_scratch_regs(mambo_context *ctx, uint32_t regs) {
+  if ((regs & ctx->pushed_regs) != regs) {
+    return -1;
+  }
+  ctx->available_regs |= regs;
+  return 0;
+}
+
+int mambo_free_scratch_reg(mambo_context *ctx, int reg) {
+  return mambo_free_scratch_reg(ctx, 1 << reg);
+}
 #endif

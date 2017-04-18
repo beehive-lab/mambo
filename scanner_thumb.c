@@ -883,6 +883,7 @@ bool thumb_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id
       if (global_data.plugins[i].cbs[cb_id] != NULL) {
         ctx.plugin_id = i;
         ctx.replace = false;
+        ctx.available_regs = ctx.pushed_regs;
         prev_write_p = ctx.write_p;
         global_data.plugins[i].cbs[cb_id](&ctx);
 
@@ -908,6 +909,10 @@ bool thumb_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id
         }
       } // global_data.plugins[i].cbs[cb_id] != NULL
     } // plugin iterator
+
+    if (allow_write && ctx.pushed_regs) {
+      thumb_pop_regs((uint16_t **)&ctx.write_p, ctx.pushed_regs);
+    }
 
     if (allow_write && state->cond_inst_after_it > 0) {
       if (ctx.write_p != write_p) {

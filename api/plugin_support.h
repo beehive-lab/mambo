@@ -35,6 +35,8 @@ typedef struct {
   void *write_p;
   unsigned long *regs;
   bool replace;
+  uint32_t pushed_regs;
+  uint32_t available_regs;
   int plugin_pushed_reg_count;
 } mambo_context;
 
@@ -103,6 +105,12 @@ int mambo_set_plugin_data(mambo_context *ctx, void *data);
 void *mambo_get_plugin_data(mambo_context *ctx);
 int mambo_set_thread_plugin_data(mambo_context *ctx, void *data);
 void *mambo_get_thread_plugin_data(mambo_context *ctx);
+
+/* Scratch register management */
+int mambo_get_scratch_regs(mambo_context *ctx, int count, ...);
+int mambo_get_scratch_reg(mambo_context *ctx, int *regp);
+int mambo_free_scratch_regs(mambo_context *ctx, uint32_t regs);
+int mambo_free_scratch_reg(mambo_context *ctx, int reg);
 
 /* Other */
 int mambo_get_inst(mambo_context *ctx);

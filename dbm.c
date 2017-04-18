@@ -222,6 +222,8 @@ void set_mambo_context(mambo_context *ctx, dbm_thread *thread_data, inst_set ins
   ctx->write_p = write_p;
   ctx->regs = regs;
   ctx->replace = false;
+  ctx->pushed_regs = 0;
+  ctx->available_regs = 0;
   ctx->plugin_pushed_reg_count = 0;
 }
 #endif

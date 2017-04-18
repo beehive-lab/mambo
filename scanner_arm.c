@@ -338,6 +338,7 @@ bool arm_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id, 
         ctx.write_p = write_p;
         ctx.plugin_id = i;
         ctx.replace = false;
+        ctx.available_regs = ctx.pushed_regs;
         global_data.plugins[i].cbs[cb_id](&ctx);
         if (allow_write) {
           if (replaced && (write_p != ctx.write_p || ctx.replace)) {
@@ -359,6 +360,10 @@ bool arm_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id, 
           assert(ctx.write_p == write_p);
         }
       }
+    }
+
+    if (allow_write && ctx.pushed_regs) {
+      arm_pop_regs(ctx.pushed_regs);
     }
 
     *o_write_p = write_p;
