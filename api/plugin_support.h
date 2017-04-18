@@ -35,6 +35,7 @@ typedef struct {
   void *write_p;
   unsigned long *regs;
   bool replace;
+  int plugin_pushed_reg_count;
 } mambo_context;
 
 typedef int (*mambo_callback)(mambo_context *ctx);

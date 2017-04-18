@@ -352,6 +352,7 @@ bool arm_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id, 
                               "a disallowed event (at %p).\n", i, read_address);
             }
           }
+          assert(ctx.plugin_pushed_reg_count == 0);
           write_p = ctx.write_p;
           arm_check_free_space(thread_data, &write_p, &data_p, MIN_FSPACE, basic_block);
         } else {
