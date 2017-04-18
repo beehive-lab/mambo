@@ -34,6 +34,7 @@ int emit_add_sub_i(mambo_context *ctx, int rd, int rn, int offset);
 int emit_add_sub_shift(mambo_context *ctx, int rd, int rn, int rm,
                        unsigned int shift_type, unsigned int shift);
 int emit_add_sub(mambo_context *ctx, int rd, int rn, int rm);
+int mambo_calc_ld_st_addr(mambo_context *ctx, enum reg reg);
 
 static inline void emit_set_reg_ptr(mambo_context *ctx, enum reg reg, void *ptr) {
   emit_set_reg(ctx, reg, (uintptr_t)ptr);
