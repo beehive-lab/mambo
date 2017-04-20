@@ -789,7 +789,7 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
             case 2: // LDR Signed Word (literal)
               a64_copy_to_reg_64bits(&write_p, Rt, PC_relative_address);
               a64_LDR_STR_unsigned_immed(&write_p, 2, V, 2, 0, Rt, Rt);
-              while(1);
+              write_p++;
               break;
             case 3: // PRFM Prefetch
               a64_push_reg(x0);
