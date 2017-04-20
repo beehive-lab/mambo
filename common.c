@@ -325,12 +325,27 @@ uint32_t last_reg_in_list(uint32_t reglist, uint32_t start) {
    return reg_invalid;
 }
 
-int get_n_regs(uint32_t reglist, uint32_t *regs, int n) {
+int get_lowest_n_regs(uint32_t reglist, uint32_t *regs, int n) {
   int count = 0, prev = -1;
   if (n < 1) return count;
 
   for (int i = 0; i < n; i++) {
     regs[i] = next_reg_in_list(reglist, prev + 1);
+    if (regs[i] < reg_invalid) {
+      count++;
+    }
+    prev = regs[i];
+  }
+
+  return count;
+}
+
+int get_highest_n_regs(uint32_t reglist, uint32_t *regs, int n) {
+  int count = 0, prev = reg_invalid;
+  if (n < 1) return count;
+
+  for (int i = 0; i < n; i++) {
+    regs[i] = last_reg_in_list(reglist, prev - 1);
     if (regs[i] < reg_invalid) {
       count++;
     }

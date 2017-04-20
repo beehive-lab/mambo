@@ -167,7 +167,7 @@ void emit_a64_pop(mambo_context *ctx, uint32_t regs) {
   int reg_no;
 
   while (regs != 0) {
-    reg_no = get_n_regs(regs, to_pop, 2);
+    reg_no = get_lowest_n_regs(regs, to_pop, 2);
     assert(reg_no == 1 || reg_no == 2);
     if (reg_no == 2) {
       a64_pop_pair_reg(to_pop[0], to_pop[1]);
