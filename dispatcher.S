@@ -88,6 +88,7 @@ dispatcher_addr: .word dispatcher
 #endif
 
 #ifdef __aarch64__
+.global push_neon
 push_neon:
   STP  Q0,  Q1, [SP, #-512]!
   STP  Q2,  Q3, [SP,   #32]
@@ -107,6 +108,7 @@ push_neon:
   STP Q30, Q31, [SP,  #480]
   RET
 
+.global pop_neon
 pop_neon:
   LDP  Q2,  Q3, [SP, #32]
   LDP  Q4,  Q5, [SP, #64]
@@ -126,6 +128,7 @@ pop_neon:
   LDP  Q0,  Q1, [SP], #512
   RET
 
+.global push_x4_x21
 push_x4_x21:
   STP  X4,  X5, [SP, #-144]!
   STP  X6,  X7, [SP, #16]
@@ -138,6 +141,7 @@ push_x4_x21:
   STP X20, X21, [SP, #128]
   RET
 
+.global pop_x4_x21
 pop_x4_x21:
   LDP  X6,  X7, [SP, #16]
   LDP  X8,  X9, [SP, #32]
