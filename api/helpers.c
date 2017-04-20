@@ -144,10 +144,10 @@ void emit_a64_push(mambo_context *ctx, uint32_t regs) {
   int reg_no;
 
   while (regs != 0) {
-    reg_no = get_n_regs(regs, to_push, 2);
+    reg_no = get_highest_n_regs(regs, to_push, 2);
     assert(reg_no == 1 || reg_no == 2);
     if (reg_no == 2) {
-      a64_push_pair_reg(to_push[0], to_push[1]);
+      a64_push_pair_reg(to_push[1], to_push[0]);
       regs &= ~((1 << to_push[0]) | (1 << to_push[1]));
     } else if (reg_no == 1) {
       a64_push_reg(to_push[0]);
