@@ -133,6 +133,43 @@ void emit_thumb_fcall(mambo_context *ctx, void *function_ptr) {
   emit_thumb_copy_to_reg_32bit(ctx, lr, (uint32_t)function_ptr);
   emit_thumb_blx16(ctx, lr);
 }
+
+static inline int emit_arm_add_sub_shift(mambo_context *ctx, int rd, int rn, int rm,
+                                         unsigned int shift_type, unsigned int shift) {
+  if (shift < 0 || shift > 31 || shift_type > ROR) {
+    return -1;
+  }
+
+  if (rm < 0) {
+    rm = -rm;
+    emit_arm_sub(ctx, REG_PROC, 0, rd, rn, rm | (shift_type << 5) | (shift << 7));
+  } else {
+    emit_arm_add(ctx, REG_PROC, 0, rd, rn, rm | (shift_type << 5) | (shift << 7));
+  }
+  return 0;
+}
+
+static inline int emit_arm_add_sub(mambo_context *ctx, int rd, int rn, int rm) {
+  return emit_arm_add_sub_shift(ctx, rd, rn, rm, LSL, 0);
+}
+
+static inline int emit_thumb_add_sub_shift(mambo_context *ctx, int rd, int rn, int rm,
+                                           unsigned int shift_type, unsigned int shift) {
+  if (shift < 0 || shift > 31 || shift_type > ROR) {
+    return -1;
+  }
+  if (rm < 0) {
+    rm = -rm;
+    emit_thumb_sub32(ctx, 0, rn, shift >> 2, rd, shift, shift_type, rm);
+  } else {
+    emit_thumb_add32(ctx, 0, rn, shift >> 2, rd, shift, shift_type, rm);
+  }
+  return 0;
+}
+
+static inline int emit_thumb_add_sub(mambo_context *ctx, int rd, int rn, int rm) {
+  return emit_thumb_add_sub_shift(ctx, rd, rn, rm, LSL, 0);
+}
 #endif // __arm__
 
 #ifdef __aarch64__
@@ -179,6 +216,19 @@ void emit_a64_pop(mambo_context *ctx, uint32_t regs) {
   }
 
   ctx->write_p = write_p;
+}
+
+static inline int emit_a64_add_sub_shift(mambo_context *ctx, int rd, int rn, int rm,
+                                         unsigned int shift_type, unsigned int shift) {
+  if (shift < 0 || shift > 63 || shift_type > ASR) return -1;
+  int op = (rm < 0);
+  rm = abs(rm);
+  emit_a64_ADD_SUB_shift_reg(ctx, 1, op, 0, shift_type, rm, shift, rn, rd);
+  return 0;
+}
+
+static inline int emit_a64_add_sub(mambo_context *ctx, int rd, int rn, int rm) {
+  return emit_a64_add_sub_shift(ctx, rd, rn, rm, LSL, 0);
 }
 #endif
 
@@ -316,6 +366,23 @@ int emit_add_sub_i(mambo_context *ctx, int rd, int rn, int offset) {
     }
   } // offset != 0
   return 0;
+}
+
+inline int emit_add_sub_shift(mambo_context *ctx, int rd, int rn, int rm,
+                       unsigned int shift_type, unsigned int shift) {
+#ifdef __arm__
+  if (mambo_get_inst_type(ctx) == THUMB_INST) {
+    return emit_thumb_add_sub_shift(ctx, rd, rn, rm, shift_type, shift);
+  } else {
+    return emit_arm_add_sub_shift(ctx, rd, rn, rm, shift_type, shift);
+  }
+#elif __aarch64__
+  return emit_a64_add_sub_shift(ctx, rd, rn, rm, shift_type, shift);
+#endif
+}
+
+inline int emit_add_sub(mambo_context *ctx, int rd, int rn, int rm) {
+  return emit_add_sub_shift(ctx, rd, rn, rm, LSL, 0);
 }
 
 void emit_counter64_incr(mambo_context *ctx, void *counter, unsigned incr) {
