@@ -253,6 +253,71 @@ void emit_mov(mambo_context *ctx, enum reg rd, enum reg rn) {
 #endif
 }
 
+#ifdef __arm__
+  #define SHIFTED_ADD_SUB_I_BITS 8
+  #define _emit_add_shift_imm(rd, rn, offset, shift) \
+           assert((shift & 1) == 0); \
+           emit_arm_add(ctx, IMM_PROC, 0, rd, rn, ((16 - (shift / 2)) << 8) | offset);
+  #define _emit_sub_shift_imm(rd, rn, offset, shift) \
+           assert((shift & 1) == 0); \
+           emit_arm_sub(ctx, IMM_PROC, 0, rd, rn, ((16 - (shift / 2)) << 8) | offset);
+#elif __aarch64__
+  #define SHIFTED_ADD_SUB_I_BITS 12
+  #define _emit_add_shift_imm(rd, rn, offset, shift) \
+           assert((shift) == 0 || (shift) == 12); \
+           emit_a64_ADD_SUB_immed(ctx, 1, 0, 0, (shift == 12), (offset), (rn), (rd));
+  #define _emit_sub_shift_imm(rd, rn, offset, shift) \
+           assert((shift) == 0 || (shift) == 12); \
+           emit_a64_ADD_SUB_immed(ctx, 1, 1, 0, (shift == 12), (offset), (rn), (rd));
+#endif
+#define SHIFTED_ADD_SUB_I_MASK ((1 << SHIFTED_ADD_SUB_I_BITS) - 1)
+#define SHIFTED_ADD_SUB_MAX (SHIFTED_ADD_SUB_I_MASK | (SHIFTED_ADD_SUB_I_MASK << SHIFTED_ADD_SUB_I_BITS))
+
+int emit_add_sub_i(mambo_context *ctx, int rd, int rn, int offset) {
+  if (offset == 0) {
+    if (rd != rn) {
+      emit_mov(ctx, rd, rn);
+      return 0;
+    }
+  } else {
+#ifdef __arm__
+    inst_set isa = mambo_get_inst_type(ctx);
+    if (isa == THUMB_INST) {
+      if (offset > 0xFFF || offset < -0xFFF) return -1;
+
+      if (offset < 0) {
+        offset = -offset;
+        emit_thumb_subwi32(ctx, offset >> 11, rn, offset >> 8, rd, offset);
+      } else {
+        emit_thumb_addwi32(ctx, offset >> 11, rn, offset >> 8, rd, offset);
+      }
+      return 0;
+    }
+#endif
+    if (offset < -SHIFTED_ADD_SUB_MAX || offset > SHIFTED_ADD_SUB_MAX) return -1;
+
+    if (offset < 0) {
+      offset = -offset;
+      if (offset & SHIFTED_ADD_SUB_I_MASK) {
+        _emit_sub_shift_imm(rd, rn, offset & SHIFTED_ADD_SUB_I_MASK, 0);
+        rn = rd;
+      }
+      if (offset & (SHIFTED_ADD_SUB_I_MASK << SHIFTED_ADD_SUB_I_BITS)) {
+        _emit_sub_shift_imm(rd, rn, offset >> SHIFTED_ADD_SUB_I_BITS, SHIFTED_ADD_SUB_I_BITS);
+      }
+    } else {
+      if (offset & SHIFTED_ADD_SUB_I_MASK) {
+        _emit_add_shift_imm(rd, rn, offset & SHIFTED_ADD_SUB_I_MASK, 0);
+        rn = rd;
+      }
+      if (offset & (SHIFTED_ADD_SUB_I_MASK << SHIFTED_ADD_SUB_I_BITS)) {
+        _emit_add_shift_imm(rd, rn, offset >> SHIFTED_ADD_SUB_I_BITS, SHIFTED_ADD_SUB_I_BITS);
+      }
+    }
+  } // offset != 0
+  return 0;
+}
+
 void emit_counter64_incr(mambo_context *ctx, void *counter, unsigned incr) {
 #ifdef __arm__
   /* On AArch32 we use NEON rather than ADD and ADC to avoid having to save
