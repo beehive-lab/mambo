@@ -230,6 +230,14 @@ static inline int emit_a64_add_sub_shift(mambo_context *ctx, int rd, int rn, int
 static inline int emit_a64_add_sub(mambo_context *ctx, int rd, int rn, int rm) {
   return emit_a64_add_sub_shift(ctx, rd, rn, rm, LSL, 0);
 }
+
+int emit_a64_add_sub_ext(mambo_context *ctx, int rd, int rn, int rm, int ext_option, int shift) {
+  int op = (rm < 0);
+  rm = abs(rm);
+  if (shift > 4 || shift < 0) return -1;
+  emit_a64_ADD_SUB_ext_reg(ctx, 1, op, 0, rm, ext_option, shift, rn, rd);
+  return 0;
+}
 #endif
 
 void emit_push(mambo_context *ctx, uint32_t regs) {

@@ -68,6 +68,7 @@ void emit_a64_pop(mambo_context *ctx, uint32_t regs);
 static inline int emit_a64_add_sub_shift(mambo_context *ctx, int rd, int rn, int rm,
                                    unsigned int shift_type, unsigned int shift);
 static inline int emit_a64_add_sub(mambo_context *ctx, int rd, int rn, int rm);
+int emit_a64_add_sub_ext(mambo_context *ctx, int rd, int rn, int rm, int ext_option, int shift);
 #endif
 
 #endif
