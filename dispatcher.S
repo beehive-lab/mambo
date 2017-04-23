@@ -206,10 +206,10 @@ trace_head_incr:
   POP {R0-R2, LR}
   LDR PC, [SP], #8
 
+.align 2
 create_trace_trampoline:
   BX PC
-
-.align 2
+  NOP
 .code 32
   ADD R2, SP, #16
   PUSH {R3 - R6, R9, R12}
