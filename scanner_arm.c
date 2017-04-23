@@ -502,6 +502,7 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
   uint32_t target;
   uint32_t return_addr;
   uint32_t *tr_start;
+  uint32_t *start_scan = read_address;
 
   int inlined_back_count = 0;
   
@@ -1512,6 +1513,21 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
         break;
       }
 
+      case ARM_UDF:
+        if (start_scan == read_address) {
+          copy_arm();
+        } else {
+          thread_data->code_cache_meta[basic_block].exit_branch_type = uncond_imm_arm;
+          thread_data->code_cache_meta[basic_block].exit_branch_addr = (uint16_t *)write_p;
+          thread_data->code_cache_meta[basic_block].branch_taken_addr = (uint32_t)read_address;
+
+          arm_branch_save_context(thread_data, &write_p, false);
+          arm_branch_jump(thread_data, &write_p, basic_block, -8, read_address,
+                          AL, SETUP|REPLACE_TARGET|INSERT_BRANCH);
+          stop = true;
+        }
+        break;
+
       /* ARM instructions which can be copied directly */
       case ARM_BKPT:
       case ARM_CLREX:
@@ -1519,7 +1535,6 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
       case ARM_ISB:
       case ARM_MSRI:
       case ARM_NOP:
-      case ARM_UDF:
         copy_arm();
         break;
 
