@@ -129,6 +129,7 @@ void mambo_replace_inst(mambo_context *ctx);
 bool mambo_is_load(mambo_context *ctx);
 bool mambo_is_store(mambo_context *ctx);
 bool mambo_is_load_or_store(mambo_context *ctx);
+int mambo_get_ld_st_size(mambo_context *ctx);
 
 mambo_branch_type mambo_get_branch_type(mambo_context *ctx);
 

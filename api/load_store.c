@@ -769,4 +769,408 @@ int mambo_calc_ld_st_addr(mambo_context *ctx, enum reg reg) {
 #endif
 }
 
+#ifdef __aarch64__
+int _a64_get_ld_st_size(mambo_context *ctx) {
+  int size = -1;
+
+  switch (ctx->inst) {
+    case A64_LDR_LIT: {
+      uint32_t opc, v, imm19, rt;
+      a64_LDR_lit_decode_fields(ctx->read_address, &opc, &v, &imm19, &rt);
+      if (v) {
+        size = 4 << opc;
+      } else {
+        size = 4 << (opc & 1);
+      }
+      break;
+    }
+    case A64_LDP_STP: {
+      uint32_t opc, v, type, l, imm7, rt2, rn, rt;
+      a64_LDP_STP_decode_fields(ctx->read_address, &opc, &v, &type, &l, &imm7, &rt2, &rn, &rt);
+      if (v) {
+        size = (8 << opc);
+      } else {
+        size = 8 << (opc >> 1);
+      }
+      break;
+    }
+    case A64_LDR_STR_REG:
+    case A64_LDR_STR_IMMED:
+    case A64_LDR_STR_UNSIGNED_IMMED: {
+      uint32_t sz, v, opc, imm12, rn, rt;
+      a64_LDR_STR_unsigned_immed_decode_fields(ctx->read_address, &sz, &v, &opc, &imm12, &rn, &rt);
+      if (v) {
+        size = (1 << (sz + ((opc >> 1) << 2)));
+      } else {
+        size = 1 << sz;
+      }
+      break;
+    }
+    case A64_LDX_STX: {
+      uint32_t sz, o2, l, o1, rs, o0, rt2, rn, rt;
+      a64_LDX_STX_decode_fields(ctx->read_address, &sz, &o2, &l, &o1, &rs, &o0, &rt2, &rn, &rt);
+      size = 1 << (sz + o1);
+      break;
+    }
+    case A64_LDX_STX_MULTIPLE:
+    case A64_LDX_STX_MULTIPLE_POST: {
+      uint32_t q, l, op, sz, rn, rt;
+      a64_LDx_STx_multiple_decode_fields(ctx->read_address, &q, &l, &op, &sz, &rn, &rt);
+      int regs = 0;
+      switch (op) {
+        case 0x0: // LD/ST4
+        case 0x2: // LD/ST1
+          regs = 4;
+          break;
+        case 0x4: // LD/ST3
+        case 0x6: // LD/ST1
+          regs = 3;
+          break;
+        case 0x8: // LD/ST2
+        case 0xA: // LD/ST1
+          regs = 2;
+          break;
+        case 0x7: // LD/ST1
+          regs = 1;
+          break;
+        default:
+          fprintf(stderr, "Unsupported LDx/STx opcode %x at %p\n", op, ctx->read_address);
+          exit(EXIT_FAILURE);
+      }
+      size = regs * (8 << q);
+      break;
+    }
+    case A64_LDX_STX_SINGLE:
+    case A64_LDX_STX_SINGLE_POST: {
+      uint32_t q, l, r, op, s, sz, rn, rt;
+      a64_LDx_STx_single_decode_fields(ctx->read_address, &q, &l, &r, &op, &s, &sz, &rn, &rt);
+      int regs = (((op & 1) << 1) | r) + 1;
+      int scale = (op >> 1);
+      switch (scale) {
+        case 3:
+          scale = sz;
+          break;
+        case 2:
+          if (sz & 1) {
+            scale = 3;
+          }
+          break;
+      }
+      size = (1 << scale) * regs;
+      break;
+    }
+  } // switch
+
+  return size;
+}
+#endif
+
+#ifdef __arm__
+// Same decoding logic on A32 and T32
+int _get_size_vldx_vstx_m(void *read_addr, bool is_thumb) {
+  uint32_t op, sz, d, vd, rn, align, rm;
+  if (is_thumb) {
+    thumb_neon_vldx_m_decode_fields(read_addr, &op, &sz, &d, &vd, &rn, &align, &rm);
+  } else {
+    arm_neon_vldx_m_decode_fields(read_addr, &op, &sz, &d, &vd, &rn, &align, &rm);
+  }
+  int regs = 0;
+
+  switch (op) {
+    case 0x7:
+      regs = 1;
+      break;
+    case 0x8:
+    case 0x9:
+    case 0xA:
+      regs = 2;
+      break;
+    case 0x4:
+    case 0x5:
+    case 0x6:
+      regs = 3;
+      break;
+    case 0x0:
+    case 0x1:
+    case 0x2:
+    case 0x3:
+      regs = 4;
+      break;
+    default:
+      fprintf(stderr, "Unsupported VLDx (multiple) opcode %x at %p\n", op, read_addr);
+      exit(EXIT_FAILURE);
+  }
+  return regs * 8;
+}
+
+int _thumb_get_ld_st_size(mambo_context *ctx) {
+  int size = -1;
+
+  switch(ctx->inst) {
+    // Fixed-size loads / stores
+    case THUMB_LDRB16:
+    case THUMB_LDRBI16:
+    case THUMB_LDRSB16:
+    case THUMB_STRB16:
+    case THUMB_STRBI16:
+    case THUMB_LDRB32:
+    case THUMB_LDRBI32:
+    case THUMB_LDRBL32:
+    case THUMB_LDRBT32:
+    case THUMB_LDRBWI32:
+    case THUMB_LDRSB32:
+    case THUMB_LDRSBI32:
+    case THUMB_LDRSBL32:
+    case THUMB_LDRSBT32:
+    case THUMB_LDRSBWI32:
+    case THUMB_STRB32:
+    case THUMB_STRBI32:
+    case THUMB_STRBT32:
+    case THUMB_STRBWI32:
+    case THUMB_LDREXB32:
+    case THUMB_STREXB32:
+      size = 1;
+      break;
+
+    case THUMB_LDRH16:
+    case THUMB_LDRHI16:
+    case THUMB_LDRSH16:
+    case THUMB_STRH16:
+    case THUMB_STRHI16:
+    case THUMB_LDRH32:
+    case THUMB_LDRHI32:
+    case THUMB_LDRHL32:
+    case THUMB_LDRHT32:
+    case THUMB_LDRHWI32:
+    case THUMB_LDRSH32:
+    case THUMB_LDRSHI32:
+    case THUMB_LDRSHL32:
+    case THUMB_LDRSHT32:
+    case THUMB_LDRSHWI32:
+    case THUMB_STRH32:
+    case THUMB_STRHI32:
+    case THUMB_STRHT32:
+    case THUMB_STRHWI32:
+    case THUMB_LDREXH32:
+    case THUMB_STREXH32:
+      size = 2;
+      break;
+
+    case THUMB_LDR16:
+    case THUMB_LDRI16:
+    case THUMB_LDR_PC_16:
+    case THUMB_LDR_SP16:
+    case THUMB_STR16:
+    case THUMB_STRI16:
+    case THUMB_STR_SP16:
+    case THUMB_LDR32:
+    case THUMB_LDRI32:
+    case THUMB_LDRL32:
+    case THUMB_LDRT32:
+    case THUMB_LDRWI32:
+    case THUMB_STR32:
+    case THUMB_STRI32:
+    case THUMB_STRT32:
+    case THUMB_STRWI32:
+    case THUMB_LDREX32:
+    case THUMB_STREX32:
+    case THUMB_VFP_VLDR_SP:
+    case THUMB_VFP_VSTR_SP:
+      size = 4;
+      break;
+
+    case THUMB_LDRD32:
+    case THUMB_STRD32:
+    case THUMB_LDREXD32:
+    case THUMB_STREXD32:
+    case THUMB_VFP_VLDR_DP:
+    case THUMB_VFP_VSTR_DP:
+      size = 8;
+      break;
+
+    // Variable-sized loads / stores
+    case THUMB_LDMFD32:
+    case THUMB_STMFD32:
+    case THUMB_LDMEA32:
+    case THUMB_STMEA32: {
+      uint32_t w, rn, reglist;
+      thumb_stmfd32_decode_fields(ctx->read_address, &w, &rn, &reglist);
+      size = count_bits(reglist) * 4;
+      break;
+    }
+
+    case THUMB_LDMFD16:
+    case THUMB_STMFD16: {
+      uint32_t rn, reglist;
+      thumb_ldmfd16_decode_fields(ctx->read_address, &rn, &reglist);
+      size = count_bits(reglist) * 4;
+      break;
+    }
+
+    case THUMB_PUSH16:
+    case THUMB_POP16: {
+      uint32_t reglist;
+      thumb_push16_decode_fields(ctx->read_address, &reglist);
+      size = count_bits(reglist) * 4;
+      break;
+    }
+
+    case THUMB_VFP_VPUSH:
+    case THUMB_VFP_VPOP:
+    case THUMB_VFP_VLDM_DP:
+    case THUMB_VFP_VLDM_SP:
+    case THUMB_VFP_VSTM_DP:
+    case THUMB_VFP_VSTM_SP: {
+      uint32_t sz, d, vd, regs;
+      thumb_vfp_vpush_decode_fields(ctx->read_address, &sz, &d, &vd, &regs);
+      size = regs * 4;
+      break;
+    }
+
+    case THUMB_NEON_VLDX_S_O:
+    case THUMB_NEON_VSTX_S_O: {
+      uint32_t op, sz, d, vd, rn, align, rm;
+      thumb_neon_vldx_s_o_decode_fields(ctx->read_address, &op, &sz, &d, &vd, &rn, &align, &rm);
+      size = (1 << sz) * (op + 1);
+      break;
+    }
+
+    case THUMB_NEON_VLDX_S_A: {
+      uint32_t op, sz, d, vd, inc, rn, align, rm;
+      thumb_neon_vldx_s_a_decode_fields(ctx->read_address, &op, &sz, &d, &vd, &inc, &rn, &align, &rm);
+      size = (1 << sz) * (op + 1);
+	    break;
+    }
+
+    case THUMB_NEON_VLDX_M:
+    case THUMB_NEON_VSTX_M:
+      size = _get_size_vldx_vstx_m(ctx->read_address, true);
+      break;
+
+    case THUMB_LDC232:
+    case THUMB_LDC32:
+    case THUMB_STC32:
+    case THUMB_STC232:
+      fprintf(stderr, "Size decoding for T32 instruction %d not implemented yet\n", ctx->inst);
+      assert(0);
+      break;
+  }
+
+  return size;
+}
+
+int _arm_get_ld_st_size(mambo_context *ctx) {
+  int size = -1;
+
+  switch(ctx->inst) {
+    // Fixed-size loads / stores
+    case ARM_LDRB:
+    case ARM_LDRBT:
+    case ARM_LDRSB:
+    case ARM_LDRSBT:
+    case ARM_STRB:
+    case ARM_STRBT:
+    case ARM_LDREXB:
+    case ARM_STREXB:
+      size = 1;
+      break;
+
+    case ARM_LDRH:
+    case ARM_LDRHT:
+    case ARM_LDRSH:
+    case ARM_LDRSHT:
+    case ARM_STRH:
+    case ARM_STRHT:
+    case ARM_LDREXH:
+    case ARM_STREXH:
+      size = 2;
+      break;
+
+    case ARM_LDR:
+    case ARM_LDRT:
+    case ARM_STR:
+    case ARM_STRT:
+    case ARM_LDREX:
+    case ARM_STREX:
+    case ARM_VFP_VLDR_SP:
+    case ARM_VFP_VSTR_SP:
+      size = 4;
+      break;
+
+    case ARM_LDRD:
+    case ARM_STRD:
+    case ARM_LDREXD:
+    case ARM_STREXD:
+    case ARM_VFP_VLDR_DP:
+    case ARM_VFP_VSTR_DP:
+      size = 8;
+      break;
+
+    // Variable-sized loads / stores
+    case ARM_LDM:
+    case ARM_STM: {
+      uint32_t rn, reglist, p, u, w, s;
+      arm_ldm_decode_fields(ctx->read_address, &rn, &reglist, &p, &u, &w, &s);
+      size = count_bits(reglist) * 4;
+      break;
+    }
+
+    case ARM_VFP_VLDM_DP:
+    case ARM_VFP_VLDM_SP:
+    case ARM_VFP_VSTM_DP:
+    case ARM_VFP_VSTM_SP:
+    case ARM_VFP_VPUSH_DP:
+    case ARM_VFP_VPUSH_SP:
+    case ARM_VFP_VPOP_DP:
+    case ARM_VFP_VPOP_SP: {
+      uint32_t p, u, d, w, rn, vd, imm8;
+      arm_vfp_vldm_sp_decode_fields(ctx->read_address, &p, &u, &d, &w, &rn, &vd, &imm8);
+      size = imm8 * 4;
+      break;
+    }
+
+    case ARM_NEON_VLDX_S_O:
+    case ARM_NEON_VSTX_S_O: {
+      uint32_t op, sz, d, vd, rn, align, rm;
+      arm_neon_vldx_s_o_decode_fields(ctx->read_address, &op, &sz, &d, &vd, &rn, &align, &rm);
+      size = (1 << sz) * (op + 1);
+      break;
+    }
+
+    case ARM_NEON_VLDX_S_A: {
+      uint32_t op, sz, d, vd, inc, rn, align, rm;
+      arm_neon_vldx_s_a_decode_fields(ctx->read_address, &op, &sz, &d, &vd, &inc, &rn, &align, &rm);
+      size = (1 << sz) * (op + 1);
+      break;
+    }
+
+    case ARM_NEON_VLDX_M:
+    case ARM_NEON_VSTX_M:
+      size = _get_size_vldx_vstx_m(ctx->read_address, false);
+      break;
+
+    case ARM_LDC:
+    case ARM_STC:
+      fprintf(stderr, "Size decoding for A32 instruction %d not implemented yet\n", ctx->inst);
+      assert(0);
+  }
+
+  return size;
+}
+#endif
+
+int mambo_get_ld_st_size(mambo_context *ctx) {
+#ifdef __arm__
+  if (ctx->inst_type == THUMB_INST) {
+    return _thumb_get_ld_st_size(ctx);
+  } else if (ctx->inst_type == ARM_INST) {
+    return _arm_get_ld_st_size(ctx);
+  }
+#elif __aarch64__
+  return _a64_get_ld_st_size(ctx);
+#endif
+  return -1;
+}
+
+
 #endif
