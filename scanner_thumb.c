@@ -1640,7 +1640,7 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
         break;
         
       case THUMB_LDMFD16:
-      case THUMB_STMFD16: // warning, this is actually Store Multiple Empty Ascending
+      case THUMB_STMEA16:
         copy_thumb_16();
         it_cond_handled = true;
         break;

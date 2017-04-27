@@ -178,7 +178,7 @@ bool mambo_is_store(mambo_context *ctx) {
 #ifdef __arm__
   if (ctx->inst_type == THUMB_INST) {
     switch(ctx->inst) {
-      case THUMB_STMFD16:
+      case THUMB_STMEA16:
       case THUMB_STR16:
       case THUMB_STRB16:
       case THUMB_STRBI16:
@@ -306,9 +306,9 @@ void _generate_addr(mambo_context *ctx, int reg, int rn, int rm, int offset) {
 int _thumb_calc_ld_st_addr(mambo_context *ctx, enum reg reg) {
   switch(ctx->inst) {
     case THUMB_LDMFD16:
-    case THUMB_STMFD16: { // STMEA
+    case THUMB_STMEA16: {
       uint32_t rn, reglist;
-      thumb_stmfd16_decode_fields(ctx->read_address, &rn, &reglist);
+      thumb_stmea16_decode_fields(ctx->read_address, &rn, &reglist);
       _generate_addr(ctx, reg, rn, reg_invalid, 0);
       return 0;
     }
@@ -1000,7 +1000,7 @@ int _thumb_get_ld_st_size(mambo_context *ctx) {
     }
 
     case THUMB_LDMFD16:
-    case THUMB_STMFD16: {
+    case THUMB_STMEA16: {
       uint32_t rn, reglist;
       thumb_ldmfd16_decode_fields(ctx->read_address, &rn, &reglist);
       size = count_bits(reglist) * 4;
