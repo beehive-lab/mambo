@@ -26,9 +26,14 @@
 
 #include "mtrace.h"
 
+struct mtrace_entry {
+  uintptr_t addr;
+  uintptr_t info;
+};
+
 struct mtrace {
   uint32_t len;
-  uintptr_t entries[BUFLEN];
+  struct mtrace_entry entries[BUFLEN];
 };
 
 extern void mtrace_print_buf_trampoline(struct mtrace *trace);
@@ -36,22 +41,33 @@ extern void mtrace_buf_write(uintptr_t value, struct mtrace *trace);
 
 void mtrace_print_buf(struct mtrace *mtrace_buf) {
   for (int i = 0; i < mtrace_buf->len; i++) {
-    /* Warning: this is very slow
+    /* Warning: printing formatted strings is very slow
        For practical use, you are encouraged to process the data in memory
        or write the trace in the raw binary format */
-    fprintf(stderr, "%p\n", (void *)mtrace_buf->entries[i]);
+    int size = (int)(mtrace_buf->entries[i].info >> 1);
+    char *type = (mtrace_buf->entries[i].info & 1) ? "w" : "r";
+    fprintf(stderr, "%s: %p\t%d\n", type, (void *)mtrace_buf->entries[i].addr, size);
   }
   mtrace_buf->len = 0;
 }
 
 int mtrace_pre_inst_handler(mambo_context *ctx) {
   struct mtrace *mtrace_buf = mambo_get_thread_plugin_data(ctx);
-  if (mambo_is_load_or_store(ctx)) {
+  bool is_load = mambo_is_load(ctx);
+  bool is_store = mambo_is_store(ctx);
+  if (is_load || is_store) {
     emit_push(ctx, (1 << 0) | (1 << 1) | (1 << 2) | (1 << lr));    
+
     int ret = mambo_calc_ld_st_addr(ctx, 0);
     assert(ret == 0);
-    emit_set_reg_ptr(ctx, 1, &mtrace_buf->entries);
+    int size = mambo_get_ld_st_size(ctx);
+    assert(size > 0);
+
+    uintptr_t info = (size << 1) | (is_store ? 1 : 0);
+    emit_set_reg(ctx, 1, info);
+    emit_set_reg_ptr(ctx, 2, &mtrace_buf->entries);
     emit_fcall(ctx, mtrace_buf_write);
+
     emit_pop(ctx, (1 << 0) | (1 << 1) | (1 << 2) | (1 << lr));
   }
 }
