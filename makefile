@@ -2,6 +2,7 @@
 #PLUGINS+=plugins/soft_div.c
 #PLUGINS+=plugins/tb_count.c
 #PLUGINS+=plugins/mtrace.c plugins/mtrace.S
+#PLUGINS+=plugins/cachesim/cachesim.c plugins/cachesim/cachesim.S plugins/cachesim/cachesim_model.c
 
 OPTS= -DDBM_LINK_UNCOND_IMM
 OPTS+=-DDBM_INLINE_UNCOND_IMM
