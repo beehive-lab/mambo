@@ -157,7 +157,6 @@ bool unlink_direct_branch(dbm_code_cache_meta *bb_meta, void **o_write_p, int fr
       break;
 #elif __aarch64__
     case uncond_imm_a64:
-      assert(fragment_id < CODE_CACHE_SIZE);
       offset = 4;
       break;
     case cond_imm_a64:
@@ -203,30 +202,37 @@ bool unlink_direct_branch(dbm_code_cache_meta *bb_meta, void **o_write_p, int fr
 }
 
 void unlink_fragment(int fragment_id, uintptr_t pc) {
-  dbm_code_cache_meta *bb_meta = &current_thread->code_cache_meta[fragment_id];
+  dbm_code_cache_meta *bb_meta;
 
 #ifdef DBM_TRACES
-  // Don't unlink trace fragments ending in unconditional branches
-  branch_type type = bb_meta->exit_branch_type;
+  // Skip over trace fragments ending in unlinked unconditional branches
+  branch_type type;
 
-  #ifdef __arm__
-  while (fragment_id >= CODE_CACHE_SIZE &&
-         (type == uncond_imm_arm || type == uncond_imm_thumb ||
-          type == uncond_blxi_thumb || type == uncond_blxi_arm)) {
-  #elif __aarch64__
-  while (fragment_id >= CODE_CACHE_SIZE && type == uncond_imm_a64) {
-  #endif
-    fragment_id++;
+  do {
     bb_meta = &current_thread->code_cache_meta[fragment_id];
-    // Signal delivered in active trace ending with unlinked unconditional branch
-    if (fragment_id >= current_thread->active_trace.id) {
-      uintptr_t cache = current_thread->code_cache_meta[
-                        current_thread->active_trace.id - 1].branch_cache_status;
-      assert(cache == 0);
+    type = bb_meta->exit_branch_type;
+    fragment_id++;
+  }
+  #ifdef __arm__
+  while ((type == uncond_imm_arm || type == uncond_imm_thumb ||
+          type == uncond_blxi_thumb || type == uncond_blxi_arm) &&
+  #elif __aarch64__
+  while (type == uncond_imm_a64 &&
+  #endif
+         (bb_meta->branch_cache_status & BOTH_LINKED) == 0 &&
+         fragment_id >= CODE_CACHE_SIZE &&
+         fragment_id < current_thread->active_trace.id);
+
+  if (fragment_id >= current_thread->active_trace.id) {
+    if (bb_meta->branch_cache_status == 0) {
       assert(current_thread->active_trace.active);
       return;
     }
   }
+
+  fragment_id--;
+#else
+  bb_meta = &current_thread->code_cache_meta[fragment_id];
 #endif
 
   void *write_p = bb_meta->exit_branch_addr;
