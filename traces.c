@@ -363,15 +363,7 @@ void early_trace_exit(dbm_thread *thread_data, dbm_code_cache_meta* bb_meta,
   thread_data->active_trace.write_p = (uint8_t *)write_p;
   install_trace(thread_data);
 
-#ifdef __arm__
-  if (bb_meta->exit_branch_type == cbz_thumb ||
-      bb_meta->exit_branch_type == cond_imm_thumb ||
-      bb_meta->exit_branch_type == cond_imm_arm) {
-#elif __aarch64__
-  if (bb_meta->exit_branch_type != uncond_imm_a64) {
-#endif
-    bb_meta->branch_cache_status |= BOTH_LINKED;
-  }
+  bb_meta->branch_cache_status |= BOTH_LINKED;
 }
 
 /* Handles dispatcher calls from traces */
