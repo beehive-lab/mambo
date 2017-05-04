@@ -171,7 +171,10 @@ typedef struct {
   struct trace_exits exits[MAX_TRACE_REC_EXITS];
 } trace_in_prog;
 
-typedef struct {
+typedef struct dbm_thread_s dbm_thread;
+struct dbm_thread_s {
+  dbm_thread *next_thread;
+
   int free_block;
   bool was_flushed;
   uintptr_t dispatcher_addr;
@@ -206,7 +209,7 @@ typedef struct {
   bool clone_vm;
   int pending_signals[_NSIG];
   uint32_t is_signal_pending;
-} dbm_thread;
+};
 
 typedef enum {
   ARM_INST,
@@ -225,6 +228,10 @@ typedef struct {
   uintptr_t brk;
   uintptr_t initial_brk;
   pthread_mutex_t brk_mutex;
+
+  dbm_thread *threads;
+  pthread_mutex_t thread_list_mutex;
+
 #ifdef PLUGINS_NEW
   int free_plugin;
   mambo_plugin plugins[MAX_PLUGIN_NO];
@@ -248,8 +255,15 @@ extern void th_enter(void *stack, uintptr_t cc_addr);
 extern void send_self_signal();
 extern void syscall_wrapper_svc();
 
+int lock_thread_list(void);
+int unlock_thread_list(void);
+int register_thread(dbm_thread *thread_data, bool caller_has_lock);
+int unregister_thread(dbm_thread *thread_data, bool caller_has_lock);
 bool allocate_thread_data(dbm_thread **thread_data);
+int free_thread_data(dbm_thread *thread_data);
 void init_thread(dbm_thread *thread_data);
+void reset_process(dbm_thread *thread_data);
+
 uintptr_t cc_lookup(dbm_thread *thread_data, uintptr_t target);
 uintptr_t lookup_or_scan(dbm_thread *thread_data, uintptr_t target, bool *cached);
 uintptr_t lookup_or_stub(dbm_thread *thread_data, uintptr_t target);

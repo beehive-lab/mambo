@@ -50,9 +50,8 @@ void *dbm_start_thread_pth(void *ptr) {
   assert(thread_data->clone_args->child_stack);
 
   current_thread = thread_data;
-  uintptr_t addr = scan(thread_data, thread_data->clone_ret_addr, ALLOCATE_BB);
-  pid_t tid = syscall(__NR_gettid);
 
+  pid_t tid = syscall(__NR_gettid);
   if (thread_data->clone_args->flags & CLONE_PARENT_SETTID) {
     *thread_data->clone_args->ptid = tid;
   }
@@ -85,7 +84,11 @@ void *dbm_start_thread_pth(void *ptr) {
   __asm__ volatile("dmb sy");
   thread_data->tid = tid;
 
+  assert(register_thread(thread_data, false) == 0);
+
+  uintptr_t addr = scan(thread_data, thread_data->clone_ret_addr, ALLOCATE_BB);
   th_enter(child_stack, addr);
+
   return NULL;
 }
 
@@ -181,6 +184,7 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
 
         dbm_thread *child_data = dbm_create_thread(thread_data, next_inst, clone_args);
         while(child_data->tid == 0);
+        __asm__ volatile("dmb sy");
         args[0] = child_data->tid;
 
         return 0;
@@ -207,21 +211,10 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
       break;
     case __NR_exit:
       debug("thread exit\n");
-#ifdef PLUGINS_NEW
-      mambo_deliver_callbacks(POST_THREAD_C, thread_data, -1, -1, -1, -1, -1, NULL, NULL, NULL);
-#endif
-      if (munmap(thread_data->code_cache, CC_SZ_ROUND(sizeof(dbm_code_cache))) != 0) {
-        fprintf(stderr, "Error freeing code cache on exit()\n");
-        while(1);
-      }
-      if (munmap(thread_data->cc_links, METADATA_SZ_ROUND(sizeof(ll) + sizeof(ll_entry) * MAX_CC_LINKS)) != 0) {
-        fprintf(stderr, "Error freeing CC link struct on exit()\n");
-        while(1);
-      }
-      if (munmap(thread_data, METADATA_SZ_ROUND(sizeof(dbm_thread))) != 0) {
-        fprintf(stderr, "Error freeing thread private structure on exit()\n");
-        while(1);
-      }
+
+      assert(unregister_thread(thread_data, false) == 0);
+      assert(free_thread_data(thread_data) == 0);
+
       pthread_exit(NULL); // this should never return
       while(1); 
       break;
@@ -422,12 +415,15 @@ void syscall_handler_post(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_
         /* Without CLONE_VM, the child runs in a separate memory space,
            no synchronisation is needed.*/
         thread_data->tls = thread_data->child_tls;
+        reset_process(thread_data);
       }
       break;
 
 #ifdef __arm__
     case __NR_vfork:
-      if (args[0] != 0) { // in the parent
+      if (args[0] == 0) { // child
+        reset_process(thread_data);
+      } else {
         thread_data->is_vfork_child = false;
       }
       break;

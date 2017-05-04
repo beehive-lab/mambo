@@ -294,6 +294,69 @@ uintptr_t scan(dbm_thread *thread_data, uint16_t *address, int basic_block) {
   return adjust_cc_entry(block_address);
 }
 
+int lock_thread_list() {
+  return pthread_mutex_lock(&global_data.thread_list_mutex);
+}
+
+int unlock_thread_list() {
+  return pthread_mutex_unlock(&global_data.thread_list_mutex);
+}
+
+int register_thread(dbm_thread *thread_data, bool caller_has_lock) {
+  int ret;
+
+  if (!caller_has_lock) {
+    ret = lock_thread_list();
+    assert(ret == 0);
+  }
+
+  thread_data->next_thread = global_data.threads;
+  global_data.threads = thread_data;
+
+  mambo_deliver_callbacks(PRE_THREAD_C, thread_data, -1, -1, -1, -1, -1, NULL, NULL, NULL);
+
+  if (!caller_has_lock) {
+    ret = unlock_thread_list();
+    assert(ret == 0);
+  }
+
+  return 0;
+}
+
+int unregister_thread(dbm_thread *thread_data, bool caller_has_lock) {
+  int ret, status = 0;
+
+  if (!caller_has_lock) {
+    ret = lock_thread_list();
+    assert(ret == 0);
+  }
+
+  if (global_data.threads == thread_data) {
+    global_data.threads = thread_data->next_thread;
+  } else {
+    dbm_thread *prev_thread = global_data.threads;
+    while (prev_thread->next_thread != thread_data && prev_thread->next_thread != NULL) {
+      prev_thread = prev_thread->next_thread;
+    }
+    if (prev_thread->next_thread == thread_data) {
+      prev_thread->next_thread = thread_data->next_thread;
+    } else {
+      status = -1;
+    }
+  }
+
+  if (status == 0) {
+    mambo_deliver_callbacks(POST_THREAD_C, thread_data, -1, -1, -1, -1, -1, NULL, NULL, NULL);
+  }
+
+  if (!caller_has_lock) {
+    ret = unlock_thread_list();
+    assert(ret == 0);
+  }
+
+  return status;
+}
+
 void dbm_exit(dbm_thread *thread_data, uint32_t code) {
   int bb_count = thread_data->entry_address.count;
   int collision_rate = thread_data->entry_address.collisions * 1000 / bb_count;
@@ -315,6 +378,22 @@ bool allocate_thread_data(dbm_thread **thread_data) {
     return true;
   }
   return false;
+}
+
+int free_thread_data(dbm_thread *thread_data) {
+  if (munmap(thread_data->code_cache, CC_SZ_ROUND(sizeof(dbm_code_cache))) != 0) {
+    fprintf(stderr, "Error freeing code cache on exit()\n");
+    while(1);
+  }
+  if (munmap(thread_data->cc_links, METADATA_SZ_ROUND(sizeof(ll) + sizeof(ll_entry) * MAX_CC_LINKS)) != 0) {
+    fprintf(stderr, "Error freeing CC link struct on exit()\n");
+    while(1);
+  }
+  if (munmap(thread_data, METADATA_SZ_ROUND(sizeof(dbm_thread))) != 0) {
+    fprintf(stderr, "Error freeing thread private structure on exit()\n");
+    while(1);
+  }
+  return 0;
 }
 
 void init_thread(dbm_thread *thread_data) {
@@ -370,6 +449,40 @@ void init_thread(dbm_thread *thread_data) {
   thread_data->is_vfork_child = false;
                         
   debug("Syscall wrapper addr: 0x%x\n", thread_data->syscall_wrapper_addr);
+}
+
+void free_all_other_threads(dbm_thread *thread_data) {
+  dbm_thread *it = global_data.threads;
+  while(it != NULL) {
+    dbm_thread *next = thread_data->next_thread;
+    if (it != thread_data) {
+      assert(free_thread_data(it) == 0);
+    }
+    it = next;
+  }
+  global_data.threads = thread_data;
+}
+
+
+void reset_process(dbm_thread *thread_data) {
+  thread_data->tid = syscall(__NR_gettid);
+
+  int ret = pthread_mutex_init(&global_data.thread_list_mutex, NULL);
+  assert(ret == 0);
+
+  current_thread = thread_data;
+  free_all_other_threads(thread_data);
+
+  /*
+      MASSIVE HACK
+
+      After fork in a multithreaded application, only async-signal-safe functions
+      are safe to call. However, instrumentation plugins are likely to need
+      printf, which might have been locked by a different thread in the parent
+      process. Here we open new, unlocked, stdout and stderr streams.
+  */
+  stdout = fdopen(1, "a");
+  stderr = fdopen(2, "a");
 
   mambo_deliver_callbacks(PRE_THREAD_C, thread_data, -1, -1, -1, -1, -1, NULL, NULL, NULL);
 }
@@ -460,7 +573,10 @@ void main(int argc, char **argv, char **envp) {
   global_data.argc = argc;
   global_data.argv = argv;
 
-  int ret = interval_map_init(&global_data.exec_allocs, 512);
+  int ret = pthread_mutex_init(&global_data.thread_list_mutex, NULL);
+  assert(ret == 0);
+
+  ret = interval_map_init(&global_data.exec_allocs, 512);
   assert(ret == 0);
 
   ret = pthread_mutex_init(&global_data.signal_handlers_mutex, NULL);
@@ -494,6 +610,7 @@ void main(int argc, char **argv, char **envp) {
   current_thread = thread_data;
   init_thread(thread_data);
   thread_data->tid = syscall(__NR_gettid);
+  register_thread(thread_data, false);
 
   block_address = scan(thread_data, (uint16_t *)entry_address, ALLOCATE_BB);
   debug("Address of first basic block is: 0x%x\n", block_address);
