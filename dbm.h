@@ -171,9 +171,16 @@ typedef struct {
   struct trace_exits exits[MAX_TRACE_REC_EXITS];
 } trace_in_prog;
 
+enum dbm_thread_status {
+  THREAD_RUNNING = 0,
+  THREAD_SYSCALL,
+  THREAD_EXIT
+};
+
 typedef struct dbm_thread_s dbm_thread;
 struct dbm_thread_s {
   dbm_thread *next_thread;
+  enum dbm_thread_status status;
 
   int free_block;
   bool was_flushed;

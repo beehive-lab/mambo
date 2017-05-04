@@ -446,6 +446,7 @@ void init_thread(dbm_thread *thread_data) {
   thread_data->dispatcher_addr = (uintptr_t)&thread_data->code_cache[0] + dispatcher_wrapper_offset;
   thread_data->syscall_wrapper_addr = (uintptr_t)&thread_data->code_cache[0] + syscall_wrapper_offset;
 
+  thread_data->status = THREAD_RUNNING;
   thread_data->is_vfork_child = false;
                         
   debug("Syscall wrapper addr: 0x%x\n", thread_data->syscall_wrapper_addr);

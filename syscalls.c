@@ -376,7 +376,9 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
 #endif
       ucontext_t *cont = (ucontext_t *)(app_sp + sizeof(siginfo_t));
       sigret_dispatcher_call(thread_data, cont, cont->context_pc);
-      break;
+
+      // Don't mark the thread as executing a syscall
+      return 1;
     }
 
 #ifdef __arm__
@@ -398,7 +400,9 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
       break;
 #endif
   }
-  
+
+  thread_data->status = THREAD_SYSCALL;
+
   return 1;
 }
 
@@ -406,6 +410,8 @@ void syscall_handler_post(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_
   dbm_thread *new_thread_data;
   
   debug("syscall post %d\n", syscall_no);
+
+  thread_data->status = THREAD_RUNNING;
 
   switch(syscall_no) {
     case __NR_clone:
