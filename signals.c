@@ -610,8 +610,8 @@ uintptr_t signal_dispatcher(int i, siginfo_t *info, void *context) {
           while(1);
         }
       } // i == UNLINK_SIGNAL
-      unlink_fragment(fragment_id, pc);
     } // if (pc >= (uintptr_t)bb_meta->exit_branch_addr)
+    unlink_fragment(fragment_id, pc);
   }
 
   /* Call the handlers of synchronous signals immediately
