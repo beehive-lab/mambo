@@ -358,17 +358,45 @@ int unregister_thread(dbm_thread *thread_data, bool caller_has_lock) {
 }
 
 void dbm_exit(dbm_thread *thread_data, uint32_t code) {
-  int bb_count = thread_data->entry_address.count;
-  int collision_rate = thread_data->entry_address.collisions * 1000 / bb_count;
-
   fprintf(stderr, "We're done; exiting with status: %d\n", code);
 
-  mambo_deliver_callbacks(POST_THREAD_C, thread_data, -1, -1, -1, -1, -1, NULL, NULL, NULL);
-  mambo_deliver_callbacks(EXIT_C, thread_data, -1, -1, -1, -1, -1, NULL, NULL, NULL);
+#ifdef PLUGINS_NEW
+  lock_thread_list();
+  pid_t pid = getpid();
+  global_data.exit_group = 1;
 
-  info("MAMBO exit\n");
+  bool done;
+  do {
+    for (dbm_thread *thread = global_data.threads; thread != NULL; thread = thread->next_thread) {
+      if (thread != thread_data && thread->status == THREAD_RUNNING) {
+        syscall(__NR_tgkill, pid, thread->tid, UNLINK_SIGNAL);
+      }
+    }
+    usleep(100);
+
+    done = true;
+    for (dbm_thread *thread = global_data.threads; thread != NULL; thread = thread->next_thread) {
+      if (thread != thread_data) {
+        if (thread->status == THREAD_RUNNING) {
+          done = false;
+        }
+      }
+    }
+  } while (!done);
+
+  for (dbm_thread *thread = global_data.threads; thread != NULL; thread = thread->next_thread) {
+    mambo_deliver_callbacks(POST_THREAD_C, thread, -1, -1, -1, -1, -1, NULL, NULL, NULL);
+  }
+
+  mambo_deliver_callbacks(EXIT_C, thread_data, -1, -1, -1, -1, -1, NULL, NULL, NULL);
+#endif
 
   exit(code);
+}
+
+void thread_abort(dbm_thread *thread_data) {
+  thread_data->status = THREAD_EXIT;
+  pthread_exit(NULL);
 }
 
 bool allocate_thread_data(dbm_thread **thread_data) {

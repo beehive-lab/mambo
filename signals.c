@@ -71,6 +71,11 @@ void install_system_sig_handlers() {
 
 int deliver_signals(uintptr_t spc, self_signal *s) {
   uint64_t sigmask;
+
+  if (global_data.exit_group) {
+    thread_abort(current_thread);
+  }
+
   int ret = syscall(__NR_rt_sigprocmask, 0, NULL, &sigmask, sizeof(sigmask));
   assert (ret == 0);
 
@@ -514,6 +519,19 @@ uintptr_t signal_dispatcher(int i, siginfo_t *info, void *context) {
   uintptr_t pc = (uintptr_t)cont->pc_field;
   uintptr_t cc_start = (uintptr_t)&current_thread->code_cache->blocks[trampolines_size_bbs];
   uintptr_t cc_end = cc_start + MAX_BRANCH_RANGE;
+
+  if (global_data.exit_group > 0) {
+    if (pc >= cc_start && pc < cc_end) {
+      int fragment_id = addr_to_fragment_id(current_thread, (uintptr_t)pc);
+      dbm_code_cache_meta *bb_meta = &current_thread->code_cache_meta[fragment_id];
+      if (pc >= (uintptr_t)bb_meta->exit_branch_addr) {
+        thread_abort(current_thread);
+      }
+      unlink_fragment(fragment_id, pc);
+    }
+    atomic_increment_u32(&current_thread->is_signal_pending, 1);
+    return 0;
+  }
 
   if (pc == ((uintptr_t)current_thread->code_cache + self_send_signal_offset)) {
     translate_delayed_signal_frame(cont);

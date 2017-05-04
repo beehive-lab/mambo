@@ -239,6 +239,7 @@ typedef struct {
   dbm_thread *threads;
   pthread_mutex_t thread_list_mutex;
 
+  volatile int exit_group;
 #ifdef PLUGINS_NEW
   int free_plugin;
   mambo_plugin plugins[MAX_PLUGIN_NO];
@@ -251,6 +252,7 @@ typedef struct {
 } cc_addr_pair;
 
 void dbm_exit(dbm_thread *thread_data, uint32_t code);
+void thread_abort(dbm_thread *thread_data);
 
 extern void dispatcher_trampoline();
 extern void syscall_wrapper();

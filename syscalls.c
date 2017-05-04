@@ -411,6 +411,9 @@ void syscall_handler_post(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_
   
   debug("syscall post %d\n", syscall_no);
 
+  if (global_data.exit_group) {
+    thread_abort(thread_data);
+  }
   thread_data->status = THREAD_RUNNING;
 
   switch(syscall_no) {
