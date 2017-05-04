@@ -1522,7 +1522,7 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
           thread_data->code_cache_meta[basic_block].branch_taken_addr = (uint32_t)read_address;
 
           arm_branch_save_context(thread_data, &write_p, false);
-          arm_branch_jump(thread_data, &write_p, basic_block, -8, read_address,
+          arm_branch_jump(thread_data, &write_p, basic_block, -2, read_address,
                           AL, SETUP|REPLACE_TARGET|INSERT_BRANCH);
           stop = true;
         }
