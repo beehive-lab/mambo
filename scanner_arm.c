@@ -219,103 +219,6 @@ void arm_bl32_helper(uint32_t *write_p, uint32_t target, uint32_t cond) {
 
 #define MIN_FSPACE 72
 
-bool inline_uncond_imm(dbm_thread *thread_data, bool insert_branch, uint32_t **write_p,
-                       uint32_t **read_addr, uint32_t target,  int *inlined_back_count) {
-  if (target <= (uint32_t)*read_addr) {
-    if (*inlined_back_count >= MAX_BACK_INLINE) {
-      if (insert_branch) {
-        uint32_t cc_addr = lookup_or_stub(thread_data, target);
-        arm_cc_branch(thread_data, *write_p, cc_addr, AL);
-        *write_p += 1;
-      }
-
-      return false;
-    } else {
-      *inlined_back_count += 1;
-    }
-  }
-
-  // Assummes the read pointer is incremented at the end of the current scanner iteration
-  *read_addr = (uint32_t *)(target - 4);
-
-  return true;
-}
-
-void pass1_arm(dbm_thread *thread_data, uint32_t *read_address, branch_type *bb_type) {
-  uint32_t null, reglist, rd, dn, imm, offset;
-  int32_t branch_offset;
-  *bb_type = unknown;
-  int inlined_back_count = 0;
-
-  while(*bb_type == unknown) {
-    arm_instruction inst = arm_decode(read_address);
-
-    switch(inst) {
-      case ARM_B:
-      case ARM_BL:
-        arm_b_decode_fields(read_address, &offset);
-
-        if ((*read_address >> 28) == AL) {
-#ifdef DBM_INLINE_UNCOND_IMM
-          branch_offset = (offset & 0x800000) ? 0xFC000000 : 0;
-          branch_offset |= (offset<<2);
-          uint32_t target = (int32_t)read_address + 8 + branch_offset;
-
-          if(!inline_uncond_imm(thread_data, false, NULL, &read_address, target, &inlined_back_count)) {
-            *bb_type = uncond_imm_arm;
-          }
-#else
-          *bb_type = uncond_imm_arm;
-#endif
-        } else {
-          *bb_type = cond_imm_arm;
-        }
-
-        break;
-      case ARM_BX:
-      case ARM_BLX:
-        *bb_type = ((*read_address >> 28) == AL) ? uncond_reg_arm : cond_reg_arm;
-        break;
-
-      case ARM_BLXI:
-        *bb_type = ((*read_address >> 28) == AL) ? uncond_blxi_arm : cond_blxi_arm;
-        break;
-
-      case ARM_LDM:
-        arm_ldm_decode_fields(read_address, &null, &reglist, &null, &null, &null, &null);
-
-        if (reglist & (1 << pc)) {
-          *bb_type = ((*read_address >> 28) == AL) ? uncond_reg_arm : cond_reg_arm;
-        }
-        break;
-
-      case ARM_LDR:
-        arm_ldr_decode_fields(read_address, &null, &rd, &null, &null, &null, &null, &null);
-
-        if (rd == pc) {
-          *bb_type = ((*read_address >> 28) == AL) ? uncond_reg_arm : cond_reg_arm;
-        }
-        break;
-
-      case ARM_ADC:
-      case ARM_ADD:
-      case ARM_EOR:
-      case ARM_MOV:
-      case ARM_ORR:
-      case ARM_SBC:
-      case ARM_SUB:
-      case ARM_RSC:
-        arm_data_proc_decode_fields(read_address, &null, &null, &null, &rd, &null, &null);
-        if (rd == pc) {
-          *bb_type = ((*read_address >> 28) == AL) ? uncond_reg_arm : cond_reg_arm;
-        }
-        break;
-    }
-
-    read_address++;
-  }
-}
-
 bool arm_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id, uint32_t *read_address,
                                    arm_instruction inst, uint32_t **o_write_p, uint32_t **o_data_p,
                                    int basic_block, cc_type type, bool allow_write) {
@@ -371,6 +274,112 @@ bool arm_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id, 
   }
 #endif
   return replaced;
+}
+
+bool inline_uncond_imm(dbm_thread *thread_data, bool insert_branch, uint32_t **write_p,
+                       uint32_t **data_p, uint32_t **read_addr, uint32_t target,
+                       int *inlined_back_count, int basic_block, cc_type type) {
+  if (target <= (uint32_t)*read_addr) {
+    if (*inlined_back_count >= MAX_BACK_INLINE) {
+      if (insert_branch) {
+        uint32_t cc_addr = lookup_or_stub(thread_data, target);
+        arm_cc_branch(thread_data, *write_p, cc_addr, AL);
+        *write_p += 1;
+      }
+
+      return false;
+    } else {
+      *inlined_back_count += 1;
+    }
+  }
+
+  if (insert_branch) {
+    arm_scanner_deliver_callbacks(thread_data, POST_BB_C, *read_addr, -1,
+                                  write_p, data_p, basic_block, type, false);
+    arm_scanner_deliver_callbacks(thread_data, PRE_BB_C, (uint32_t *)target, -1,
+                                  write_p, data_p, basic_block, type, true);
+  }
+
+  // Assummes the read pointer is incremented at the end of the current scanner iteration
+  *read_addr = (uint32_t *)(target - 4);
+
+  return true;
+}
+
+void pass1_arm(dbm_thread *thread_data, uint32_t *read_address, branch_type *bb_type) {
+  uint32_t null, reglist, rd, dn, imm, offset;
+  int32_t branch_offset;
+  *bb_type = unknown;
+  int inlined_back_count = 0;
+
+  while(*bb_type == unknown) {
+    arm_instruction inst = arm_decode(read_address);
+
+    switch(inst) {
+      case ARM_B:
+      case ARM_BL:
+        arm_b_decode_fields(read_address, &offset);
+
+        if ((*read_address >> 28) == AL) {
+#ifdef DBM_INLINE_UNCOND_IMM
+          branch_offset = (offset & 0x800000) ? 0xFC000000 : 0;
+          branch_offset |= (offset<<2);
+          uint32_t target = (int32_t)read_address + 8 + branch_offset;
+
+          if(!inline_uncond_imm(thread_data, false, NULL, NULL, &read_address,
+                                target, &inlined_back_count, -1, -1)) {
+            *bb_type = uncond_imm_arm;
+          }
+#else
+          *bb_type = uncond_imm_arm;
+#endif
+        } else {
+          *bb_type = cond_imm_arm;
+        }
+
+        break;
+      case ARM_BX:
+      case ARM_BLX:
+        *bb_type = ((*read_address >> 28) == AL) ? uncond_reg_arm : cond_reg_arm;
+        break;
+
+      case ARM_BLXI:
+        *bb_type = ((*read_address >> 28) == AL) ? uncond_blxi_arm : cond_blxi_arm;
+        break;
+
+      case ARM_LDM:
+        arm_ldm_decode_fields(read_address, &null, &reglist, &null, &null, &null, &null);
+
+        if (reglist & (1 << pc)) {
+          *bb_type = ((*read_address >> 28) == AL) ? uncond_reg_arm : cond_reg_arm;
+        }
+        break;
+
+      case ARM_LDR:
+        arm_ldr_decode_fields(read_address, &null, &rd, &null, &null, &null, &null, &null);
+
+        if (rd == pc) {
+          *bb_type = ((*read_address >> 28) == AL) ? uncond_reg_arm : cond_reg_arm;
+        }
+        break;
+
+      case ARM_ADC:
+      case ARM_ADD:
+      case ARM_EOR:
+      case ARM_MOV:
+      case ARM_ORR:
+      case ARM_SBC:
+      case ARM_SUB:
+      case ARM_RSC:
+        arm_data_proc_decode_fields(read_address, &null, &null, &null, &rd, &null, &null);
+        if (rd == pc) {
+          *bb_type = ((*read_address >> 28) == AL) ? uncond_reg_arm : cond_reg_arm;
+        }
+        break;
+    }
+
+    read_address++;
+  }
 }
 
 void arm_inline_hash_lookup(dbm_thread *thread_data, uint32_t **o_write_p, int basic_block, int r_target) {
@@ -543,6 +552,8 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
 
   arm_scanner_deliver_callbacks(thread_data, PRE_FRAGMENT_C, read_address, -1,
                                 &write_p, &data_p, basic_block, type, true);
+  arm_scanner_deliver_callbacks(thread_data, PRE_BB_C, read_address, -1,
+                                &write_p, &data_p, basic_block, type, true);
   
   while(!stop) {
     debug("arm scan read_address: %p\n", read_address);
@@ -672,7 +683,8 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
 #ifdef DBM_INLINE_UNCOND_IMM
         if (condition_code == AL) {
           thread_data->code_cache_meta[basic_block].exit_branch_addr = (uint16_t *)write_p;
-          if (!inline_uncond_imm(thread_data, true, &write_p, &read_address, target, &inlined_back_count)) {
+          if (!inline_uncond_imm(thread_data, true, &write_p, &data_p, &read_address,
+                                 target, &inlined_back_count, basic_block, type)) {
             thread_data->code_cache_meta[basic_block].exit_branch_type = trace_inline_max;
             thread_data->code_cache_meta[basic_block].branch_taken_addr = target;
             stop = true;
@@ -1160,6 +1172,11 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
         if (condition_code != AL) {
           arm_b32_helper(tr_start, (uint32_t)write_p, condition_code);
         }
+
+        arm_scanner_deliver_callbacks(thread_data, POST_BB_C, read_address, -1,
+                                &write_p, &data_p, basic_block, type, false);
+        arm_scanner_deliver_callbacks(thread_data, PRE_BB_C, read_address + 1, -1,
+                                &write_p, &data_p, basic_block, type, true);
         break;
       }
 

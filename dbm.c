@@ -273,6 +273,8 @@ uintptr_t scan(dbm_thread *thread_data, uint16_t *address, int basic_block) {
   block_size = scan_a64(thread_data, (uint32_t *)address, basic_block, mambo_bb, NULL);
 #endif
 
+  mambo_deliver_callbacks(POST_BB_C, thread_data, thumb ? THUMB_INST : ARM_INST, mambo_bb,
+                          basic_block, -1, -1, address, (void *)(block_address & (~THUMB)), NULL);
   mambo_deliver_callbacks(POST_FRAGMENT_C, thread_data, thumb ? THUMB_INST : ARM_INST, mambo_bb,
                           basic_block, -1, -1, address, (void *)(block_address & (~THUMB)), NULL);
 

@@ -72,6 +72,14 @@ int mambo_register_post_inst_cb(mambo_context *ctx, mambo_callback cb) {
   return __mambo_register_cb(ctx, POST_INST_C, cb);
 }
 
+int mambo_register_pre_basic_block_cb(mambo_context *ctx, mambo_callback cb) {
+  return __mambo_register_cb(ctx, PRE_BB_C, cb);
+}
+
+int mambo_register_post_basic_block_cb(mambo_context *ctx, mambo_callback cb) {
+  return __mambo_register_cb(ctx, POST_BB_C, cb);
+}
+
 int mambo_register_pre_fragment_cb(mambo_context *ctx, mambo_callback cb) {
   return __mambo_register_cb(ctx, PRE_FRAGMENT_C, cb);
 }

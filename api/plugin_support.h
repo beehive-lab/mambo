@@ -45,6 +45,8 @@ typedef int (*mambo_callback)(mambo_context *ctx);
 typedef enum {
   PRE_INST_C,
   POST_INST_C,
+  PRE_BB_C,
+  POST_BB_C,
   PRE_FRAGMENT_C,
   POST_FRAGMENT_C,
   PRE_SYSCALL_C,
@@ -88,6 +90,8 @@ mambo_context *mambo_register_plugin(void);
 
 int mambo_register_pre_inst_cb(mambo_context *ctx, mambo_callback cb);
 int mambo_register_post_inst_cb(mambo_context *ctx, mambo_callback cb);
+int mambo_register_pre_basic_block_cb(mambo_context *ctx, mambo_callback cb);
+int mambo_register_post_basic_block_cb(mambo_context *ctx, mambo_callback cb);
 int mambo_register_pre_fragment_cb(mambo_context *ctx, mambo_callback cb);
 int mambo_register_post_fragment_cb(mambo_context *ctx, mambo_callback cb);
 int mambo_register_pre_syscall_cb(mambo_context *ctx, mambo_callback cb);

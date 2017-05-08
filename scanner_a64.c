@@ -492,6 +492,9 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
   a64_scanner_deliver_callbacks(thread_data, PRE_FRAGMENT_C, read_address, -1,
                                 &write_p, &data_p, basic_block, type, true);
 
+  a64_scanner_deliver_callbacks(thread_data, PRE_BB_C, read_address, -1,
+                                &write_p, &data_p, basic_block, type, true);
+
   while(!stop) {
     debug("A64 scan read_address: %p, w: : %p, bb: %d\n", read_address, write_p, basic_block);
     a64_instruction inst = a64_decode(read_address);
@@ -535,6 +538,11 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
         a64_bl_helper(write_p, thread_data->syscall_wrapper_addr);
         write_p++;
         a64_pop_pair_reg(x0, x1);
+
+        a64_scanner_deliver_callbacks(thread_data, POST_BB_C, read_address, -1,
+                                &write_p, &data_p, basic_block, type, false);
+        a64_scanner_deliver_callbacks(thread_data, PRE_BB_C, read_address + 1, -1,
+                                &write_p, &data_p, basic_block, type, true);
         break;
 
       case A64_MRS_MSR_REG:

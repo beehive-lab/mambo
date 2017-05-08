@@ -1099,6 +1099,8 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
 
   thumb_scanner_deliver_callbacks(thread_data, PRE_FRAGMENT_C, &it_state, read_address, -1,
                                   &write_p, &data_p, basic_block, type, &set_addr_prev_block, true);
+  thumb_scanner_deliver_callbacks(thread_data, PRE_BB_C, &it_state, read_address, -1,
+                                  &write_p, &data_p, basic_block, type, &set_addr_prev_block, true);
 
   while(!stop) {
     debug("thumb scan read_address: %p\n", read_address);
@@ -1703,6 +1705,11 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
         thumb_blx32_helper(write_p, thread_data->syscall_wrapper_addr);
         write_p += 2;
 
+        thumb_scanner_deliver_callbacks(thread_data, POST_BB_C, &it_state, read_address, -1,
+                                  &write_p, &data_p, basic_block, type, &set_addr_prev_block, false);
+        thumb_scanner_deliver_callbacks(thread_data, PRE_BB_C, &it_state, read_address + 1, -1,
+                                  &write_p, &data_p, basic_block, type, &set_addr_prev_block, true);
+
         break;
       
       case THUMB_B16:
@@ -1732,6 +1739,10 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
            This is a hack to avoid trying to elide the b.n 0x7e8c instruction in
            in some versions of ld.so */
         if ((uint32_t)target >= 0x8000) {
+          thumb_scanner_deliver_callbacks(thread_data, POST_BB_C, &it_state, read_address, -1,
+                                  &write_p, &data_p, basic_block, type, &set_addr_prev_block, false);
+          thumb_scanner_deliver_callbacks(thread_data, PRE_BB_C, &it_state, (uint16_t *)(target -1), -1,
+                                  &write_p, &data_p, basic_block, type, &set_addr_prev_block, true);
           read_address = (uint16_t *)(target - 2 - 1);
           break;
         }
@@ -2378,6 +2389,12 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
               inline_back_count++;
             }
           }
+
+          thumb_scanner_deliver_callbacks(thread_data, POST_BB_C, &it_state, read_address, -1,
+                                  &write_p, &data_p, basic_block, type, &set_addr_prev_block, false);
+          thumb_scanner_deliver_callbacks(thread_data, PRE_BB_C, &it_state, (uint16_t *)(target -1), -1,
+                                  &write_p, &data_p, basic_block, type, &set_addr_prev_block, true);
+
           read_address = (uint16_t *)(target - 4 - 1);
         } else {
 #endif
