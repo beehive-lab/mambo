@@ -259,9 +259,6 @@ uintptr_t scan(dbm_thread *thread_data, uint16_t *address, int basic_block) {
     }
   }
 
-  mambo_deliver_callbacks(PRE_FRAGMENT_C, thread_data, thumb ? THUMB_INST : ARM_INST, mambo_bb,
-                          basic_block, -1, -1, address, (void *)(block_address & (~THUMB)), NULL);
-
   // Build a basic block
   // Scan functions return size of the generated basic block, in bytes
 #ifdef __arm__

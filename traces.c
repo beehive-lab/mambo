@@ -89,10 +89,6 @@ uint32_t scan_trace(dbm_thread *thread_data, void *address, cc_type type, int *s
   thread_data->code_cache_meta[trace_id].source_addr = address;
   thread_data->code_cache_meta[trace_id].tpc = (uintptr_t)write_p;
 
-#ifdef PLUGINS_NEW
-  mambo_deliver_callbacks(PRE_FRAGMENT_C, thread_data, thumb ? THUMB_INST : ARM_INST,
-                          type, trace_id, -1, -1, address, write_p, NULL);
-#endif
 #ifdef __arm__
   if (thumb) {
     fragment_len = scan_thumb(thread_data, (uint16_t *)(((uint32_t)address)-1), trace_id, type, (uint16_t*)write_p);

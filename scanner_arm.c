@@ -540,6 +540,9 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
     write_p++;
   }
 #endif
+
+  arm_scanner_deliver_callbacks(thread_data, PRE_FRAGMENT_C, read_address, -1,
+                                &write_p, &data_p, basic_block, type, true);
   
   while(!stop) {
     debug("arm scan read_address: %p\n", read_address);

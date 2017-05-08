@@ -1097,6 +1097,9 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
   }
 #endif
 
+  thumb_scanner_deliver_callbacks(thread_data, PRE_FRAGMENT_C, &it_state, read_address, -1,
+                                  &write_p, &data_p, basic_block, type, &set_addr_prev_block, true);
+
   while(!stop) {
     debug("thumb scan read_address: %p\n", read_address);
     thumb_instruction inst = thumb_decode(read_address);

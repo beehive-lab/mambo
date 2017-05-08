@@ -489,6 +489,9 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
   }
 #endif
 
+  a64_scanner_deliver_callbacks(thread_data, PRE_FRAGMENT_C, read_address, -1,
+                                &write_p, &data_p, basic_block, type, true);
+
   while(!stop) {
     debug("A64 scan read_address: %p, w: : %p, bb: %d\n", read_address, write_p, basic_block);
     a64_instruction inst = a64_decode(read_address);
