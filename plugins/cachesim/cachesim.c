@@ -158,6 +158,29 @@ void cachesim_proc_buf(cachesim_trace_t *trace_buf) {
   trace_buf->len = 0;
 }
 
+void inst_code(mambo_context *ctx, cachesim_thread_t *cachesim_thread) {
+  emit_push(ctx, (1 << 0) | (1 << 1) | (1 << 2) | (1 << lr));
+
+  void *addr = mambo_get_source_addr(ctx);
+  assert(addr != NULL);
+  emit_set_reg_ptr(ctx, 0, addr);
+
+  cachesim_thread->set_inst_size = mambo_get_cc_addr(ctx);
+  emit_set_reg(ctx, 1, 0);
+
+  emit_set_reg_ptr(ctx, 2, &cachesim_thread->inst_trace_buf.entries);
+  emit_fcall(ctx, cachesim_buf_write);
+
+  emit_pop(ctx, (1 << 0) | (1 << 1) | (1 << 2) | (1 << lr));
+}
+
+void set_inst_size(mambo_context *ctx, cachesim_thread_t *cachesim_thread ) {
+  void *tmp = mambo_get_cc_addr(ctx);
+  mambo_set_cc_addr(ctx, cachesim_thread->set_inst_size);
+  emit_set_reg(ctx, 1, cachesim_thread->fragment_size << 1);
+  mambo_set_cc_addr(ctx, tmp);
+}
+
 int cachesim_pre_inst_handler(mambo_context *ctx) {
   cachesim_thread_t *cachesim_thread = mambo_get_thread_plugin_data(ctx);
 
@@ -179,23 +202,14 @@ int cachesim_pre_inst_handler(mambo_context *ctx) {
     emit_pop(ctx, (1 << 0) | (1 << 1) | (1 << 2) | (1 << lr));
   }
 
+  // The maximum size we can set in one instruction
+  if (cachesim_thread->fragment_size > (0x7FFF - 4)) {
+    set_inst_size(ctx, cachesim_thread);
+    inst_code(ctx, cachesim_thread);
+    cachesim_thread->fragment_size = 0;
+  }
+
   cachesim_thread->fragment_size += mambo_get_inst_len(ctx);
-}
-
-void inst_code(mambo_context *ctx, cachesim_thread_t *cachesim_thread) {
-  emit_push(ctx, (1 << 0) | (1 << 1) | (1 << 2) | (1 << lr));
-
-  void *addr = mambo_get_source_addr(ctx);
-  assert(addr != NULL);
-  emit_set_reg_ptr(ctx, 0, addr);
-
-  cachesim_thread->set_inst_size = mambo_get_cc_addr(ctx);
-  emit_set_reg(ctx, 1, 0);
-
-  emit_set_reg_ptr(ctx, 2, &cachesim_thread->inst_trace_buf.entries);
-  emit_fcall(ctx, cachesim_buf_write);
-
-  emit_pop(ctx, (1 << 0) | (1 << 1) | (1 << 2) | (1 << lr));
 }
 
 int cachesim_pre_bb_handler(mambo_context *ctx) {
@@ -207,11 +221,7 @@ int cachesim_pre_bb_handler(mambo_context *ctx) {
 
 int cachesim_post_bb_handler(mambo_context *ctx) {
   cachesim_thread_t *cachesim_thread = mambo_get_thread_plugin_data(ctx);
-
-  void *tmp = mambo_get_cc_addr(ctx);
-  mambo_set_cc_addr(ctx, cachesim_thread->set_inst_size);
-  emit_set_reg(ctx, 1, cachesim_thread->fragment_size << 1);
-  mambo_set_cc_addr(ctx, tmp);
+  set_inst_size(ctx, cachesim_thread);
 }
 
 int cachesim_pre_thread_handler(mambo_context *ctx) {
