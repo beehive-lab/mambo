@@ -443,8 +443,12 @@ void restore_exit(dbm_thread *thread_data, int fragment_id, void **o_write_p) {
   direct_branch(write_p, target, cond);
   write_p += 4;
 
-  if (bb_meta->branch_cache_status & BOTH_LINKED &&
-#if __aarch64__
+  if ((bb_meta->branch_cache_status & BOTH_LINKED) &&
+#ifdef __arm__
+      bb_meta->exit_branch_type != uncond_imm_thumb &&
+      bb_meta->exit_branch_type != uncond_b_to_bl_thumb &&
+      bb_meta->exit_branch_type != uncond_imm_arm
+#elif __aarch64__
       bb_meta->exit_branch_type != uncond_imm_a64
 #endif
   ) {
