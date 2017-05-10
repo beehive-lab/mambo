@@ -443,7 +443,11 @@ void restore_exit(dbm_thread *thread_data, int fragment_id, void **o_write_p) {
   direct_branch(write_p, target, cond);
   write_p += 4;
 
-  if (bb_meta->branch_cache_status & BOTH_LINKED) {
+  if (bb_meta->branch_cache_status & BOTH_LINKED &&
+#if __aarch64__
+      bb_meta->exit_branch_type != uncond_imm_a64
+#endif
+  ) {
     target = cc_lookup(thread_data, other_target);
     assert(target != UINT_MAX);
     direct_branch(write_p, target, AL);
@@ -604,6 +608,9 @@ uintptr_t signal_dispatcher(int i, siginfo_t *info, void *context) {
               break;
             }
 #elif __aarch64__
+            case uncond_imm_a64:
+              is_taken = true;
+              break;
             case cond_imm_a64:
               is_taken = interpret_condition(cont->uc_mcontext.pstate, bb_meta->branch_condition);
               break;

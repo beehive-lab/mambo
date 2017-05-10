@@ -57,6 +57,8 @@ void insert_cond_exit_branch(dbm_code_cache_meta *bb_meta, void **o_write_p, int
       break;
 #endif
 #ifdef __aarch64__
+    case uncond_imm_a64:
+      return;
     case cond_imm_a64:
       a64_b_cond_helper(write_p, (uint64_t)write_p + 8, cond);
       break;
