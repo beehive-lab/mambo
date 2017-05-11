@@ -186,7 +186,6 @@ struct dbm_thread_s {
   bool was_flushed;
   uintptr_t dispatcher_addr;
   uintptr_t syscall_wrapper_addr;
-  bool is_vfork_child;
 
   dbm_code_cache *code_cache;
   dbm_code_cache_meta code_cache_meta[CODE_CACHE_SIZE + TRACE_FRAGMENT_NO];

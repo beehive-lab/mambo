@@ -383,9 +383,12 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
 
 #ifdef __arm__
     case __NR_vfork:
-      assert(thread_data->is_vfork_child == false);
-      thread_data->is_vfork_child = true;
-      break;
+      // vfork without sharing the address space
+      args[0] = raw_syscall(__NR_clone, CLONE_VFORK, NULL, NULL, NULL, NULL);
+      if (args[0] == 0) {
+        reset_process(thread_data);
+      }
+      return 0;
     case __ARM_NR_cacheflush:
       fprintf(stderr, "cache flush\n");
       /* Returning to the calling BB is potentially unsafe because the remaining
@@ -427,16 +430,6 @@ void syscall_handler_post(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_
         reset_process(thread_data);
       }
       break;
-
-#ifdef __arm__
-    case __NR_vfork:
-      if (args[0] == 0) { // child
-        reset_process(thread_data);
-      } else {
-        thread_data->is_vfork_child = false;
-      }
-      break;
-#endif
   }
 
 #ifdef PLUGINS_NEW
