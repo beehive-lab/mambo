@@ -147,8 +147,8 @@ uintptr_t emulate_brk(uintptr_t addr) {
   return global_data.brk;
 }
 
-// return 0 to skip the syscall
 int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_inst, dbm_thread *thread_data) {
+  int do_syscall = 1;
   sys_clone_args *clone_args;
   debug("syscall pre %d\n", syscall_no);
 
@@ -171,7 +171,8 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
   switch(syscall_no) {
     case __NR_brk:
       args[0] = emulate_brk(args[0]);
-      return 0;
+      do_syscall = 0;
+      break;
     case __NR_clone:
       clone_args = (sys_clone_args *)args;
 
@@ -187,7 +188,8 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
         __asm__ volatile("dmb sy");
         args[0] = child_data->tid;
 
-        return 0;
+        do_syscall = 0;
+        break;
       }
 
       if (clone_args->flags & CLONE_VFORK) {
@@ -258,7 +260,8 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
 
       args[0] = syscall_ret;
 
-      return 0;
+      do_syscall = 0;
+      break;
     }
     case __NR_exit_group:
       dbm_exit(thread_data, args[0]);
@@ -266,7 +269,7 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
     case __NR_close:
       if (args[0] <= 2) { // stdin, stdout, stderr
         args[0] = 0;
-        return 0;
+        do_syscall = 0;
       }
       break;
     case __NR_readlinkat: {
@@ -288,7 +291,7 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
 
         strncpy((char *)args[2], path, args[3]);
         args[0] = min(path_len, args[3]);
-        return 0;
+        do_syscall = 0;
       }
       break;
     }
@@ -317,7 +320,8 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
       }
 
       args[0] = syscall_ret;
-      return 0;
+      do_syscall = 0;
+      break;
     }
     case __NR_mprotect: {
       int ret;
@@ -338,7 +342,8 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
       } // if syscall_ret == 0
 
       args[0] = syscall_ret;
-      return 0;
+      do_syscall = 0;
+      break;
     }
     case __NR_munmap: {
       uintptr_t syscall_ret = raw_syscall(syscall_no, args[0], args[1]);
@@ -354,7 +359,8 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
       }
 
       args[0] = syscall_ret;
-      return 0;
+      do_syscall = 0;
+      break;
     }
 
 #ifdef __arm__
@@ -388,7 +394,8 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
       if (args[0] == 0) {
         reset_process(thread_data);
       }
-      return 0;
+      do_syscall = 0;
+      break;
     case __ARM_NR_cacheflush:
       fprintf(stderr, "cache flush\n");
       /* Returning to the calling BB is potentially unsafe because the remaining
@@ -399,14 +406,26 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
       debug("set tls to %x\n", args[0]);
       thread_data->tls = args[0];
       args[0] = 0;
-      return 0;
+      do_syscall = 0;
       break;
 #endif
   }
 
+#ifdef PLUGINS_NEW
+  if (do_syscall == 0 && global_data.free_plugin > 0) {
+    set_mambo_context(&ctx, thread_data, -1, -1, -1, -1, -1, NULL, NULL, (unsigned long *)args);
+    for (int i = 0; i < global_data.free_plugin; i++) {
+      if (global_data.plugins[i].cbs[POST_SYSCALL_C] != NULL) {
+        ctx.plugin_id = i;
+        global_data.plugins[i].cbs[POST_SYSCALL_C](&ctx);
+      } // if
+    } // for
+  }
+#endif
+
   thread_data->status = THREAD_SYSCALL;
 
-  return 1;
+  return do_syscall;
 }
 
 void syscall_handler_post(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_inst, dbm_thread *thread_data) {
