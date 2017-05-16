@@ -100,10 +100,13 @@ uint32_t scan_trace(dbm_thread *thread_data, void *address, cc_type type, int *s
   fragment_len = scan_a64(thread_data, (uint32_t *)address, trace_id, type, (uint32_t*)write_p);
 #endif
 
-#ifdef PLUGINS_NEW
-  mambo_deliver_callbacks(POST_FRAGMENT_C, thread_data, thumb ? THUMB_INST : ARM_INST,
-                          type, trace_id, -1, -1, address, write_p, NULL);
+#ifdef __arm__
+  inst_set inst_type = thumb ? THUMB_INST : ARM_INST;
+#elif __aarch64__
+  inst_set inst_type = A64_INST;
 #endif
+  mambo_deliver_callbacks(POST_FRAGMENT_C, thread_data, inst_type,
+                          type, trace_id, -1, -1, address, write_p, NULL);
 
   __clear_cache(write_p, write_p + fragment_len);
 
