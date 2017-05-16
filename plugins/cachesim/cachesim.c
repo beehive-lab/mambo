@@ -228,8 +228,8 @@ int cachesim_pre_thread_handler(mambo_context *ctx) {
   cachesim_thread_t *cachesim_thread = mambo_alloc(ctx, sizeof(*cachesim_thread));
   assert(cachesim_thread != NULL);
 
-  int ret = cachesim_model_init(&cachesim_thread->l1i_model, "L1i", L1D_SIZE,
-                                L1D_LINE_SIZE, L1D_ASSOC, L1D_REPL);
+  int ret = cachesim_model_init(&cachesim_thread->l1i_model, "L1i", L1I_SIZE,
+                                L1I_LINE_SIZE, L1I_ASSOC, L1I_REPL);
   assert(ret == 0);
   cachesim_thread->l1i_model.parent = &l2_model;
   cachesim_thread->inst_trace_buf.model = &cachesim_thread->l1i_model;
