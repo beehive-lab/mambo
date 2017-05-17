@@ -77,7 +77,7 @@
 #define L1I_LINE_SIZE  64
 #define L1I_ASSOC      3
 #define L1I_REPL       REPLACE_LRU
-
+#define L1I_MAX_FETCH  16
 
 // Data cache configurations
 
@@ -229,13 +229,13 @@ int cachesim_pre_thread_handler(mambo_context *ctx) {
   assert(cachesim_thread != NULL);
 
   int ret = cachesim_model_init(&cachesim_thread->l1i_model, "L1i", L1I_SIZE,
-                                L1I_LINE_SIZE, L1I_ASSOC, L1I_REPL);
+                                L1I_LINE_SIZE, L1I_MAX_FETCH, L1I_ASSOC, L1I_REPL);
   assert(ret == 0);
   cachesim_thread->l1i_model.parent = &l2_model;
   cachesim_thread->inst_trace_buf.model = &cachesim_thread->l1i_model;
 
   ret = cachesim_model_init(&cachesim_thread->l1d_model, "L1d", L1D_SIZE,
-                                L1D_LINE_SIZE, L1D_ASSOC, L1D_REPL);
+                                L1D_LINE_SIZE, 0, L1D_ASSOC, L1D_REPL);
   assert(ret == 0);
   cachesim_thread->l1d_model.parent = &l2_model;
   cachesim_thread->data_trace_buf.model = &cachesim_thread->l1d_model;
@@ -285,14 +285,14 @@ __attribute__((constructor)) void cachesim_init_plugin() {
 
   // These L1 models aren't used, they just store the global L1 stats and configuration
   int ret = cachesim_model_init(&global_l1i, "L1i", L1I_SIZE,
-                                L1I_LINE_SIZE, L1I_ASSOC, L1I_REPL);
+                                L1I_LINE_SIZE, L1I_MAX_FETCH, L1I_ASSOC, L1I_REPL);
   assert(ret == 0);
   ret = cachesim_model_init(&global_l1d, "L1d", L1D_SIZE,
-                            L1D_LINE_SIZE, L1D_ASSOC, L1D_REPL);
+                            L1D_LINE_SIZE, 0, L1D_ASSOC, L1D_REPL);
   assert(ret == 0);
 
   ret = cachesim_model_init(&l2_model, "L2", L2_SIZE,
-                            L2_LINE_SIZE, L2_ASSOC, L2_REPL);
+                            L2_LINE_SIZE, 0, L2_ASSOC, L2_REPL);
   assert(ret == 0);
 
   mambo_register_pre_thread_cb(ctx, &cachesim_pre_thread_handler);

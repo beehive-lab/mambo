@@ -46,9 +46,10 @@ static inline addr_t cachesim_get_tag(cachesim_model_t *cache, addr_t addr) {
 }
 
 int cachesim_model_init(cachesim_model_t *cache, char *name, unsigned size,
-                        unsigned line_size, unsigned assoc, cachesim_policy repl_policy) {
+                        unsigned line_size, unsigned max_fetch, unsigned assoc,
+                        cachesim_policy repl_policy) {
   if (size == 0 || line_size == 0 || assoc == 0 ||
-      !is_pow2(line_size) ||
+      !is_pow2(line_size) || !is_pow2(max_fetch) ||
       (assoc * line_size) > size ||
       (size % (line_size * assoc)) != 0) {
     return -1;
@@ -69,6 +70,8 @@ int cachesim_model_init(cachesim_model_t *cache, char *name, unsigned size,
     return -1;
   }
 
+  cache->max_fetch = (max_fetch != 0) ? max_fetch : line_size;
+
   strncpy(cache->name, name, CACHESIM_NAME_LEN);
   cache->name[CACHESIM_NAME_LEN - 1] = '\0';
 
@@ -81,6 +84,7 @@ int cachesim_model_init(cachesim_model_t *cache, char *name, unsigned size,
   cache->set_shift = __builtin_ctz(line_size);
   cache->set_mask = cache->sets - 1;
   cache->tag_shift = __builtin_ctz(cache->sets) + cache->set_shift;
+  cache->max_fetch_shift = __builtin_ctz(cache->max_fetch);
 
   memset(&cache->stats, 0, sizeof(cache->stats));
 
@@ -144,11 +148,16 @@ static inline void update_line(cachesim_model_t *cache, int line, bool is_write)
 int cachesim_ref(cachesim_model_t *cache, addr_t addr, unsigned size, bool is_write) {
   int counter_index = is_write ? 1 : 0;
   addr_t end = addr + size;
+
+  unsigned mask = cache->max_fetch - 1;
+  unsigned offset = (unsigned)addr & mask;
+  unsigned t_size = size + offset;
+  cache->stats.references[counter_index] += t_size >> cache->max_fetch_shift;
+  cache->stats.references[counter_index] += (t_size & mask) ? 1 : 0;
+
   addr = (addr >> cache->set_shift) << cache->set_shift;
 
   for (; addr < end; addr += cache->line_size) {
-    cache->stats.references[counter_index]++;
-
     int line = cachesim_get_set(cache, addr) * cache->assoc;
     addr_t tag = cachesim_get_tag(cache, addr);
     bool hit = false;

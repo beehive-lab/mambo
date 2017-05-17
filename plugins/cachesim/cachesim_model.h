@@ -44,6 +44,7 @@ struct cachesim_model {
   char name[CACHESIM_NAME_LEN];
   unsigned size;
   unsigned line_size;
+  unsigned max_fetch;
   unsigned assoc;
   cachesim_policy replacement_policy;
 
@@ -51,6 +52,7 @@ struct cachesim_model {
   unsigned set_shift;
   unsigned set_mask;
   unsigned tag_shift;
+  unsigned max_fetch_shift;
 
   pthread_mutex_t mutex;
 
@@ -59,8 +61,9 @@ struct cachesim_model {
   cachesim_model_line_t *lines;
 };
 
-int cachesim_model_init(cachesim_model_t *cache, char *name, unsigned size, 
-                        unsigned line_size, unsigned assoc, cachesim_policy repl_policy);
+int cachesim_model_init(cachesim_model_t *cache, char *name, unsigned size,
+                        unsigned line_size, unsigned max_fetch, unsigned assoc,
+                        cachesim_policy repl_policy);
 void cachesim_model_free(cachesim_model_t *cache);
 int cachesim_ref(cachesim_model_t *cache, addr_t addr, unsigned size, bool is_write);
 void cachesim_print_stats(cachesim_model_t *cache);
