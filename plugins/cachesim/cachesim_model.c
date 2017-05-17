@@ -158,33 +158,39 @@ int cachesim_ref(cachesim_model_t *cache, addr_t addr, unsigned size, bool is_wr
   addr = (addr >> cache->set_shift) << cache->set_shift;
 
   for (; addr < end; addr += cache->line_size) {
-    int line = cachesim_get_set(cache, addr) * cache->assoc;
     addr_t tag = cachesim_get_tag(cache, addr);
-    bool hit = false;
+    int line;
+    if (tag == cache->prev_tag) {
+      line = cache->prev_line;
+    } else {
+      cache->prev_tag = tag;
+      line = cachesim_get_set(cache, addr) * cache->assoc;
+      bool hit = false;
 
-    for (int i = 0; i < cache->assoc && !hit; i++) {
-      if ((cache->lines[line + i].tag >> 1) == tag) {
-        line += i;
-        hit = true;
-      }
-    }
-
-    // Miss
-    if (!hit) {
-      cache->stats.misses[counter_index]++;
-
-      if (cache->parent) {
-        int ret = cachesim_lock(cache->parent);
-        assert(ret == 0);
-        cachesim_ref(cache->parent, addr, cache->line_size, is_write);
-        ret = cachesim_unlock(cache->parent);
-        assert(ret == 0);
+      for (int i = 0; i < cache->assoc && !hit; i++) {
+        if ((cache->lines[line + i].tag >> 1) == tag) {
+          line += i;
+          hit = true;
+        }
       }
 
-      line += cachesim_evict_line(cache, line);
-      cachesim_load_line(cache, line, addr, is_write);
-    }
+      // Miss
+      if (!hit) {
+        cache->stats.misses[counter_index]++;
 
+        if (cache->parent) {
+          int ret = cachesim_lock(cache->parent);
+          assert(ret == 0);
+          cachesim_ref(cache->parent, addr, cache->line_size, is_write);
+          ret = cachesim_unlock(cache->parent);
+          assert(ret == 0);
+        }
+
+        line += cachesim_evict_line(cache, line);
+        cachesim_load_line(cache, line, addr, is_write);
+      }
+      cache->prev_line = line;
+    } // tag != cache->prev_tag
     update_line(cache, line, is_write);
   }
 
