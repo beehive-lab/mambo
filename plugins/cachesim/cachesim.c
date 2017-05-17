@@ -151,8 +151,10 @@ cachesim_model_t l2_model;
 extern void cachesim_buf_write(uintptr_t value, cachesim_trace_t *trace);
 
 void cachesim_proc_buf(cachesim_trace_t *trace_buf) {
-  for (int i = 0; i < trace_buf->len; i++) {
-    cachesim_ref(trace_buf->model, trace_buf->entries[i].addr,
+  cachesim_model_t *model = trace_buf->model;
+  unsigned len = trace_buf->len;
+  for (int i = 0; i < len; i++) {
+    cachesim_ref(model, trace_buf->entries[i].addr,
                  trace_buf->entries[i].info >> 1, trace_buf->entries[i].info & 1);
   }
   trace_buf->len = 0;
