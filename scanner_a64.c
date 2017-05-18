@@ -3,7 +3,8 @@
       https://github.com/beehive-lab/mambo
 
   Copyright 2015-2017 Guillermo Callaghan <guillermocallaghan at hotmail dot com>
-  Copyright 2016-2017 Cosmin Gorgovan <cosmin at linux-geek dot org>
+  Copyright 2016-2016 Cosmin Gorgovan <cosmin at linux-geek dot org>
+  Copyright 2017 The University of Manchester
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
