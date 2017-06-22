@@ -594,10 +594,6 @@ void record_cc_link(dbm_thread *thread_data, uintptr_t linked_from, uintptr_t li
 
 void main(int argc, char **argv, char **envp) {
   Elf *elf = NULL;
-  int has_interp = 0;
-  int arg_diff;
-  uintptr_t phdr;
-  size_t phnum;
   
   if (argc < 2) {
     printf("Syntax: dbm elf_file arguments\n");
@@ -622,7 +618,10 @@ void main(int argc, char **argv, char **envp) {
   install_system_sig_handlers();
 
   global_data.brk = 0;
-  load_elf(argv[1], &elf, &has_interp, &phdr, &phnum);
+  struct elf_loader_auxv auxv;
+  uintptr_t entry_address;
+  load_elf(argv[1], &elf, &auxv, &entry_address, false);
+  debug("entry address: 0x%x\n", entry_address);
 
   // Set up brk emulation
   ret = pthread_mutex_init(&global_data.brk_mutex, NULL);
@@ -632,12 +631,6 @@ void main(int argc, char **argv, char **envp) {
                      MAP_PRIVATE|MAP_ANONYMOUS|MAP_FIXED, -1, 0);
   assert(map != MAP_FAILED);
   global_data.brk += PAGE_SIZE;
-
-  ELF_EHDR *ehdr = ELF_GETEHDR(elf);
-  uintptr_t entry_address = ehdr->e_entry;
-  if (ehdr->e_type == ET_DYN) entry_address += DYN_OBJ_OFFSET;
-  uintptr_t block_address;
-  debug("entry address: 0x%x\n", entry_address);
   
   dbm_thread *thread_data;
   if (!allocate_thread_data(&thread_data)) {
@@ -649,11 +642,10 @@ void main(int argc, char **argv, char **envp) {
   thread_data->tid = syscall(__NR_gettid);
   register_thread(thread_data, false);
 
-  block_address = scan(thread_data, (uint16_t *)entry_address, ALLOCATE_BB);
+  uintptr_t block_address = scan(thread_data, (uint16_t *)entry_address, ALLOCATE_BB);
   debug("Address of first basic block is: 0x%x\n", block_address);
-  
-  arg_diff = has_interp ? 1 : 2;
-  
-  elf_run(block_address, entry_address, (has_interp ? "" : argv[1]), phdr, phnum, argc-arg_diff, &argv[arg_diff], envp);
+
+  #define ARGDIFF 2
+  elf_run(block_address, argv[1], argc-ARGDIFF, &argv[ARGDIFF], envp, &auxv);
 }
 

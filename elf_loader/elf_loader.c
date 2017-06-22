@@ -48,7 +48,7 @@ struct startup_stack {
   uintptr_t e[STARTUP_STACK_LEN];
 };
 
-void load_segment(ELF_PHDR *phdr, int fd, Elf32_Half type, uintptr_t *auxv_phdr) {
+void load_segment(ELF_PHDR *phdr, int fd, Elf32_Half type) {
   uint32_t *mem;
   int prot = 0;
   unsigned long pos;
@@ -103,17 +103,12 @@ void load_segment(ELF_PHDR *phdr, int fd, Elf32_Half type, uintptr_t *auxv_phdr)
   }
   */
 
-  if (phdr->p_offset == 0) {
-    *auxv_phdr = (uint32_t)phdr->p_vaddr;
-  }
-
   if ((aligned_vaddr + aligned_msize) > global_data.brk) {
     global_data.brk = aligned_vaddr + aligned_msize;
   }
 }
 
-//void main(int argc, char **argv, char **envp) {
-int load_elf(char *filename, Elf **ret_elf, int *has_interp, uintptr_t *auxv_phdr, size_t *phnum) {
+int load_elf(char *filename, Elf **ret_elf, struct elf_loader_auxv *auxv, uintptr_t *entry_addr, bool is_interp) {
   int fd;
   FILE *file;
   Elf *elf;
@@ -121,10 +116,10 @@ int load_elf(char *filename, Elf **ret_elf, int *has_interp, uintptr_t *auxv_phd
   ELF_EHDR *ehdr;
   ELF_PHDR *phdr;
   char interp[256];
-  *auxv_phdr = 0;
   errno = 0;
   char *tmpmem;
-  
+  size_t phnum;
+
   // Reserve the area below MAMBO's image for the application. libelf uses the heap.
   uintptr_t tmpbase = max(PAGE_SIZE, 0x8000);
   size_t tmpsz = align_lower((uintptr_t)&__ehdr_start-tmpbase, PAGE_SIZE);
@@ -170,20 +165,31 @@ int load_elf(char *filename, Elf **ret_elf, int *has_interp, uintptr_t *auxv_phd
     printf("Not compiled for ARM\n");
     exit(EXIT_FAILURE);
   }
-  
-  debug("Entry address: 0x%x\n", ehdr->e_entry);
-  
+
+  // AT_ENTRY in the AUXV points to the original executable
+  if (!is_interp) {
+    auxv->at_entry = ehdr->e_entry;
+  }
+
+  /* entry address is the actual execution entry point, either in the interpreter
+     (if one is used), otherwise in the executable */
+  *entry_addr = ehdr->e_entry;
+  if (ehdr->e_type == ET_DYN) {
+    *entry_addr += DYN_OBJ_OFFSET;
+  }
+
   file = fdopen(fd, "r");
   
-  elf_getphdrnum(elf, phnum);
+  elf_getphdrnum(elf, &phnum);
   phdr = ELF_GETPHDR(elf);
 
   munmap(tmpmem, tmpsz);
   
   // Look for an INTERP header
-  for (int i = 0; i < *phnum; i++) {
+  for (int i = 0; i < phnum; i++) {
     if (phdr[i].p_type == PT_INTERP) {
       debug("INTERP field found\n");
+      assert(!is_interp);
       
       if (phdr[i].p_filesz > 255) {
         printf("INTERP filename longer than the buffer\n");
@@ -200,13 +206,19 @@ int load_elf(char *filename, Elf **ret_elf, int *has_interp, uintptr_t *auxv_phd
         while(1);
       }
       interp[phdr[i].p_filesz] = '\0';
-      *has_interp = 1;
       
-      return load_elf(interp, ret_elf, has_interp, auxv_phdr, phnum);
+      load_elf(interp, ret_elf, auxv, entry_addr, true);
     }
   }
-  
-  for (int i = 0; i < *phnum; i++) {
+
+  if (is_interp) {
+    auxv->at_base = 0;
+  } else {
+    auxv->at_phdr = 0;
+    auxv->at_phnum = phnum;
+  }
+
+  for (int i = 0; i < phnum; i++) {
     debug("\np_type: 0x%x\n", phdr[i].p_type);
     debug("p_offset: 0x%x\n", phdr[i].p_offset);
     debug("p_vaddr: 0x%x\n", phdr[i].p_vaddr);
@@ -218,26 +230,35 @@ int load_elf(char *filename, Elf **ret_elf, int *has_interp, uintptr_t *auxv_phd
     
     switch(phdr[i].p_type) {
       case PT_LOAD:
-        load_segment(&phdr[i], fd, ehdr->e_type, auxv_phdr);
+        load_segment(&phdr[i], fd, ehdr->e_type);
+        if (is_interp) {
+          if (phdr[i].p_offset == 0) {
+            auxv->at_base = phdr[i].p_vaddr;
+          }
+        } else { // !is_interp
+          if (phdr[i].p_offset == 0) {
+            auxv->at_phdr = phdr[i].p_vaddr + ehdr->e_phoff;
+          }
+        }
         break;
       default:
         debug("Unhandled program header table entry type\n");
         break;
     }
   }
-  
-  if (*auxv_phdr == 0) {
-    fprintf(stderr, "PHDR not loaded in memory?\n");
-    while(1);
+
+  if (is_interp) {
+    assert(auxv->at_base);
+  } else { // !is_interp
+    assert(auxv->at_phdr);
   }
-  *auxv_phdr += ehdr->e_phoff;
 }
 
 #define stack_push(val) \
   stack->e[stack_i++] = (val); \
   assert(stack_i < STARTUP_STACK_LEN) \
 
-void elf_run(uintptr_t entry_address, uintptr_t orig_entry_addr, char *filename, uintptr_t auxv_phdr, size_t phnum, int argc, char **argv, char **envp) {
+void elf_run(uintptr_t entry_address, char *filename, int argc, char **argv, char **envp, struct elf_loader_auxv *auxv) {
   // alloca is required, otherwise our translated stack can get optimised away
   struct startup_stack *stack = alloca(sizeof(struct startup_stack));
   int stack_i = 0;
@@ -266,7 +287,6 @@ void elf_run(uintptr_t entry_address, uintptr_t orig_entry_addr, char *filename,
       case AT_HWCAP:
       case AT_HWCAP2:
       case AT_CLKTCK:
-      case AT_BASE:
       case AT_FLAGS:
       case AT_UID:
       case AT_EUID:
@@ -280,14 +300,19 @@ void elf_run(uintptr_t entry_address, uintptr_t orig_entry_addr, char *filename,
         d_aux->a_un.a_val = s_aux->a_un.a_val;
         break;
 
+      case AT_BASE:
+        d_aux->a_type = s_aux->a_type;
+        d_aux->a_un.a_val = auxv->at_base;
+        break;
+
       case AT_PHDR:
         d_aux->a_type = s_aux->a_type;
-        d_aux->a_un.a_val = auxv_phdr;
+        d_aux->a_un.a_val = auxv->at_phdr;
         break;
         
       case AT_PHNUM:
         d_aux->a_type = s_aux->a_type;
-        d_aux->a_un.a_val = phnum;
+        d_aux->a_un.a_val = auxv->at_phnum;
         break;
 
       case AT_PHENT:
@@ -297,7 +322,7 @@ void elf_run(uintptr_t entry_address, uintptr_t orig_entry_addr, char *filename,
 
       case AT_ENTRY:
         d_aux->a_type = s_aux->a_type;
-        d_aux->a_un.a_val = orig_entry_addr;
+        d_aux->a_un.a_val = auxv->at_entry;
         break;  
   
       case AT_EXECFN:

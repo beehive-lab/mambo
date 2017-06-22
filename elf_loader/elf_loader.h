@@ -18,6 +18,8 @@
   limitations under the License.
 */
 
+#include <stdbool.h>
+
 #define DYN_OBJ_OFFSET 0xa0000000
 
 #ifdef __arm__
@@ -39,6 +41,13 @@
   #define ELF_AUXV_T Elf64_auxv_t
 #endif
 
-int load_elf(char *filename, Elf **ret_elf, int *has_interp, uintptr_t *auxv_phdr, size_t *phnum);
-void elf_run(uintptr_t entry_address, uintptr_t orig_entry_addr, char *filename, uintptr_t auxv_phdr, size_t phnum, int argc, char **argv, char **envp);
+struct elf_loader_auxv {
+  uintptr_t at_base;
+  uintptr_t at_entry;
+  uintptr_t at_phdr;
+  uintptr_t at_phnum;
+};
+
+int load_elf(char *filename, Elf **ret_elf, struct elf_loader_auxv *auxv, uintptr_t *entry_addr, bool is_interp);
+void elf_run(uintptr_t entry_address, char *filename, int argc, char **argv, char **envp, struct elf_loader_auxv *auxv);
 
