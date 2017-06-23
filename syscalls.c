@@ -148,6 +148,30 @@ uintptr_t emulate_brk(uintptr_t addr) {
   return global_data.brk;
 }
 
+ssize_t readlink_handler(char *sys_path, char *sys_buf, ssize_t bufsize) {
+  const int proc_buflen = 100;
+  char buf[proc_buflen];
+  snprintf(buf, proc_buflen, "/proc/%d/exe", getpid());
+  if (strcmp(sys_path, buf) == 0 ||
+      strcmp(sys_path, "/proc/self/exe") == 0 ||
+      strcmp(sys_path, "/proc/thread-self/exe") == 0) {
+    char path[PATH_MAX];
+    char *rp = realpath(global_data.argv[1], path);
+    assert(rp != NULL);
+    size_t path_len = strlen(rp);
+
+    /* realpath() null-terminates strings, while readlinkat shouldn't.
+       Therefore, if PATH_MAX has been filled and bufsize == PATH_MAX, then it's possible
+       that we've lost a valid last character which realpath set to null. */
+    assert((bufsize < PATH_MAX) || (path_len < (PATH_MAX - 1)));
+
+    strncpy(sys_buf, path, bufsize);
+    return min(path_len, bufsize);
+  }
+
+  return -1;
+}
+
 int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_inst, dbm_thread *thread_data) {
   int do_syscall = 1;
   sys_clone_args *clone_args;
@@ -275,24 +299,9 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
       }
       break;
     case __NR_readlinkat: {
-      const int proc_buflen = 100;
-      char buf[proc_buflen];
-      snprintf(buf, proc_buflen, "/proc/%d/exe", getpid());
-      if (strcmp((char *)args[1], buf) == 0 ||
-          strcmp((char *)args[1], "/proc/self/exe") == 0 ||
-          strcmp((char *)args[1], "/proc/thread-self/exe") == 0) {
-        char path[PATH_MAX];
-        char *rp = realpath(global_data.argv[1], path);
-        assert(rp != NULL);
-        size_t path_len = strlen(rp);
-
-       /* realpath() null-terminates strings, while readlinkat shouldn't.
-          Therefore, if PATH_MAX has been filled and bufsize == PATH_MAX, then it's possible
-          that we've lost a valid last character which realpath set to null. */
-        assert((args[3] < PATH_MAX) || (path_len < (PATH_MAX - 1)));
-
-        strncpy((char *)args[2], path, args[3]);
-        args[0] = min(path_len, args[3]);
+      ssize_t len = readlink_handler((char *)args[1], (char *)args[2], args[3]);
+      if (len >= 0) {
+        args[0] = (uintptr_t)len;
         do_syscall = 0;
       }
       break;
@@ -410,6 +419,14 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
       args[0] = 0;
       do_syscall = 0;
       break;
+    case __NR_readlink: {
+      ssize_t len = readlink_handler((char *)args[0], (char *)args[1], args[2]);
+      if (len >= 0) {
+        args[0] = (uintptr_t)len;
+        do_syscall = 0;
+      }
+      break;
+    }
 #endif
   }
 
