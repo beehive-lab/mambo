@@ -1553,6 +1553,7 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
       case ARM_BKPT:
       case ARM_CLREX:
       case ARM_DMB:
+      case ARM_DSB:
       case ARM_ISB:
       case ARM_MSRI:
       case ARM_NOP:
@@ -1674,6 +1675,7 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
       case ARM_NEON_VCGTZ:
       case ARM_NEON_VCLEZ:
       case ARM_NEON_VCLTZ:
+      case ARM_NEON_VCNT:
       case ARM_NEON_VCVT_F_FP:
       case ARM_NEON_VCVT_F_I:
       case ARM_NEON_VDUP_SCAL:
