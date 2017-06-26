@@ -20,8 +20,6 @@
 
 #include <stdbool.h>
 
-#define DYN_OBJ_OFFSET 0xa0000000
-
 #ifdef __arm__
   #define ELF_CLASS  ELFCLASS32
   #define EM_MACHINE EM_ARM

@@ -48,7 +48,7 @@ struct startup_stack {
   uintptr_t e[STARTUP_STACK_LEN];
 };
 
-void load_segment(ELF_PHDR *phdr, int fd, Elf32_Half type) {
+void load_segment(uintptr_t base_addr, ELF_PHDR *phdr, int fd, Elf32_Half type) {
   uint32_t *mem;
   int prot = 0;
   unsigned long pos;
@@ -66,9 +66,9 @@ void load_segment(ELF_PHDR *phdr, int fd, Elf32_Half type) {
     prot |= PROT_READ;
   }
 
-  // Warning: no ASLR here
   if (type == ET_DYN) {
-    phdr->p_vaddr += DYN_OBJ_OFFSET;
+    assert(base_addr != 0);
+    phdr->p_vaddr += base_addr;
   }
 
   aligned_vaddr = align_lower(phdr->p_vaddr, PAGE_SIZE);
@@ -166,25 +166,39 @@ int load_elf(char *filename, Elf **ret_elf, struct elf_loader_auxv *auxv, uintpt
     exit(EXIT_FAILURE);
   }
 
-  // AT_ENTRY in the AUXV points to the original executable
-  if (!is_interp) {
-    auxv->at_entry = ehdr->e_entry;
-  }
-
-  /* entry address is the actual execution entry point, either in the interpreter
-     (if one is used), otherwise in the executable */
-  *entry_addr = ehdr->e_entry;
-  if (ehdr->e_type == ET_DYN) {
-    *entry_addr += DYN_OBJ_OFFSET;
-  }
-
   file = fdopen(fd, "r");
-  
+
   elf_getphdrnum(elf, &phnum);
   phdr = ELF_GETPHDR(elf);
 
   munmap(tmpmem, tmpsz);
-  
+
+  /* entry address is the actual execution entry point, either in the interpreter
+     (if one is used), or in the executable */
+  *entry_addr = ehdr->e_entry;
+
+  /* Allocate the whole memory region, using ASLR if enabled in the kernel */
+  void *base_addr = NULL;
+  uintptr_t max_size = 0;
+  if (ehdr->e_type == ET_DYN) {
+    for (int i = 0; i < phnum; i++) {
+      if (phdr[i].p_type == PT_LOAD) {
+        uintptr_t size = phdr[i].p_vaddr + phdr[i].p_memsz;
+        if (size > max_size) {
+          max_size = size;
+        }
+      }
+    }
+    base_addr = mmap(NULL, max_size, PROT_NONE, MAP_ANONYMOUS|MAP_PRIVATE, -1, 0);
+    assert(base_addr != MAP_FAILED);
+    *entry_addr += (uintptr_t)base_addr;
+  }
+
+  // AT_ENTRY in the AUXV points to the original executable
+  if (!is_interp) {
+    auxv->at_entry = (uintptr_t)base_addr + ehdr->e_entry;
+  }
+
   // Look for an INTERP header
   for (int i = 0; i < phnum; i++) {
     if (phdr[i].p_type == PT_INTERP) {
@@ -230,7 +244,7 @@ int load_elf(char *filename, Elf **ret_elf, struct elf_loader_auxv *auxv, uintpt
     
     switch(phdr[i].p_type) {
       case PT_LOAD:
-        load_segment(&phdr[i], fd, ehdr->e_type);
+        load_segment((uintptr_t)base_addr, &phdr[i], fd, ehdr->e_type);
         if (is_interp) {
           if (phdr[i].p_offset == 0) {
             auxv->at_base = phdr[i].p_vaddr;
