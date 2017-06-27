@@ -48,7 +48,7 @@ struct startup_stack {
   uintptr_t e[STARTUP_STACK_LEN];
 };
 
-void load_segment(uintptr_t base_addr, ELF_PHDR *phdr, int fd, Elf32_Half type) {
+void load_segment(uintptr_t base_addr, ELF_PHDR *phdr, int fd, Elf32_Half type, bool is_interp) {
   uint32_t *mem;
   int prot = 0;
   unsigned long pos;
@@ -103,7 +103,7 @@ void load_segment(uintptr_t base_addr, ELF_PHDR *phdr, int fd, Elf32_Half type) 
   }
   */
 
-  if ((aligned_vaddr + aligned_msize) > global_data.brk) {
+  if (!is_interp && (aligned_vaddr + aligned_msize) > global_data.brk) {
     global_data.brk = aligned_vaddr + aligned_msize;
   }
 }
@@ -244,7 +244,7 @@ int load_elf(char *filename, Elf **ret_elf, struct elf_loader_auxv *auxv, uintpt
     
     switch(phdr[i].p_type) {
       case PT_LOAD:
-        load_segment((uintptr_t)base_addr, &phdr[i], fd, ehdr->e_type);
+        load_segment((uintptr_t)base_addr, &phdr[i], fd, ehdr->e_type, is_interp);
         if (is_interp) {
           if (phdr[i].p_offset == 0) {
             auxv->at_base = phdr[i].p_vaddr;
