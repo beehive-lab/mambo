@@ -204,11 +204,12 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
 
       if (clone_args->child_stack != NULL) {
         if (clone_args->child_stack == &args[SYSCALL_WRAPPER_STACK_OFFSET]) {
-          clone_args->child_stack = args;
+          clone_args->child_stack = NULL;
         } else {
-          size_t copy_size = SYSCALL_WRAPPER_STACK_OFFSET * sizeof(uintptr_t);
+          const size_t copy_size = SYSCALL_WRAPPER_FRAME_SIZE * sizeof(uintptr_t);
           clone_args->child_stack -= copy_size;
-          mambo_memcpy(clone_args->child_stack, args, copy_size);
+          void *source = args + SYSCALL_WRAPPER_STACK_OFFSET - SYSCALL_WRAPPER_FRAME_SIZE;
+          mambo_memcpy(clone_args->child_stack, source, copy_size);
         }
       } // if child_stack != NULL
       break;

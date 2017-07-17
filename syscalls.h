@@ -25,11 +25,13 @@
      14 regs pushed by the SVC translation
   */
   #define SYSCALL_WRAPPER_STACK_OFFSET (2 + 14)
+  #define SYSCALL_WRAPPER_FRAME_SIZE   (SYSCALL_WRAPPER_STACK_OFFSET)
 #elif __aarch64__
   /* 2  regs(x29, x30) pushed by the SVC translation
      2  (TPC, SVC) +
      22 (X0-X21) +
      (32*2) NEON/FP registers saved in the wrapper
   */
-  #define SYSCALL_WRAPPER_STACK_OFFSET (2 + 2 + 22 + 32*2)
+  #define SYSCALL_WRAPPER_STACK_OFFSET (2 + 2 + 22)
+  #define SYSCALL_WRAPPER_FRAME_SIZE   (SYSCALL_WRAPPER_STACK_OFFSET + 2*32)
 #endif
