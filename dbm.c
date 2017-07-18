@@ -26,7 +26,7 @@
 #include <limits.h>
 #include <asm/unistd.h>
 #include <pthread.h>
-
+#include <sys/auxv.h>
 #include <sys/mman.h>
 #include <unistd.h>
 
@@ -65,6 +65,7 @@
 #define syscall_wrapper_offset        ((uintptr_t)syscall_wrapper - (uintptr_t)&start_of_dispatcher_s)
 #define trace_head_incr_offset        ((uintptr_t)trace_head_incr - (uintptr_t)&start_of_dispatcher_s)
 
+uintptr_t page_size;
 dbm_global global_data;
 __thread dbm_thread *current_thread;
 
@@ -605,6 +606,9 @@ void main(int argc, char **argv, char **envp) {
 
   global_data.argc = argc;
   global_data.argv = argv;
+
+  page_size = getauxval(AT_PAGESZ);
+  assert(page_size > 0);
 
   int ret = pthread_mutex_init(&global_data.thread_list_mutex, NULL);
   assert(ret == 0);

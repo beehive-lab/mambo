@@ -40,7 +40,7 @@
   #define debug(...)
 #endif
 
-extern void *_start;
+extern void *__ehdr_start;
 
 #define STARTUP_STACK_LEN 200
 
@@ -126,7 +126,9 @@ int load_elf(char *filename, Elf **ret_elf, int *has_interp, uintptr_t *auxv_phd
   char *tmpmem;
   
   // Reserve the area below MAMBO's image for the application. libelf uses the heap.
-  tmpmem = mmap((void *)0x8000, ((uintptr_t)&_start-0x8000) & (~0x7FFF), PROT_NONE, MAP_PRIVATE|MAP_ANONYMOUS|MAP_FIXED, -1, 0);
+  uintptr_t tmpbase = max(PAGE_SIZE, 0x8000);
+  size_t tmpsz = align_lower((uintptr_t)&__ehdr_start-tmpbase, PAGE_SIZE);
+  tmpmem = mmap((void *)tmpbase, tmpsz, PROT_NONE, MAP_PRIVATE|MAP_ANONYMOUS|MAP_FIXED, -1, 0);
   assert(tmpmem !=  MAP_FAILED);
 
   fd = open(filename, O_RDONLY);
@@ -176,7 +178,7 @@ int load_elf(char *filename, Elf **ret_elf, int *has_interp, uintptr_t *auxv_phd
   elf_getphdrnum(elf, phnum);
   phdr = ELF_GETPHDR(elf);
 
-  munmap(tmpmem, ((uintptr_t)&_start-0x8000) & (~0x7FFF));
+  munmap(tmpmem, tmpsz);
   
   // Look for an INTERP header
   for (int i = 0; i < *phnum; i++) {

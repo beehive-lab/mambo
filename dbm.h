@@ -308,6 +308,7 @@ inline static uintptr_t adjust_cc_entry(uintptr_t addr) {
 }
 
 extern dbm_global global_data;
+extern uintptr_t page_size;
 extern dbm_thread *disp_thread_data;
 extern uint32_t *th_is_pending_ptr;
 extern __thread dbm_thread *current_thread;
@@ -332,7 +333,7 @@ void mambo_deliver_callbacks(unsigned cb_id, dbm_thread *thread_data, inst_set i
   #define CC_PAGE_SIZE (2*1024*1024)
   #define CC_MMAP_OPTS (MAP_PRIVATE|MAP_ANONYMOUS|MAP_HUGETLB)
 #else
-  #define CC_PAGE_SIZE 4096
+  #define CC_PAGE_SIZE (page_size)
   #define CC_MMAP_OPTS (MAP_PRIVATE|MAP_ANONYMOUS)
 #endif
 
@@ -340,7 +341,7 @@ void mambo_deliver_callbacks(unsigned cb_id, dbm_thread *thread_data, inst_set i
   #define METADATA_PAGE_SIZE (2*1024*1024)
   #define METADATA_MMAP_OPTS (MAP_PRIVATE|MAP_ANONYMOUS|MAP_HUGETLB)
 #else
-  #define METADATA_PAGE_SIZE 4096
+  #define METADATA_PAGE_SIZE (page_size)
   #define METADATA_MMAP_OPTS (MAP_PRIVATE|MAP_ANONYMOUS)
 #endif
 
@@ -350,7 +351,7 @@ void mambo_deliver_callbacks(unsigned cb_id, dbm_thread *thread_data, inst_set i
 #define CC_SZ_ROUND(input) ROUND_UP(input, CC_PAGE_SIZE)
 #define METADATA_SZ_ROUND(input) ROUND_UP(input, CC_PAGE_SIZE)
 
-#define PAGE_SIZE 4096
+#define PAGE_SIZE (page_size)
 
 #define trampolines_size_bytes         ((uintptr_t)&end_of_dispatcher_s - (uintptr_t)&start_of_dispatcher_s)
 #define trampolines_size_bbs           ((trampolines_size_bytes / sizeof(dbm_block)) \
