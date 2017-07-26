@@ -189,9 +189,17 @@ int cachesim_pre_inst_handler(mambo_context *ctx) {
   bool is_load = mambo_is_load(ctx);
   bool is_store = mambo_is_store(ctx);
   if (is_load || is_store) {
+    mambo_cond cond = mambo_get_cond(ctx);
+    mambo_branch skip_br;
+    int ret;
+    if (cond != AL) {
+      ret = mambo_reserve_branch(ctx, &skip_br);
+      assert(ret == 0);
+    }
+
     emit_push(ctx, (1 << 0) | (1 << 1) | (1 << 2) | (1 << lr));    
 
-    int ret = mambo_calc_ld_st_addr(ctx, 0);
+    ret = mambo_calc_ld_st_addr(ctx, 0);
     assert(ret == 0);
     int size = mambo_get_ld_st_size(ctx);
     assert(size > 0);
@@ -202,6 +210,11 @@ int cachesim_pre_inst_handler(mambo_context *ctx) {
     emit_fcall(ctx, cachesim_buf_write);
 
     emit_pop(ctx, (1 << 0) | (1 << 1) | (1 << 2) | (1 << lr));
+
+    if (cond != AL) {
+      ret = emit_local_branch_cond(ctx, &skip_br, invert_cond(cond));
+      assert(ret == 0);
+    }
   }
 
   // The maximum size we can set in one instruction
