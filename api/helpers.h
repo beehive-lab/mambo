@@ -20,6 +20,10 @@
 #ifndef __API_HELPERS_H__
 #define __API_HELPERS_H__
 
+typedef struct {
+  void *loc;
+} mambo_branch;
+
 #define LSL 0
 #define LSR 1
 #define ASR 2
@@ -35,6 +39,11 @@ int emit_add_sub_shift(mambo_context *ctx, int rd, int rn, int rm,
                        unsigned int shift_type, unsigned int shift);
 int emit_add_sub(mambo_context *ctx, int rd, int rn, int rm);
 int mambo_calc_ld_st_addr(mambo_context *ctx, enum reg reg);
+int emit_branch(mambo_context *ctx, void *target);
+int emit_branch_cond(mambo_context *ctx, void *target, mambo_cond cond);
+int mambo_reserve_branch(mambo_context *ctx, mambo_branch *br);
+int emit_local_branch_cond(mambo_context *ctx, mambo_branch *br, mambo_cond cond);
+int emit_local_branch(mambo_context *ctx, mambo_branch *br);
 
 static inline void emit_set_reg_ptr(mambo_context *ctx, enum reg reg, void *ptr) {
   emit_set_reg(ctx, reg, (uintptr_t)ptr);

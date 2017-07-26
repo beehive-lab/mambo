@@ -37,6 +37,7 @@
 void thumb_cc_branch(dbm_thread *thread_data, uint16_t *write_p, uint32_t dest_addr);
 void thumb_b16_cond_helper(uint16_t *write_p, uint32_t dest_addr, mambo_cond cond);
 void thumb_b32_helper(uint16_t *write_p, uint32_t dest_addr);
+void thumb_b32_cond_helper(uint16_t **write_p, uint32_t dest_addr, enum arm_cond_codes condition);
 void thumb_bl32_helper(uint16_t *write_p, uint32_t dest_addr);
 void thumb_blx32_helper(uint16_t *write_p, uint32_t dest_addr);
 void thumb_adjust_b_bl_target(dbm_thread *thread_data, uint16_t *write_p, uint32_t dest_addr);

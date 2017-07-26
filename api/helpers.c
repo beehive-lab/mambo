@@ -393,6 +393,74 @@ inline int emit_add_sub(mambo_context *ctx, int rd, int rn, int rm) {
   return emit_add_sub_shift(ctx, rd, rn, rm, LSL, 0);
 }
 
+int __emit_branch_cond(inst_set inst_type, void *write, uintptr_t target, mambo_cond cond) {
+  intptr_t diff = target - (uintptr_t)write;
+#ifdef __arm__
+  switch (inst_type) {
+    case THUMB_INST:
+      diff -= 4;
+      if (cond == AL) {
+        if (diff < -16777216 || diff > 16777214) return -1;
+        thumb_b32_helper(write, target);
+      } else {
+        if (diff < -1048576 || diff > 1048574) return -1;
+        void *write_c = write;
+        thumb_b32_cond_helper((uint16_t **)&write, target, cond);
+        assert((write_c + 4) == write);
+      }
+      break;
+    case ARM_INST:
+      diff -= 8;
+      if (diff < -33554432 || diff > 33554428) return -1;
+      arm_b32_helper(write, target, cond);
+      break;
+    default:
+      return -1;
+  }
+#endif
+#ifdef __aarch64__
+  if (cond == AL) {
+    if (diff < -134217728 || diff > 134217724) return -1;
+    a64_b_helper(write, target);
+  } else {
+    if (diff < -1048576 || diff > 1048572) return -1;
+    a64_b_cond_helper(write, target, cond);
+  }
+#endif
+  return 0;
+}
+
+int emit_branch_cond(mambo_context *ctx, void *target, mambo_cond cond) {
+  void *write_p = mambo_get_cc_addr(ctx);
+  int ret = __emit_branch_cond(mambo_get_inst_type(ctx), write_p, (uintptr_t)target, cond);
+  if (ret == 0) {
+    mambo_set_cc_addr(ctx, write_p + 4);
+  }
+  return ret;
+}
+
+int emit_branch(mambo_context *ctx, void *target) {
+  return emit_branch_cond(ctx, target, AL);
+}
+
+int mambo_reserve_branch(mambo_context *ctx, mambo_branch *br) {
+  if (ctx->write_p) {
+    br->loc = ctx->write_p;
+    ctx->write_p += 4;
+    return 0;
+  }
+  return -1;
+}
+
+int emit_local_branch_cond(mambo_context *ctx, mambo_branch *br, mambo_cond cond) {
+  uintptr_t target = (uintptr_t)mambo_get_cc_addr(ctx);
+  return __emit_branch_cond(mambo_get_inst_type(ctx), br->loc, target, cond);
+}
+
+int emit_local_branch(mambo_context *ctx, mambo_branch *br) {
+  return emit_local_branch_cond(ctx, br, AL);
+}
+
 void emit_counter64_incr(mambo_context *ctx, void *counter, unsigned incr) {
 #ifdef __arm__
   /* On AArch32 we use NEON rather than ADD and ADC to avoid having to save
