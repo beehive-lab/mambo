@@ -2669,6 +2669,10 @@ test_a64:
   LDR   X2, lit_a64
   LDR   W3, lit_a64
   LDRSW X2, lit_a64
+  LDR   S0, lit_a64
+  LDR   D1, lit_a64
+  LDR   Q2, lit_a64
+
 
   MOV SP, X29
   RET
