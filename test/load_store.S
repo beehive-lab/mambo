@@ -2175,6 +2175,48 @@ test_a64:
   LDP W2, W3, [X7, #252]!
   LDP W2, W3, [X7, #-256]!
 
+  LDP S0, S1, [X7]
+  LDP S0, S1, [X7, #-16]
+  LDP S0, S1, [X7, #16]
+  LDP S0, S1, [X7, #-256]
+  LDP S0, S1, [X7, #252]
+  LDP S0, S1, [X7], #0
+  LDP S0, S1, [X7], #8
+  LDP S0, S1, [X7], #252
+  LDP S0, S1, [X7], #-256
+  LDP S0, S1, [X7, #0]!
+  LDP S0, S1, [X7, #8]!
+  LDP S0, S1, [X7, #252]!
+  LDP S0, S1, [X7, #-256]!
+
+  LDP D0, D1, [X7]
+  LDP D0, D1, [X7, #-16]
+  LDP D0, D1, [X7, #16]
+  LDP D0, D1, [X7, #-512]
+  LDP D0, D1, [X7, #504]
+  LDP D0, D1, [X7], #0
+  LDP D0, D1, [X7], #8
+  LDP D0, D1, [X7], #504
+  LDP D0, D1, [X7], #-512
+  LDP D0, D1, [X7, #0]!
+  LDP D0, D1, [X7, #8]!
+  LDP D0, D1, [X7, #504]!
+  LDP D0, D1, [X7, #-512]!
+
+  LDP Q0, Q1, [X7]
+  LDP Q0, Q1, [X7, #-16]
+  LDP Q0, Q1, [X7, #16]
+  LDP Q0, Q1, [X7, #-1024]
+  LDP Q0, Q1, [X7, #1008]
+  LDP Q0, Q1, [X7], #0
+  LDP Q0, Q1, [X7], #32
+  LDP Q0, Q1, [X7], #1008
+  LDP Q0, Q1, [X7], #-1024
+  LDP Q0, Q1, [X7, #0]!
+  LDP Q0, Q1, [X7, #48]!
+  LDP Q0, Q1, [X7, #1008]!
+  LDP Q0, Q1, [X7, #-1024]!
+
 
   // STP
   STP X3, X4, [X7]
@@ -2205,6 +2247,48 @@ test_a64:
   STP W2, W3, [X7, #252]!
   STP W2, W3, [X7, #-256]!
 
+  STP S2, S3, [X7]
+  STP S2, S3, [X7, #-16]
+  STP S2, S3, [X7, #16]
+  STP S2, S3, [X7, #-256]
+  STP S2, S3, [X7, #252]
+  STP S2, S3, [X7], #0
+  STP S2, S3, [X7], #8
+  STP S2, S3, [X7], #252
+  STP S2, S3, [X7], #-256
+  STP S2, S3, [X7, #0]!
+  STP S2, S3, [X7, #8]!
+  STP S2, S3, [X7, #252]!
+  STP S2, S3, [X7, #-256]!
+
+  STP D2, D3, [X7]
+  STP D2, D3, [X7, #-16]
+  STP D2, D3, [X7, #16]
+  STP D2, D3, [X7, #-512]
+  STP D2, D3, [X7, #504]
+  STP D2, D3, [X7], #0
+  STP D2, D3, [X7], #8
+  STP D2, D3, [X7], #504
+  STP D2, D3, [X7], #-512
+  STP D2, D3, [X7, #0]!
+  STP D2, D3, [X7, #8]!
+  STP D2, D3, [X7, #504]!
+  STP D2, D3, [X7, #-512]!
+
+  STP Q2, Q3, [X7]
+  STP Q2, Q3, [X7, #-32]
+  STP Q2, Q3, [X7, #32]
+  STP Q2, Q3, [X7, #-1024]
+  STP Q2, Q3, [X7, #1008]
+  STP Q2, Q3, [X7], #0
+  STP Q2, Q3, [X7], #32
+  STP Q2, Q3, [X7], #1008
+  STP Q2, Q3, [X7], #-1024
+  STP Q2, Q3, [X7, #0]!
+  STP Q2, Q3, [X7, #32]!
+  STP Q2, Q3, [X7, #1008]!
+  STP Q2, Q3, [X7, #-1024]!
+
 
   // LDNP
   LDNP X3, X4, [X7]
@@ -2218,6 +2302,22 @@ test_a64:
   LDNP W3, W4, [X7, #-256]
   LDNP W3, W4, [X7, #252]
 
+  LDNP S0, S1, [X7]
+  LDNP S0, S1, [X7, #-16]
+  LDNP S0, S1, [X7, #16]
+  LDNP S0, S1, [X7, #-256]
+  LDNP S0, S1, [X7, #252]
+  LDNP D2, D3, [X7]
+  LDNP D2, D3, [X7, #-16]
+  LDNP D2, D3, [X7, #16]
+  LDNP D2, D3, [X7, #-512]
+  LDNP D2, D3, [X7, #504]
+  LDNP Q2, Q3, [X7]
+  LDNP Q2, Q3, [X7, #-16]
+  LDNP Q2, Q3, [X7, #16]
+  LDNP Q2, Q3, [X7, #-1024]
+  LDNP Q2, Q3, [X7, #1008]
+
 
   // STNP
   STNP X3, X4, [X7]
@@ -2230,6 +2330,22 @@ test_a64:
   STNP W3, W4, [X7, #16]
   STNP W3, W4, [X7, #-256]
   STNP W3, W4, [X7, #252]
+
+  STNP S0, S1, [X7]
+  STNP S0, S1, [X7, #-16]
+  STNP S0, S1, [X7, #16]
+  STNP S0, S1, [X7, #-256]
+  STNP S0, S1, [X7, #252]
+  STNP D0, D1, [X7]
+  STNP D0, D1, [X7, #-16]
+  STNP D0, D1, [X7, #16]
+  STNP D0, D1, [X7, #-512]
+  STNP D0, D1, [X7, #504]
+  STNP Q0, Q1, [X7]
+  STNP Q0, Q1, [X7, #-16]
+  STNP Q0, Q1, [X7, #16]
+  STNP Q0, Q1, [X7, #-1024]
+  STNP Q0, Q1, [X7, #1008]
 
 
   // LDPSW
