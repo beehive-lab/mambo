@@ -1514,6 +1514,81 @@ test_a64:
   LDR   X2, [X4], #255
   LDR   X2, [X4], #-256
 
+  LDR   B0, [X4]
+  LDR   B0, [X4, #8]
+  LDR   B0, [X4, #7]
+  LDR   B0, [X4, #-5]
+  LDR   B0, [X4, #4095]
+  LDR   B0, [X4, #255]
+  LDR   B0, [X4, #-256]
+  LDR   B0, [X4, #0]!
+  LDR   B0, [X4, #255]!
+  LDR   B0, [X4, #-256]!
+  LDR   B0, [X4], #0
+  LDR   B0, [X4], #1
+  LDR   B0, [X4], #255
+  LDR   B0, [X4], #-256
+
+  LDR   H0, [X4]
+  LDR   H0, [X4, #8]
+  LDR   H0, [X4, #7]
+  LDR   H0, [X4, #-5]
+  LDR   H0, [X4, #8190]
+  LDR   H0, [X4, #255]
+  LDR   H0, [X4, #-256]
+  LDR   H0, [X4, #0]!
+  LDR   H0, [X4, #255]!
+  LDR   H0, [X4, #-256]!
+  LDR   H0, [X4], #0
+  LDR   H0, [X4], #1
+  LDR   H0, [X4], #255
+  LDR   H0, [X4], #-256
+
+  LDR   S0, [X4]
+  LDR   S0, [X4, #8]
+  LDR   S0, [X4, #7]
+  LDR   S0, [X4, #-5]
+  LDR   S0, [X4, #16380]
+  LDR   S0, [X4, #255]
+  LDR   S0, [X4, #-256]
+  LDR   S0, [X4, #0]!
+  LDR   S0, [X4, #255]!
+  LDR   S0, [X4, #-256]!
+  LDR   S0, [X4], #0
+  LDR   S0, [X4], #1
+  LDR   S0, [X4], #255
+  LDR   S0, [X4], #-256
+
+  LDR   D0, [X4]
+  LDR   D0, [X4, #8]
+  LDR   D0, [X4, #7]
+  LDR   D0, [X4, #-5]
+  LDR   D0, [X4, #32760]
+  LDR   D0, [X4, #255]
+  LDR   D0, [X4, #-256]
+  LDR   D0, [X4, #0]!
+  LDR   D0, [X4, #255]!
+  LDR   D0, [X4, #-256]!
+  LDR   D0, [X4], #0
+  LDR   D0, [X4], #1
+  LDR   D0, [X4], #255
+  LDR   D0, [X4], #-256
+
+  LDR   Q0, [X4]
+  LDR   Q0, [X4, #8]
+  LDR   Q0, [X4, #7]
+  LDR   Q0, [X4, #-5]
+  LDR   Q0, [X4, #65520]
+  LDR   Q0, [X4, #255]
+  LDR   Q0, [X4, #-256]
+  LDR   Q0, [X4, #0]!
+  LDR   Q0, [X4, #255]!
+  LDR   Q0, [X4, #-256]!
+  LDR   Q0, [X4], #0
+  LDR   Q0, [X4], #1
+  LDR   Q0, [X4], #255
+  LDR   Q0, [X4], #-256
+
   ADD X4, X4, #0x30
   LDR   W3, [X4]
   LDR   W3, [X4, #8]
@@ -1657,6 +1732,53 @@ test_a64:
   LDR X2, [X5, X7, SXTX #0]
   LDR X2, [X5, X7, SXTX #3]
 
+  LDR B1, [X5, X6]
+  LDR B1, [X5, X7]
+  LDR B1, [X5, X7, LSL #0]
+  LDR B1, [X5, W7, UXTW #0]
+  LDR B1, [X5, W7, SXTW #0]
+  LDR B1, [X5, X7, SXTX #0]
+
+  LDR H2, [X5, X6]
+  LDR H2, [X5, X7]
+  LDR H2, [X5, X7, LSL #1]
+  LDR H2, [X5, W7, UXTW #0]
+  LDR H2, [X5, W7, UXTW #1]
+  LDR H2, [X5, W7, SXTW #0]
+  LDR H2, [X5, W7, SXTW #1]
+  LDR H2, [X5, X7, SXTX #0]
+  LDR H2, [X5, X7, SXTX #1]
+
+  LDR S3, [X5, X6]
+  LDR S3, [X5, X7]
+  LDR S3, [X5, X7, LSL #2]
+  LDR S3, [X5, W7, UXTW #0]
+  LDR S3, [X5, W7, UXTW #2]
+  LDR S3, [X5, W7, SXTW #0]
+  LDR S3, [X5, W7, SXTW #2]
+  LDR S3, [X5, X7, SXTX #0]
+  LDR S3, [X5, X7, SXTX #2]
+
+  LDR D4, [X5, X6]
+  LDR D4, [X5, X7]
+  LDR D4, [X5, X7, LSL #3]
+  LDR D4, [X5, W7, UXTW #0]
+  LDR D4, [X5, W7, UXTW #3]
+  LDR D4, [X5, W7, SXTW #0]
+  LDR D4, [X5, W7, SXTW #3]
+  LDR D4, [X5, X7, SXTX #0]
+  LDR D4, [X5, X7, SXTX #3]
+
+  LDR Q0, [X5, X6]
+  LDR Q0, [X5, X7]
+  LDR Q0, [X5, X7, LSL #4]
+  LDR Q0, [X5, W7, UXTW #0]
+  LDR Q0, [X5, W7, UXTW #4]
+  LDR Q0, [X5, W7, SXTW #0]
+  LDR Q0, [X5, W7, SXTW #4]
+  LDR Q0, [X5, X7, SXTX #0]
+  LDR Q0, [X5, X7, SXTX #4]
+
   ADD X5, X5, #0x40
   LDRB W3, [X5, X6]
   LDRB W3, [X5, X7]
@@ -1796,6 +1918,81 @@ test_a64:
   STR   X2, [X4], #255
   STR   X2, [X4], #-256
 
+  STR   B0, [X4]
+  STR   B0, [X4, #8]
+  STR   B0, [X4, #7]
+  STR   B0, [X4, #-5]
+  STR   B0, [X4, #4095]
+  STR   B0, [X4, #255]
+  STR   B0, [X4, #-256]
+  STR   B0, [X4, #0]!
+  STR   B0, [X4, #255]!
+  STR   B0, [X4, #-256]!
+  STR   B0, [X4], #0
+  STR   B0, [X4], #1
+  STR   B0, [X4], #255
+  STR   B0, [X4], #-256
+
+  STR   H0, [X4]
+  STR   H0, [X4, #8]
+  STR   H0, [X4, #7]
+  STR   H0, [X4, #-5]
+  STR   H0, [X4, #8190]
+  STR   H0, [X4, #255]
+  STR   H0, [X4, #-256]
+  STR   H0, [X4, #0]!
+  STR   H0, [X4, #255]!
+  STR   H0, [X4, #-256]!
+  STR   H0, [X4], #0
+  STR   H0, [X4], #1
+  STR   H0, [X4], #255
+  STR   H0, [X4], #-256
+
+  STR   S0, [X4]
+  STR   S0, [X4, #8]
+  STR   S0, [X4, #7]
+  STR   S0, [X4, #-5]
+  STR   S0, [X4, #16380]
+  STR   S0, [X4, #255]
+  STR   S0, [X4, #-256]
+  STR   S0, [X4, #0]!
+  STR   S0, [X4, #255]!
+  STR   S0, [X4, #-256]!
+  STR   S0, [X4], #0
+  STR   S0, [X4], #1
+  STR   S0, [X4], #255
+  STR   S0, [X4], #-256
+
+  STR   D0, [X4]
+  STR   D0, [X4, #8]
+  STR   D0, [X4, #7]
+  STR   D0, [X4, #-5]
+  STR   D0, [X4, #32760]
+  STR   D0, [X4, #255]
+  STR   D0, [X4, #-256]
+  STR   D0, [X4, #0]!
+  STR   D0, [X4, #255]!
+  STR   D0, [X4, #-256]!
+  STR   D0, [X4], #0
+  STR   D0, [X4], #1
+  STR   D0, [X4], #255
+  STR   D0, [X4], #-256
+
+  STR   Q0, [X4]
+  STR   Q0, [X4, #8]
+  STR   Q0, [X4, #7]
+  STR   Q0, [X4, #-5]
+  STR   Q0, [X4, #65520]
+  STR   Q0, [X4, #255]
+  STR   Q0, [X4, #-256]
+  STR   Q0, [X4, #0]!
+  STR   Q0, [X4, #255]!
+  STR   Q0, [X4, #-256]!
+  STR   Q0, [X4], #0
+  STR   Q0, [X4], #1
+  STR   Q0, [X4], #255
+  STR   Q0, [X4], #-256
+
   ADD X4, X4, #0x30
   STR   W3, [X4]
   STR   W3, [X4, #8]
@@ -1858,6 +2055,53 @@ test_a64:
   STR X2, [X5, W7, SXTW #3]
   STR X2, [X5, X7, SXTX #0]
   STR X2, [X5, X7, SXTX #3]
+
+  STR B1, [X5, X6]
+  STR B1, [X5, X7]
+  STR B1, [X5, X7, LSL #0]
+  STR B1, [X5, W7, UXTW #0]
+  STR B1, [X5, W7, SXTW #0]
+  STR B1, [X5, X7, SXTX #0]
+
+  STR H2, [X5, X6]
+  STR H2, [X5, X7]
+  STR H2, [X5, X7, LSL #1]
+  STR H2, [X5, W7, UXTW #0]
+  STR H2, [X5, W7, UXTW #1]
+  STR H2, [X5, W7, SXTW #0]
+  STR H2, [X5, W7, SXTW #1]
+  STR H2, [X5, X7, SXTX #0]
+  STR H2, [X5, X7, SXTX #1]
+
+  STR S3, [X5, X6]
+  STR S3, [X5, X7]
+  STR S3, [X5, X7, LSL #2]
+  STR S3, [X5, W7, UXTW #0]
+  STR S3, [X5, W7, UXTW #2]
+  STR S3, [X5, W7, SXTW #0]
+  STR S3, [X5, W7, SXTW #2]
+  STR S3, [X5, X7, SXTX #0]
+  STR S3, [X5, X7, SXTX #2]
+
+  STR D4, [X5, X6]
+  STR D4, [X5, X7]
+  STR D4, [X5, X7, LSL #3]
+  STR D4, [X5, W7, UXTW #0]
+  STR D4, [X5, W7, UXTW #3]
+  STR D4, [X5, W7, SXTW #0]
+  STR D4, [X5, W7, SXTW #3]
+  STR D4, [X5, X7, SXTX #0]
+  STR D4, [X5, X7, SXTX #3]
+
+  STR Q0, [X5, X6]
+  STR Q0, [X5, X7]
+  STR Q0, [X5, X7, LSL #4]
+  STR Q0, [X5, W7, UXTW #0]
+  STR Q0, [X5, W7, UXTW #4]
+  STR Q0, [X5, W7, SXTW #0]
+  STR Q0, [X5, W7, SXTW #4]
+  STR Q0, [X5, X7, SXTX #0]
+  STR Q0, [X5, X7, SXTX #4]
 
   ADD X5, X5, #0x40
   STRB W3, [X5, X6]
