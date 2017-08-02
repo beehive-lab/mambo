@@ -46,9 +46,15 @@ void _a64_is_load_or_store(mambo_context *ctx, bool *is_load, bool *is_store) {
   uint32_t *inst = (uint32_t *)ctx->read_address;
 
   switch (ctx->inst) {
-    case A64_LDR_LIT:
+    case A64_LDR_LIT: {
+      uint32_t opc, v, imm19, rt;
+      a64_LDR_lit_decode_fields(ctx->read_address, &opc, &v, &imm19, &rt);
+      // !PRFM
+      if (opc == 3 && v == 0) break;
+
       *is_load = true;
       break;
+    }
     case A64_LDX_STX:
     case A64_LDP_STP:
     case A64_LDX_STX_MULTIPLE:
@@ -63,13 +69,19 @@ void _a64_is_load_or_store(mambo_context *ctx, bool *is_load, bool *is_store) {
       break;
     case A64_LDR_STR_IMMED:
     case A64_LDR_STR_REG:
-    case A64_LDR_STR_UNSIGNED_IMMED:
+    case A64_LDR_STR_UNSIGNED_IMMED: {
+      uint32_t sz, v, opc, imm12, rn, rt;
+      a64_LDR_STR_unsigned_immed_decode_fields(ctx->read_address, &sz, &v, &opc, &imm12, &rn, &rt);
+      // !PRFM - the sz, v, and opc fields are identical between the three encodings
+      if (sz == 3 && v == 0 && opc == 2) break;
+
       if ((*inst >> 22) & 3) {
         *is_load = true;
       } else {
         *is_store = true;
       }
       break;
+    }
   }
 }
 #endif
