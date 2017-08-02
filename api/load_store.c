@@ -699,14 +699,14 @@ int _a64_calc_ld_st_addr(mambo_context *ctx, enum reg reg) {
     case A64_LDP_STP: {
       uint32_t opc, v, type, l, imm7, rt2, rn, rt;
       a64_LDP_STP_decode_fields(ctx->read_address, &opc, &v, &type, &l, &imm7, &rt2, &rn, &rt);
-      int offset = sign_extend32(7, imm7) << (2 + (opc >> 1));
+      int offset = sign_extend32(7, imm7) << (2 + (opc >> (1 - v)));
       _generate_addr(ctx, reg, rn, reg_invalid, (type != 1) ? offset : 0);
       return 0;
     }
     case A64_LDR_STR_UNSIGNED_IMMED: {
       uint32_t size, v, opc, imm12, rn, rt;
       a64_LDR_STR_unsigned_immed_decode_fields(ctx->read_address, &size, &v, &opc, &imm12, &rn, &rt);
-      int offset = imm12 << size;
+      int offset = imm12 << (((v & (opc >> 1)) << 2) + size);
       _generate_addr(ctx, reg, rn, reg_invalid, offset);
       return 0;
     }
@@ -728,7 +728,7 @@ int _a64_calc_ld_st_addr(mambo_context *ctx, enum reg reg) {
     case A64_LDR_STR_REG: {
       uint32_t size, v, opc, rm, opt, s, rn, rt;
       a64_LDR_STR_reg_decode_fields(ctx->read_address, &size, &v, &opc, &rm, &opt, &s, &rn, &rt);
-      int shift = s ? size : 0;
+      int shift = s ? (((v & (opc >> 1)) << 2) + size) : 0;
       _generate_addr(ctx, reg, rn, rm, (shift << 3) | opt);
       return 0;
     }
