@@ -214,7 +214,7 @@ void dispatcher(uintptr_t target, uint32_t source_index, uintptr_t *next_addr, d
 
     case uncond_imm_arm:
       branch_addr = thread_data->code_cache_meta[source_index].exit_branch_addr;
-      arm_b32_helper((uint32_t *)branch_addr, (uint32_t)block_address, AL);
+      arm_cc_branch(thread_data, (uint32_t *)branch_addr, (uint32_t)block_address, AL);
       __clear_cache(branch_addr, (char *)branch_addr+5);
       break;
   #endif
