@@ -22,8 +22,14 @@
 #ifdef __arm__
   #include "api/emit_thumb.h"
   #include "api/emit_arm.h"
+  #include "pie/pie-arm-field-decoder.h"
+  #include "pie/pie-arm-decoder.h"
+  #include "pie/pie-thumb-field-decoder.h"
+  #include "pie/pie-thumb-decoder.h"
 #elif __aarch64__
   #include "api/emit_a64.h"
+  #include "pie/pie-a64-field-decoder.h"
+  #include "pie/pie-a64-decoder.h"
 #endif
 #include "api/helpers.h"
 #include "scanner_common.h"
