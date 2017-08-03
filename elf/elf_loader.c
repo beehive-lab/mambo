@@ -46,12 +46,6 @@
 
 extern void *__ehdr_start;
 
-#define STARTUP_STACK_LEN 200
-
-struct startup_stack {
-  uintptr_t e[STARTUP_STACK_LEN];
-};
-
 void load_segment(uintptr_t base_addr, ELF_PHDR *phdr, int fd, Elf32_Half type, bool is_interp) {
   uint32_t *mem;
   int prot = 0;
@@ -278,34 +272,81 @@ int load_elf(char *filename, Elf **ret_elf, struct elf_loader_auxv *auxv, uintpt
   }
 }
 
-#define stack_push(val) \
-  stack->e[stack_i++] = (val); \
-  assert(stack_i < STARTUP_STACK_LEN) \
+size_t find_stack_data_size(char *filename, int argc, char **argv, char **envp) {
+  size_t size = (4 + argc) * sizeof(uintptr_t); // ARGC, ARGV[0], NULL after ARGs and ENVP
+  size += 16; // AT_RANDOM
+  size += strlen(filename) + 1;
+
+  for (int i = 0; i < argc; i++) {
+    size += strlen(argv[i]) + 1;
+  }
+
+  for (; *envp != NULL; envp++) {
+    size += sizeof(uintptr_t) + strlen(*envp) + 1;
+  }
+
+  ELF_AUXV_T *s_aux = (ELF_AUXV_T *)(envp + 1);
+  while(s_aux->a_type != AT_NULL) {
+    switch(s_aux->a_type) {
+      case AT_PLATFORM:
+      case AT_EXECFN: {
+        char *s = (char *)s_aux->a_un.a_val;
+        size += strlen(s) + 1;
+      }
+    } // switch
+    size += sizeof(*s_aux);
+    s_aux++;
+  } // while
+  size += sizeof(*s_aux);
+
+  return size;
+}
+
+char *copy_string_to_stack(char *string, char **stack_strings) {
+  size_t len = strlen(string) + 1;
+  *stack_strings -= len;
+  strncpy(*stack_strings, string, len);
+  return *stack_strings;
+}
+
+#define INITIAL_STACK_SIZE (2*1024*1024)
+#define stack_push(val) stack[stack_i++] = (val);
 
 void elf_run(uintptr_t entry_address, char *filename, int argc, char **argv, char **envp, struct elf_loader_auxv *auxv) {
-  // alloca is required, otherwise our translated stack can get optimised away
-  struct startup_stack *stack = alloca(sizeof(struct startup_stack));
+  // Allocate a new stack for the execution of the application
+  void *stack_space = mmap(NULL, INITIAL_STACK_SIZE, PROT_READ | PROT_WRITE,
+                           MAP_PRIVATE|MAP_ANONYMOUS|MAP_GROWSDOWN|MAP_STACK, -1, 0);
+  assert(stack_space != MAP_FAILED);
+
+  // Grows up (towards lower addresses)
+  char *stack_strings = stack_space + INITIAL_STACK_SIZE;
+
+  // Grows down (towards higher addresses)
+  size_t data_size = find_stack_data_size(filename, argc, argv, envp);
+  uintptr_t *stack = (uintptr_t *)align_lower((uintptr_t)(stack_space + INITIAL_STACK_SIZE - data_size), 16);
   int stack_i = 0;
 
   // Copy args
   stack_push(argc + 1);
-  stack_push((uintptr_t)filename);
+  stack_push((uintptr_t)copy_string_to_stack(filename, &stack_strings));
   for (int i = 0; i < argc; i++) {
-    stack_push((uintptr_t)argv[i]);
+    stack_push((uintptr_t)copy_string_to_stack(argv[i], &stack_strings));
   }
   stack_push((uintptr_t)NULL);
   
   // Copy env
   while (*envp != NULL) {
-    stack_push((uintptr_t)*envp);
+    stack_push((uintptr_t)copy_string_to_stack(*envp, &stack_strings));
     envp++;
   }
   stack_push((uintptr_t)NULL);
   
   // Copy the Auxiliary Vector
   ELF_AUXV_T *s_aux = (ELF_AUXV_T *)(envp + 1);
-  ELF_AUXV_T *d_aux = (ELF_AUXV_T *)&stack->e[stack_i];
+  ELF_AUXV_T *d_aux = (ELF_AUXV_T *)&stack[stack_i];
   while(s_aux->a_type != AT_NULL) {
+    d_aux->a_type = s_aux->a_type;
+
     switch(s_aux->a_type) {
       case AT_PAGESZ:
       case AT_HWCAP:
@@ -317,44 +358,41 @@ void elf_run(uintptr_t entry_address, char *filename, int argc, char **argv, cha
       case AT_GID:
       case AT_EGID:
       case AT_SECURE:
-      case AT_RANDOM:
-      case AT_PLATFORM:
       case AT_SYSINFO_EHDR:
       case AT_MINSIGSTKSZ:
-        d_aux->a_type = s_aux->a_type;
+      case AT_PHENT:
         d_aux->a_un.a_val = s_aux->a_un.a_val;
         break;
 
+      case AT_RANDOM: {
+        stack_strings -= 15;
+        memcpy(stack_strings, (void *)s_aux->a_un.a_val, 16);
+        d_aux->a_un.a_val = (uintptr_t)stack_strings;
+        stack_strings--;
+        break;
+      }
+
+      case AT_PLATFORM:
+      case AT_EXECFN:
+        d_aux->a_un.a_val = (uintptr_t)copy_string_to_stack((char *)s_aux->a_un.a_val, &stack_strings);
+        break;
+
       case AT_BASE:
-        d_aux->a_type = s_aux->a_type;
         d_aux->a_un.a_val = auxv->at_base;
         break;
 
       case AT_PHDR:
-        d_aux->a_type = s_aux->a_type;
         d_aux->a_un.a_val = auxv->at_phdr;
         break;
-        
+
       case AT_PHNUM:
-        d_aux->a_type = s_aux->a_type;
         d_aux->a_un.a_val = auxv->at_phnum;
         break;
 
-      case AT_PHENT:
-        d_aux->a_type = s_aux->a_type;
-        d_aux->a_un.a_val = s_aux->a_un.a_val;
-        break;
-
       case AT_ENTRY:
-        d_aux->a_type = s_aux->a_type;
         d_aux->a_un.a_val = auxv->at_entry;
         break;  
-  
-      case AT_EXECFN:
-        d_aux->a_type = s_aux->a_type;
-        d_aux->a_un.a_val = (uintptr_t)filename;
-        break;
-  
+
       default:
         #ifdef __arm__
           #define auxv_type "%d"
@@ -368,14 +406,14 @@ void elf_run(uintptr_t entry_address, char *filename, int argc, char **argv, cha
     
     s_aux++;
     d_aux++;
-    
+
     stack_i += 2;
-    assert(stack_i < STARTUP_STACK_LEN);
   }
   // End of list
   d_aux->a_type = AT_NULL;
   d_aux->a_un.a_val = 0;
-  
+  stack_i += 2;
+
   /* Stack:
   sp->argc     [LOW]
       argv[0]
@@ -393,8 +431,9 @@ void elf_run(uintptr_t entry_address, char *filename, int argc, char **argv, cha
       ...
       auxv[z]  [HIGH]
   */
-  
-  dbm_client_entry(entry_address, &stack->e[0]);
+  assert((char *)&stack[stack_i] <= stack_strings);
+
+  dbm_client_entry(entry_address, &stack[0]);
   
   // If we return here, something is horribly wrong
   while(1);
