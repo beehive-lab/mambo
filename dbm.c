@@ -620,6 +620,37 @@ void record_cc_link(dbm_thread *thread_data, uintptr_t linked_from, uintptr_t li
   thread_data->code_cache_meta[linked_to].linked_from = entry;
 }
 
+void notify_vm_op(vm_op_t op, uintptr_t addr, size_t size, int prot, int flags, int fd, off_t off) {
+  switch(op) {
+    case VM_MAP: {
+      if (prot & PROT_EXEC) {
+        int ret = interval_map_add(&global_data.exec_allocs, addr, addr + size, fd);
+        assert(ret == 0);
+      }
+      break;
+    }
+    case VM_UNMAP: {
+      ssize_t ret = interval_map_delete(&global_data.exec_allocs, addr, addr + size);
+      assert(ret >= 0);
+      // TODO: flush the code cache in all threads
+      if (ret >= 1) {
+        flush_code_cache(current_thread);
+      }
+      break;
+    }
+    case VM_PROT: {
+      /* BUG: adding PROT_EXEC to an existing mapping results in the fd always being -1
+         Fortunately, the fd is only used for symbol resolution and the GNU linker marks
+         file mappings with PROT_EXEC from the beginning, so it shouldn't really be an issue */
+      if (prot & PROT_EXEC) {
+        int ret = interval_map_add(&global_data.exec_allocs, addr, addr + size, fd);
+        assert(ret == 0);
+      }
+      break;
+    }
+  } // switch
+}
+
 void main(int argc, char **argv, char **envp) {
   Elf *elf = NULL;
   

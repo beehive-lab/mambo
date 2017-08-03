@@ -139,6 +139,14 @@ uintptr_t emulate_brk(uintptr_t addr) {
                        global_data.brk - global_data.initial_brk,
                        addr - global_data.initial_brk, 0);
     if (map != MAP_FAILED) {
+      vm_op_t op = VM_MAP;
+      size_t size = addr - global_data.brk;
+      if (addr < global_data.brk) {
+        vm_op_t op = VM_UNMAP;
+        size = global_data.brk - addr;
+      }
+      notify_vm_op(op, min(addr, global_data.brk), size, PROT_READ | PROT_WRITE,
+                   MAP_PRIVATE|MAP_ANONYMOUS|MAP_FIXED, -1, 0);
       global_data.brk = addr;
     }
   }
@@ -324,11 +332,10 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
         args[2] &= ~PROT_EXEC;
       }
       syscall_ret = raw_syscall(syscall_no, args[0], args[1], args[2], args[3], args[4], args[5]);
-      if ((syscall_ret <= -ERANGE) && (prot & PROT_EXEC)) {
+      if (syscall_ret <= -ERANGE) {
         uintptr_t start = align_lower(syscall_ret, PAGE_SIZE);
         uintptr_t end = align_higher(syscall_ret + args[1], PAGE_SIZE);
-        int ret = interval_map_add(&global_data.exec_allocs, start, end);
-        assert(ret == 0);
+        notify_vm_op(VM_MAP, start, end-start, prot, args[3], args[4], args[5]);
       }
 
       args[0] = syscall_ret;
@@ -345,13 +352,10 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
       }
       syscall_ret = raw_syscall(syscall_no, args[0], args[1], args[2]);
       if (syscall_ret == 0) {
-        if (prot & PROT_EXEC) {
-          uintptr_t start = align_lower(args[0], PAGE_SIZE);
-          uintptr_t end = align_higher(args[0] + args[1], PAGE_SIZE);
-          ret = interval_map_add(&global_data.exec_allocs, start, end);
-          assert(ret == 0);
-        }
-      } // if syscall_ret == 0
+        uintptr_t start = align_lower(args[0], PAGE_SIZE);
+        uintptr_t end = align_higher(args[0] + args[1], PAGE_SIZE);
+        notify_vm_op(VM_PROT, start, end-start, args[2], 0, -1, 0);
+      }
 
       args[0] = syscall_ret;
       do_syscall = 0;
@@ -363,11 +367,7 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
       if (syscall_ret == 0) {
         uintptr_t start = align_lower(args[0], PAGE_SIZE);
         uintptr_t end = align_higher(args[0] + args[1], PAGE_SIZE);
-        ssize_t ret = interval_map_delete(&global_data.exec_allocs, start, end);
-        assert(ret >= 0);
-        if (ret >= 1) {
-          flush_code_cache(thread_data);
-        }
+        notify_vm_op(VM_UNMAP, start, end-start, 0, 0, -1, 0);
       }
 
       args[0] = syscall_ret;

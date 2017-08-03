@@ -252,6 +252,12 @@ typedef struct {
   uintptr_t spc;
 } cc_addr_pair;
 
+typedef enum {
+  VM_MAP,
+  VM_UNMAP,
+  VM_PROT
+} vm_op_t;
+
 void dbm_exit(dbm_thread *thread_data, uint32_t code);
 void thread_abort(dbm_thread *thread_data);
 
@@ -298,6 +304,8 @@ int addr_to_fragment_id(dbm_thread *thread_data, uintptr_t addr);
 void record_cc_link(dbm_thread *thread_data, uintptr_t linked_from, uintptr_t linked_to_addr);
 bool is_bb(dbm_thread *thread_data, uintptr_t addr);
 void install_system_sig_handlers();
+
+void notify_vm_op(vm_op_t op, uintptr_t addr, size_t size, int prot, int flags, int fd, off_t off);
 
 inline static uintptr_t adjust_cc_entry(uintptr_t addr) {
 #ifdef __arm__

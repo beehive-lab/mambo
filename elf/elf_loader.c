@@ -76,9 +76,13 @@ void load_segment(uintptr_t base_addr, ELF_PHDR *phdr, int fd, Elf32_Half type, 
   aligned_msize = align_higher(phdr->p_memsz + page_offset, PAGE_SIZE);
 
   // Map a page-aligned file-backed segment including the (vaddr, vaddr + filesize) area
+  #define MAP_EL_FILE (MAP_PRIVATE|MAP_FIXED)
+  off_t offset = phdr->p_offset - page_offset;
   mem = mmap((void *)aligned_vaddr, aligned_fsize, prot,
-             MAP_PRIVATE|MAP_FIXED, fd, phdr->p_offset - page_offset);
+             MAP_EL_FILE, fd, offset);
   assert(mem != MAP_FAILED);
+  notify_vm_op(VM_MAP, aligned_vaddr, aligned_fsize,
+               prot | ((phdr->p_flags & PF_X) ? PROT_EXEC : 0), MAP_EL_FILE, fd, offset);
 
   // Zero the area from (vaddr + filesize) to the end of the page
   if (phdr->p_flags & PF_W) {
@@ -86,15 +90,15 @@ void load_segment(uintptr_t base_addr, ELF_PHDR *phdr, int fd, Elf32_Half type, 
   }
 
   // Allocate anonymous pages if aligned memsize > filesize
+  #define MAP_EL_ANON (MAP_ANONYMOUS|MAP_EL_FILE)
   if (aligned_msize > aligned_fsize) {
     mem = mmap((void *)(aligned_vaddr + aligned_fsize), aligned_msize-aligned_fsize, prot,
-               MAP_ANONYMOUS|MAP_PRIVATE|MAP_FIXED, -1, 0);
+               MAP_EL_ANON, -1, 0);
     assert(mem != MAP_FAILED);
+    notify_vm_op(VM_MAP, aligned_vaddr + aligned_fsize, aligned_msize-aligned_fsize,
+                 prot | ((phdr->p_flags & PF_X) ? PROT_EXEC : 0), MAP_EL_ANON, -1, 0);
   }
-  if (phdr->p_flags & PF_X) {
-    int ret = interval_map_add(&global_data.exec_allocs, aligned_vaddr, aligned_vaddr + aligned_msize);
-    assert(ret >= 0);
-  }
+
   /*
   if (phdr->p_flags & PF_X) {
     __clear_cache((char *)phdr->p_vaddr, (char *)phdr->p_vaddr + (char *)phdr->p_memsz);
@@ -310,13 +314,15 @@ char *copy_string_to_stack(char *string, char **stack_strings) {
 }
 
 #define INITIAL_STACK_SIZE (2*1024*1024)
+#define STACK_PROT  (PROT_READ | PROT_WRITE)
+#define STACK_FLAGS (MAP_PRIVATE|MAP_ANONYMOUS|MAP_GROWSDOWN|MAP_STACK)
 #define stack_push(val) stack[stack_i++] = (val);
 
 void elf_run(uintptr_t entry_address, char *filename, int argc, char **argv, char **envp, struct elf_loader_auxv *auxv) {
   // Allocate a new stack for the execution of the application
-  void *stack_space = mmap(NULL, INITIAL_STACK_SIZE, PROT_READ | PROT_WRITE,
-                           MAP_PRIVATE|MAP_ANONYMOUS|MAP_GROWSDOWN|MAP_STACK, -1, 0);
+  void *stack_space = mmap(NULL, INITIAL_STACK_SIZE, STACK_PROT, STACK_FLAGS, -1, 0);
   assert(stack_space != MAP_FAILED);
+  notify_vm_op(VM_MAP, (uintptr_t)stack_space, INITIAL_STACK_SIZE, STACK_PROT, STACK_FLAGS, -1, 0);
 
   // Grows up (towards lower addresses)
   char *stack_strings = stack_space + INITIAL_STACK_SIZE;
