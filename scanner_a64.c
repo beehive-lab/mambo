@@ -809,7 +809,6 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
               a64_LDR_STR_unsigned_immed(&write_p, 3, V, 2, 0, x0, Rt);
               write_p++;
               a64_pop_reg(x0);
-              while(1);
               break;
           }
         } else if (V == 1) {
