@@ -26,6 +26,8 @@
 #include <assert.h>
 #include <pthread.h>
 #include <errno.h>
+#include <string.h>
+#include <unistd.h>
 
 #include "dbm.h"
 #include "common.h"
@@ -156,6 +158,9 @@ int interval_map_delete_entry(interval_map *imap, ssize_t index) {
     return -1;
   }
 
+  if (imap->entries[index].fd >= 0) {
+    close(imap->entries[index].fd);
+  }
   if (imap->entry_count >= 2) {
     imap->entries[index] = imap->entries[imap->entry_count - 1];
   }
@@ -163,7 +168,7 @@ int interval_map_delete_entry(interval_map *imap, ssize_t index) {
   return 0;
 }
 
-int interval_map_add_entry(interval_map *imap, uintptr_t start, uintptr_t end) {
+int interval_map_add_entry(interval_map *imap, uintptr_t start, uintptr_t end, int fd) {
   if (imap->entry_count >= imap->mem_size || start >= end) {
     return -1;
   }
@@ -171,6 +176,7 @@ int interval_map_add_entry(interval_map *imap, uintptr_t start, uintptr_t end) {
 
   imap->entries[index].start = start;
   imap->entries[index].end = end;
+  imap->entries[index].fd = fd;
 
   return 0;
 }
@@ -192,11 +198,16 @@ int interval_map_init(interval_map *imap, ssize_t size) {
   return 0;
 }
 
-int interval_map_add(interval_map *imap, uintptr_t start, uintptr_t end) {
+int interval_map_add(interval_map *imap, uintptr_t start, uintptr_t end, int fd) {
   int ret;
   ssize_t overlap_ind = -1;
 
   if (start >= end) return -1;
+
+  if (fd >= 0) {
+    fd = dup(fd);
+    assert(fd >= 0);
+  }
 
   ret = pthread_mutex_lock(&imap->mutex);
   if (ret != 0) return -1;
@@ -204,6 +215,7 @@ int interval_map_add(interval_map *imap, uintptr_t start, uintptr_t end) {
   // Check for overlapping regions
   for (ssize_t i = imap->entry_count -1; i >= 0; i--) {
     if ((start < imap->entries[i].end) && (end > imap->entries[i].start)) {
+      assert(fd < 0 && imap->entries[i].fd < 0);
       if (overlap_ind == -1) {
         overlap_ind = i;
       } else {
@@ -219,7 +231,7 @@ int interval_map_add(interval_map *imap, uintptr_t start, uintptr_t end) {
 
   // No overlapping region found
   if (overlap_ind == -1) {
-    ret = interval_map_add_entry(imap, start, end);
+    ret = interval_map_add_entry(imap, start, end, fd);
     assert(ret == 0);
   }
 
@@ -255,6 +267,27 @@ ssize_t interval_map_search(interval_map *imap, uintptr_t start, uintptr_t end) 
   return status;
 }
 
+int interval_map_search_by_addr(interval_map *imap, uintptr_t addr, interval_map_entry *entry) {
+  bool found = false;
+
+  if (entry == NULL) return -1;
+
+  int ret = pthread_mutex_lock(&imap->mutex);
+  if (ret != 0) return -1;
+
+  for (ssize_t i = imap->entry_count - 1; i >= 0 && !found; i--) {
+    if ((addr >= imap->entries[i].start) && (addr < imap->entries[i].end)) {
+      memcpy(entry, &imap->entries[i], sizeof(*entry));
+      found = true;
+    }
+  }
+
+  ret = pthread_mutex_unlock(&imap->mutex);
+  assert(ret == 0);
+
+  return found ? 1 : 0;
+}
+
 ssize_t interval_map_delete(interval_map *imap, uintptr_t start, uintptr_t end) {
   ssize_t status = 0;
 
@@ -277,7 +310,12 @@ ssize_t interval_map_delete(interval_map *imap, uintptr_t start, uintptr_t end) 
       } else {
         uintptr_t tmp = imap->entries[i].end;
         imap->entries[i].end = start;
-        ret = interval_map_add_entry(imap, end, tmp);
+        int fd = imap->entries[i].fd;
+        if (fd >= 0) {
+          fd = dup(fd);
+          assert(fd >= 0);
+        }
+        ret = interval_map_add_entry(imap, end, tmp, fd);
         assert(ret == 0);
       }
     } // if hit
