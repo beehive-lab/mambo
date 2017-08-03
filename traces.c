@@ -106,10 +106,10 @@ uint32_t scan_trace(dbm_thread *thread_data, void *address, cc_type type, int *s
 #elif __aarch64__
   inst_set inst_type = A64_INST;
 #endif
-  mambo_deliver_callbacks(POST_BB_C, thread_data, inst_type,
-                          type, trace_id, -1, -1, address, write_p, NULL);
-  mambo_deliver_callbacks(POST_FRAGMENT_C, thread_data, inst_type,
-                          type, trace_id, -1, -1, address, write_p, NULL);
+  mambo_deliver_callbacks_code(POST_BB_C, thread_data, type, trace_id, inst_type,
+                               -1, -1, address, write_p);
+  mambo_deliver_callbacks_code(POST_FRAGMENT_C, thread_data, type, trace_id, inst_type,
+                               -1, -1, address, write_p);
 
   __clear_cache(write_p, write_p + fragment_len);
 

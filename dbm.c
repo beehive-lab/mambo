@@ -94,23 +94,41 @@ void flush_code_cache(dbm_thread *thread_data) {
   linked_list_init(thread_data->cc_links, MAX_CC_LINKS);
 }
 
-void mambo_deliver_callbacks(unsigned cb_id, dbm_thread *thread_data, inst_set inst_type,
-                             cc_type fragment_type, int fragment_id, int inst, mambo_cond cond,
-                             void *read_address, void *write_p, unsigned long *regs) {
+void mambo_deliver_callbacks_for_ctx(mambo_context *ctx) {
+#ifdef PLUGINS_NEW
+  unsigned cb_id = ctx->event_type;
+  assert(cb_id < CALLBACK_MAX_IDX);
+
+  for (int i = 0; i < global_data.free_plugin; i++) {
+    if (global_data.plugins[i].cbs[cb_id] != NULL) {
+      ctx->plugin_id = i;
+      global_data.plugins[i].cbs[cb_id](ctx);
+    } // if
+  } // for
+#endif
+}
+
+void mambo_deliver_callbacks(unsigned cb_id, dbm_thread *thread_data) {
 #ifdef PLUGINS_NEW
   mambo_context ctx;
 
-  assert(cb_id < CALLBACK_MAX_IDX);
+  if (global_data.free_plugin > 0) {
+    set_mambo_context(&ctx, thread_data, cb_id);
+    mambo_deliver_callbacks_for_ctx(&ctx);
+  }
+#endif
+}
+
+void mambo_deliver_callbacks_code(unsigned cb_id, dbm_thread *thread_data, cc_type fragment_type,
+                                  int fragment_id, inst_set inst_type, int inst, mambo_cond cond,
+                                  void *read_address, void *write_p) {
+#ifdef PLUGINS_NEW
+  mambo_context ctx;
 
   if (global_data.free_plugin > 0) {
-    set_mambo_context(&ctx, thread_data, inst_type, fragment_type,
-                      fragment_id, inst, cond, read_address, write_p, regs);
-    for (int i = 0; i < global_data.free_plugin; i++) {
-      if (global_data.plugins[i].cbs[cb_id] != NULL) {
-        ctx.plugin_id = i;
-        global_data.plugins[i].cbs[cb_id](&ctx);
-      } // if
-    } // for
+    set_mambo_context_code(&ctx, thread_data, cb_id, fragment_type, fragment_id,
+                           inst_type, inst, cond, read_address, write_p);
+    mambo_deliver_callbacks_for_ctx(&ctx);
   }
 #endif
 }
@@ -211,22 +229,33 @@ uintptr_t lookup_or_stub(dbm_thread *thread_data, uintptr_t target) {
 }
 
 #ifdef PLUGINS_NEW
-void set_mambo_context(mambo_context *ctx, dbm_thread *thread_data, inst_set inst_type,
-                       cc_type fragment_type, int fragment_id, int inst, mambo_cond cond,
-                       void *read_address, void *write_p, unsigned long *regs) {
+void set_mambo_context(mambo_context *ctx, dbm_thread *thread_data, mambo_cb_idx event_type) {
   ctx->thread_data = thread_data;
-  ctx->inst_type = inst_type;
-  ctx->fragment_type = fragment_type;
-  ctx->fragment_id = fragment_id;
-  ctx->inst = inst;
-  ctx->cond = cond;
-  ctx->read_address = read_address;
-  ctx->write_p = write_p;
-  ctx->regs = regs;
-  ctx->replace = false;
-  ctx->pushed_regs = 0;
-  ctx->available_regs = 0;
-  ctx->plugin_pushed_reg_count = 0;
+  ctx->event_type = event_type;
+}
+
+void set_mambo_context_code(mambo_context *ctx, dbm_thread *thread_data, mambo_cb_idx event_type,
+                            cc_type fragment_type, int fragment_id, inst_set inst_type, int inst,
+                            mambo_cond cond, void *read_address, void *write_p) {
+  set_mambo_context(ctx, thread_data, event_type);
+  ctx->code.inst_type = inst_type;
+  ctx->code.fragment_type = fragment_type;
+  ctx->code.fragment_id = fragment_id;
+  ctx->code.inst = inst;
+  ctx->code.cond = cond;
+  ctx->code.read_address = read_address;
+  ctx->code.write_p = write_p;
+  ctx->code.replace = false;
+  ctx->code.pushed_regs = 0;
+  ctx->code.available_regs = 0;
+  ctx->code.plugin_pushed_reg_count = 0;
+}
+
+void set_mambo_context_syscall(mambo_context *ctx, dbm_thread *thread_data, mambo_cb_idx event_type,
+                               uintptr_t *regs) {
+  set_mambo_context(ctx, thread_data, event_type);
+  ctx->syscall.regs = regs;
+  ctx->syscall.replace = false;
 }
 #endif
 
@@ -280,10 +309,10 @@ uintptr_t scan(dbm_thread *thread_data, uint16_t *address, int basic_block) {
 #elif __aarch64__
   inst_set inst_type = A64_INST;
 #endif
-  mambo_deliver_callbacks(POST_BB_C, thread_data, inst_type, mambo_bb,
-                          basic_block, -1, -1, address, (void *)(block_address & (~THUMB)), NULL);
-  mambo_deliver_callbacks(POST_FRAGMENT_C, thread_data, inst_type, mambo_bb,
-                          basic_block, -1, -1, address, (void *)(block_address & (~THUMB)), NULL);
+  mambo_deliver_callbacks_code(POST_BB_C, thread_data, mambo_bb, basic_block, inst_type,
+                               -1, -1, address, (void *)(block_address & (~THUMB)));
+  mambo_deliver_callbacks_code(POST_FRAGMENT_C, thread_data, mambo_bb, basic_block, inst_type,
+                               -1, -1, address, (void *)(block_address & (~THUMB)));
 
   // Flush modified instructions from caches
   // End address is exclusive
@@ -319,7 +348,7 @@ int register_thread(dbm_thread *thread_data, bool caller_has_lock) {
   thread_data->next_thread = global_data.threads;
   global_data.threads = thread_data;
 
-  mambo_deliver_callbacks(PRE_THREAD_C, thread_data, -1, -1, -1, -1, -1, NULL, NULL, NULL);
+  mambo_deliver_callbacks(PRE_THREAD_C, thread_data);
 
   if (!caller_has_lock) {
     ret = unlock_thread_list();
@@ -352,7 +381,7 @@ int unregister_thread(dbm_thread *thread_data, bool caller_has_lock) {
   }
 
   if (status == 0) {
-    mambo_deliver_callbacks(POST_THREAD_C, thread_data, -1, -1, -1, -1, -1, NULL, NULL, NULL);
+    mambo_deliver_callbacks(POST_THREAD_C, thread_data);
   }
 
   if (!caller_has_lock) {
@@ -391,10 +420,10 @@ void dbm_exit(dbm_thread *thread_data, uint32_t code) {
   } while (!done);
 
   for (dbm_thread *thread = global_data.threads; thread != NULL; thread = thread->next_thread) {
-    mambo_deliver_callbacks(POST_THREAD_C, thread, -1, -1, -1, -1, -1, NULL, NULL, NULL);
+    mambo_deliver_callbacks(POST_THREAD_C, thread);
   }
 
-  mambo_deliver_callbacks(EXIT_C, thread_data, -1, -1, -1, -1, -1, NULL, NULL, NULL);
+  mambo_deliver_callbacks(EXIT_C, thread_data);
 #endif
 
   exit(code);
@@ -518,7 +547,7 @@ void reset_process(dbm_thread *thread_data) {
   stdout = fdopen(1, "a");
   stderr = fdopen(2, "a");
 
-  mambo_deliver_callbacks(PRE_THREAD_C, thread_data, -1, -1, -1, -1, -1, NULL, NULL, NULL);
+  mambo_deliver_callbacks(PRE_THREAD_C, thread_data);
 }
 
 bool is_bb(dbm_thread *thread_data, uintptr_t addr) {

@@ -878,22 +878,22 @@ bool thumb_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id
     }
 
     mambo_context ctx;
-    set_mambo_context(&ctx, thread_data, THUMB_INST, type, basic_block, inst, cond, read_address, write_p, NULL);
+    set_mambo_context_code(&ctx, thread_data, PRE_INST_C, type, basic_block, THUMB_INST, inst, cond, read_address, write_p);
 
     for (int i = 0; i < global_data.free_plugin; i++) {
       if (global_data.plugins[i].cbs[cb_id] != NULL) {
         ctx.plugin_id = i;
-        ctx.replace = false;
-        ctx.available_regs = ctx.pushed_regs;
-        prev_write_p = ctx.write_p;
+        ctx.code.replace = false;
+        ctx.code.available_regs = ctx.code.pushed_regs;
+        prev_write_p = ctx.code.write_p;
         global_data.plugins[i].cbs[cb_id](&ctx);
 
         if (allow_write) {
-          if (replaced && (prev_write_p != ctx.write_p || ctx.replace)) {
+          if (replaced && (prev_write_p != ctx.code.write_p || ctx.code.replace)) {
             fprintf(stderr, "MAMBO API WARNING: plugin %d added code for overridden "
                             "instruction (at %p).\n", i, read_address);
           }
-          if (ctx.replace) {
+          if (ctx.code.replace) {
             if (cb_id == PRE_INST_C) {
               replaced = true;
             } else {
@@ -901,42 +901,42 @@ bool thumb_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id
                               "a disallowed event (at %p).\n", i, read_address);
             }
           }
-          assert(ctx.plugin_pushed_reg_count == 0);
+          assert(ctx.code.plugin_pushed_reg_count == 0);
 
-          thumb_check_free_space(thread_data, (uint16_t **)&ctx.write_p, &data_p, state,
+          thumb_check_free_space(thread_data, (uint16_t **)&ctx.code.write_p, &data_p, state,
                                  set_addr_prev_block, false, MIN_FSPACE, basic_block);
         } else {
-          assert(ctx.write_p == write_p);
+          assert(ctx.code.write_p == write_p);
         }
       } // global_data.plugins[i].cbs[cb_id] != NULL
     } // plugin iterator
 
-    if (allow_write && ctx.pushed_regs) {
-      thumb_pop_regs((uint16_t **)&ctx.write_p, ctx.pushed_regs);
+    if (allow_write && ctx.code.pushed_regs) {
+      thumb_pop_regs((uint16_t **)&ctx.code.write_p, ctx.code.pushed_regs);
     }
 
     if (allow_write && state->cond_inst_after_it > 0) {
-      if (ctx.write_p != write_p) {
+      if (ctx.code.write_p != write_p) {
         // Code was inserted.
         // Reduce the length of the IT block
-        create_it_gap((uint16_t **)&ctx.write_p, state);
+        create_it_gap((uint16_t **)&ctx.code.write_p, state);
         if (replaced) {
           // If the instruction was replaced by a plugin, remove its
           // condition from the head of the IT block
           do_it_iter(state);
         }
         // Insert an IT instruction for the remaining instructions
-        close_it_gap((uint16_t **)&ctx.write_p, state);
+        close_it_gap((uint16_t **)&ctx.code.write_p, state);
       } else {
         // If no code was inserted, keep the IT instruction
         if (state->is_overwritten) {
-          ctx.write_p += 2;
+          ctx.code.write_p += 2;
           state->is_overwritten = false;
         }
       }
     }
 
-    write_p = ctx.write_p;
+    write_p = ctx.code.write_p;
 
     *o_write_p = write_p;
     *o_data_p = data_p;

@@ -41,10 +41,10 @@
 mambo_branch_type __get_thumb_branch_type(mambo_context *ctx) {
   mambo_branch_type type = BRANCH_NONE;
 
-  switch (ctx->inst) {
+  switch (ctx->code.inst) {
     case THUMB_MOVH16: {
       uint32_t dn, rm, rdn;
-      thumb_movh16_decode_fields(ctx->read_address, &dn, &rm, &rdn);
+      thumb_movh16_decode_fields(ctx->code.read_address, &dn, &rm, &rdn);
       rdn |= dn << 3;
       if (rdn == pc) {
         type =  BRANCH_INDIRECT;
@@ -56,7 +56,7 @@ mambo_branch_type __get_thumb_branch_type(mambo_context *ctx) {
     }
     case THUMB_POP16: {
       uint32_t reglist;
-      thumb_pop16_decode_fields(ctx->read_address, &reglist);
+      thumb_pop16_decode_fields(ctx->code.read_address, &reglist);
       if (reglist & (1 << 8)) {
         type =  BRANCH_INDIRECT | BRANCH_RETURN | BRANCH_INTERWORKING;
       }
@@ -64,7 +64,7 @@ mambo_branch_type __get_thumb_branch_type(mambo_context *ctx) {
     }
     case THUMB_LDRI32: {
       uint32_t rn, rt, imm8, p, u, w;
-      thumb_ldri32_decode_fields(ctx->read_address, &rt, &rn, &imm8, &p, &u, &w);
+      thumb_ldri32_decode_fields(ctx->code.read_address, &rt, &rn, &imm8, &p, &u, &w);
       if (rt == pc) {
         type =  BRANCH_INDIRECT | BRANCH_INTERWORKING;
         if (rn == sp) {
@@ -75,7 +75,7 @@ mambo_branch_type __get_thumb_branch_type(mambo_context *ctx) {
     }
     case THUMB_LDR32: {
       uint32_t rn, rt, shift, rm;
-      thumb_ldr32_decode_fields(ctx->read_address, &rn, &rt, &shift, &rm);
+      thumb_ldr32_decode_fields(ctx->code.read_address, &rn, &rt, &shift, &rm);
       if (rt == pc) {
         type =  BRANCH_INDIRECT | BRANCH_INTERWORKING;
         if (rn == sp) {
@@ -87,7 +87,7 @@ mambo_branch_type __get_thumb_branch_type(mambo_context *ctx) {
     case THUMB_LDMFD32:
     case THUMB_LDMEA32: {
       uint32_t w, rn, reglist;
-      thumb_ldmfd32_decode_fields(ctx->read_address, &w, &rn, &reglist);
+      thumb_ldmfd32_decode_fields(ctx->code.read_address, &w, &rn, &reglist);
 	    if (reglist & (1 << pc)) {
 	      type =  BRANCH_INDIRECT | BRANCH_INTERWORKING;
         if (rn == sp) {
@@ -98,7 +98,7 @@ mambo_branch_type __get_thumb_branch_type(mambo_context *ctx) {
     }
     case THUMB_BX16: {
       uint32_t rm;
-      thumb_bx16_decode_fields(ctx->read_address, &rm);
+      thumb_bx16_decode_fields(ctx->code.read_address, &rm);
       type =  BRANCH_INDIRECT | BRANCH_INTERWORKING;
       if (rm == lr) {
         type |= BRANCH_RETURN;
@@ -142,7 +142,7 @@ mambo_branch_type __get_thumb_branch_type(mambo_context *ctx) {
 mambo_branch_type __get_arm_branch_type(mambo_context *ctx) {
   mambo_branch_type type = BRANCH_NONE;
 
-  switch (ctx->inst) {
+  switch (ctx->code.inst) {
     case ARM_ADC:
     case ARM_ADD:
     case ARM_EOR:
@@ -152,7 +152,7 @@ mambo_branch_type __get_arm_branch_type(mambo_context *ctx) {
     case ARM_SUB:
     case ARM_RSC: {
       uint32_t immediate, opcode, set_flags, rd, rn, operand2, rm = reg_invalid;
-      arm_data_proc_decode_fields(ctx->read_address, &immediate, &opcode, &set_flags, &rd, &rn, &operand2);
+      arm_data_proc_decode_fields(ctx->code.read_address, &immediate, &opcode, &set_flags, &rd, &rn, &operand2);
       if (rn == pc) {
         type = BRANCH_INDIRECT | BRANCH_INTERWORKING;
       }
@@ -160,7 +160,7 @@ mambo_branch_type __get_arm_branch_type(mambo_context *ctx) {
     }
     case ARM_BX: {
       uint32_t rn;
-      arm_bx_decode_fields(ctx->read_address, &rn);
+      arm_bx_decode_fields(ctx->code.read_address, &rn);
       type = BRANCH_INDIRECT | BRANCH_INTERWORKING;
       if (rn == lr) {
         type |= BRANCH_RETURN;
@@ -169,7 +169,7 @@ mambo_branch_type __get_arm_branch_type(mambo_context *ctx) {
     }
     case ARM_LDM: {
       uint32_t rn, regs, p, u, w, s;
-      arm_ldm_decode_fields(ctx->read_address, &rn, &regs, &p, &u, &w, &s);
+      arm_ldm_decode_fields(ctx->code.read_address, &rn, &regs, &p, &u, &w, &s);
 	    if (regs & (1 << pc)) {
 	      type = BRANCH_INDIRECT | BRANCH_INTERWORKING;
 	      if (rn == sp) {
@@ -180,7 +180,7 @@ mambo_branch_type __get_arm_branch_type(mambo_context *ctx) {
     }
     case ARM_LDR: {
       uint32_t i, rd, rn, op2, p, u, w;
-      arm_ldr_decode_fields(ctx->read_address, &i, &rd, &rn, &op2, &p, &u, &w);
+      arm_ldr_decode_fields(ctx->code.read_address, &i, &rd, &rn, &op2, &p, &u, &w);
       if (rd == pc) {
         type = BRANCH_INDIRECT | BRANCH_INTERWORKING;
 	      if (rn == sp) {
@@ -224,7 +224,7 @@ mambo_branch_type mambo_get_branch_type(mambo_context *ctx) {
 #ifdef __aarch64__
   type = BRANCH_NONE;
 
-  switch (ctx->inst) {
+  switch (ctx->code.inst) {
     case A64_CBZ_CBNZ:
       type = BRANCH_DIRECT | BRANCH_COND | BRANCH_COND_CBZ;
       break;
@@ -245,7 +245,7 @@ mambo_branch_type mambo_get_branch_type(mambo_context *ctx) {
       break;
     case A64_B_BL: {
       uint32_t op, imm26;
-      a64_B_BL_decode_fields(ctx->read_address, &op, &imm26);
+      a64_B_BL_decode_fields(ctx->code.read_address, &op, &imm26);
 
       type = BRANCH_DIRECT;
       if (op == 1) { // BL

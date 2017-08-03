@@ -50,14 +50,14 @@ end
 
 def generate_body(name, fields, size)
   puts ")\n{"
-  print "\t#{name}((uint#{@min_size * 8}_t **)(&ctx->write_p)"
+  print "\t#{name}((uint#{@min_size * 8}_t **)(&ctx->code.write_p)"
 
   fields.each do |field|
     print ", #{field}"
   end
 
   puts ");"
-  puts "\tctx->write_p += #{size};\n}"
+  puts "\tctx->code.write_p += #{size};\n}"
 end
 
 def process_file(filename)

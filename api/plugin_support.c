@@ -38,7 +38,7 @@ mambo_context *mambo_register_plugin(void) {
     return NULL;
   }
 
-  set_mambo_context(&tmp_ctx, NULL, -1, -1, -1, -1, -1, NULL, NULL, NULL);
+  set_mambo_context(&tmp_ctx, NULL, PLUGIN_REG);
   tmp_ctx.plugin_id = index;
 
   return &tmp_ctx;
@@ -160,19 +160,19 @@ void mambo_free(mambo_context *ctx, void *ptr) {
 
 /* Other */
 int mambo_get_inst(mambo_context *ctx) {
-  return ctx->inst;
+  return ctx->code.inst;
 }
 
 inst_set mambo_get_inst_type(mambo_context *ctx) {
-  return ctx->inst_type;
+  return ctx->code.inst_type;
 }
 
 int mambo_get_fragment_id(mambo_context *ctx) {
-  return ctx->fragment_id;
+  return ctx->code.fragment_id;
 }
 
 cc_type mambo_get_fragment_type(mambo_context *ctx) {
-  return ctx->fragment_type;
+  return ctx->code.fragment_type;
 }
 
 int mambo_get_inst_len(mambo_context *ctx) {
@@ -193,16 +193,16 @@ int mambo_get_inst_len(mambo_context *ctx) {
 }
 
 void *mambo_get_source_addr(mambo_context *ctx) {
-  return ctx->read_address;
+  return ctx->code.read_address;
 }
 
 void *mambo_get_cc_addr(mambo_context *ctx) {
-  return ctx->write_p;
+  return ctx->code.write_p;
 }
 
 void mambo_set_cc_addr(mambo_context *ctx, void *addr) {
-  assert(ctx->write_p != NULL);
-  ctx->write_p = addr;
+  assert(ctx->code.write_p != NULL);
+  ctx->code.write_p = addr;
 }
 
 int mambo_get_thread_id(mambo_context *ctx) {
@@ -210,11 +210,11 @@ int mambo_get_thread_id(mambo_context *ctx) {
 }
 
 mambo_cond mambo_get_cond(mambo_context *ctx) {
-  return ctx->cond;
+  return ctx->code.cond;
 }
 
 bool mambo_is_cond(mambo_context *ctx) {
-  return ctx->cond != AL;
+  return ctx->code.cond != AL;
 }
 
 mambo_cond mambo_get_inverted_cond(mambo_context *ctx, mambo_cond cond) {
@@ -222,7 +222,7 @@ mambo_cond mambo_get_inverted_cond(mambo_context *ctx, mambo_cond cond) {
 }
 
 void mambo_replace_inst(mambo_context *ctx) {
-  ctx->replace = true;
+  ctx->code.replace = true;
 }
 
 /* Allows scratch registers to be shared by multiple plugins
@@ -238,15 +238,15 @@ int mambo_get_scratch_regs(mambo_context *ctx, int count, ...) {
   va_list args;
   va_start(args, count);
 
-  if (ctx->pushed_regs) {
-    min_pushed_reg = next_reg_in_list(ctx->pushed_regs, 0);
+  if (ctx->code.pushed_regs) {
+    min_pushed_reg = next_reg_in_list(ctx->code.pushed_regs, 0);
   }
 
   for (int i = 0; i < count; i++) {
     regp = va_arg(args, int *);
-    int reg = next_reg_in_list(ctx->available_regs, 0);
+    int reg = next_reg_in_list(ctx->code.available_regs, 0);
     if (reg != reg_invalid) {
-      ctx->available_regs &= ~(1 << reg);
+      ctx->code.available_regs &= ~(1 << reg);
     } else {
       min_pushed_reg--;
       if (min_pushed_reg >= 0) {
@@ -262,7 +262,7 @@ int mambo_get_scratch_regs(mambo_context *ctx, int count, ...) {
     }
   }
 
-  ctx->pushed_regs |= to_push;
+  ctx->code.pushed_regs |= to_push;
   if (to_push) {
     emit_push(ctx, to_push);
   }
@@ -275,10 +275,10 @@ int mambo_get_scratch_reg(mambo_context *ctx, int *regp) {
 }
 
 int mambo_free_scratch_regs(mambo_context *ctx, uint32_t regs) {
-  if ((regs & ctx->pushed_regs) != regs) {
+  if ((regs & ctx->code.pushed_regs) != regs) {
     return -1;
   }
-  ctx->available_regs |= regs;
+  ctx->code.available_regs |= regs;
   return 0;
 }
 

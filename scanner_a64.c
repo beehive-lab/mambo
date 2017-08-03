@@ -383,21 +383,21 @@ bool a64_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id, 
     uint32_t *data_p = *o_data_p;
 
     mambo_context ctx;
-    set_mambo_context(&ctx, thread_data, A64_INST, type, basic_block, inst, AL, read_address, write_p, NULL);
+    set_mambo_context_code(&ctx, thread_data, cb_id, type, basic_block, A64_INST, inst, AL, read_address, write_p);
 
     for (int i = 0; i < global_data.free_plugin; i++) {
       if (global_data.plugins[i].cbs[cb_id] != NULL) {
-        ctx.write_p = write_p;
+        ctx.code.write_p = write_p;
         ctx.plugin_id = i;
-        ctx.replace = false;
-        ctx.available_regs = ctx.pushed_regs;
+        ctx.code.replace = false;
+        ctx.code.available_regs = ctx.code.pushed_regs;
         global_data.plugins[i].cbs[cb_id](&ctx);
         if (allow_write) {
-          if (replaced && (write_p != ctx.write_p || ctx.replace)) {
+          if (replaced && (write_p != ctx.code.write_p || ctx.code.replace)) {
             fprintf(stderr, "MAMBO API WARNING: plugin %d added code for overridden"
                             "instruction (%p).\n", i, read_address);
           }
-          if (ctx.replace) {
+          if (ctx.code.replace) {
             if (cb_id == PRE_INST_C) {
               replaced = true;
             } else {
@@ -405,18 +405,18 @@ bool a64_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id, 
                               "a disallowed event (at %p).\n", i, read_address);
             }
           }
-          assert(ctx.plugin_pushed_reg_count == 0);
-          write_p = ctx.write_p;
+          assert(ctx.code.plugin_pushed_reg_count == 0);
+          write_p = ctx.code.write_p;
           a64_check_free_space(thread_data, &write_p, &data_p, MIN_FSPACE, basic_block);
         } else {
-          assert(ctx.write_p == write_p);
+          assert(ctx.code.write_p == write_p);
         }
       }
     }
 
-    if (allow_write && ctx.pushed_regs) {
-      emit_a64_pop(&ctx, ctx.pushed_regs);
-      write_p = ctx.write_p;
+    if (allow_write && ctx.code.pushed_regs) {
+      emit_a64_pop(&ctx, ctx.code.pushed_regs);
+      write_p = ctx.code.write_p;
     }
 
     *o_write_p = write_p;

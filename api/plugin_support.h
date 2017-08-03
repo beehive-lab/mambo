@@ -23,26 +23,33 @@
 #include "../dbm.h"
 #include "../scanner_public.h"
 
-typedef struct {
-  dbm_thread *thread_data;
-  int plugin_id;
-  inst_set inst_type;
+struct code_ctx {
   cc_type fragment_type;
   int fragment_id;
+
+  inst_set inst_type;
+  void *read_address;
   int inst;
   mambo_cond cond;
-  void *read_address;
+
   void *write_p;
-  unsigned long *regs;
-  bool replace;
+
   uint32_t pushed_regs;
   uint32_t available_regs;
   int plugin_pushed_reg_count;
-} mambo_context;
 
-typedef int (*mambo_callback)(mambo_context *ctx);
+  char *func_name;
+
+  bool replace;
+};
+
+struct syscall_ctx {
+  uintptr_t *regs;
+  bool replace;
+};
 
 typedef enum {
+  PLUGIN_REG,
   PRE_INST_C,
   POST_INST_C,
   PRE_BB_C,
@@ -56,6 +63,18 @@ typedef enum {
   EXIT_C,
   CALLBACK_MAX_IDX,
 } mambo_cb_idx;
+
+typedef struct {
+  dbm_thread *thread_data;
+  mambo_cb_idx event_type;
+  int plugin_id;
+  union {
+    struct code_ctx code;
+    struct syscall_ctx syscall;
+  };
+} mambo_context;
+
+typedef int (*mambo_callback)(mambo_context *ctx);
 
 typedef enum {
   BRANCH_NONE = (1 << 0),

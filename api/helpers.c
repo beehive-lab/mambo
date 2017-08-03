@@ -35,7 +35,7 @@
 
 #ifdef __arm__
 void emit_thumb_push_cpsr(mambo_context *ctx, enum reg tmp_reg) {
-  uint16_t *write_p = ctx->write_p;
+  uint16_t *write_p = ctx->code.write_p;
 
   // MRS tmp_reg, CPSR
   thumb_mrs32(&write_p, tmp_reg);
@@ -44,7 +44,7 @@ void emit_thumb_push_cpsr(mambo_context *ctx, enum reg tmp_reg) {
   // PUSH {tmp_reg}
   thumb_push_regs(&write_p, 1 << tmp_reg);
 
-  ctx->write_p = write_p;
+  ctx->code.write_p = write_p;
 }
 
 void emit_arm_push_cpsr(mambo_context *ctx, enum reg tmp_reg) {
@@ -53,7 +53,7 @@ void emit_arm_push_cpsr(mambo_context *ctx, enum reg tmp_reg) {
 }
 
 void emit_thumb_pop_cpsr(mambo_context *ctx, enum reg tmp_reg) {
-  uint16_t *write_p = ctx->write_p;
+  uint16_t *write_p = ctx->code.write_p;
 
   // POP {tmp_reg}
   thumb_pop_regs(&write_p, 1 << tmp_reg);
@@ -62,7 +62,7 @@ void emit_thumb_pop_cpsr(mambo_context *ctx, enum reg tmp_reg) {
   thumb_msr32(&write_p, tmp_reg, 3);
   write_p += 2;
 
-  ctx->write_p = write_p;
+  ctx->code.write_p = write_p;
 }
 
 void emit_arm_pop_cpsr(mambo_context *ctx, enum reg tmp_reg) {
@@ -72,17 +72,17 @@ void emit_arm_pop_cpsr(mambo_context *ctx, enum reg tmp_reg) {
 
 void emit_thumb_copy_to_reg_32bit(mambo_context *ctx, enum reg reg, uint32_t value) {
   if (value <= 0xFFFF) {
-    copy_to_reg_16bit((uint16_t **)&ctx->write_p, reg, value);
+    copy_to_reg_16bit((uint16_t **)&ctx->code.write_p, reg, value);
   } else {
-    copy_to_reg_32bit((uint16_t **)&ctx->write_p, reg, value);
+    copy_to_reg_32bit((uint16_t **)&ctx->code.write_p, reg, value);
   }
 }
 
 void emit_arm_copy_to_reg_32bit(mambo_context *ctx, enum reg reg, uint32_t value) {
   if (value <= 0xFFFF) {
-    arm_copy_to_reg_16bit((uint32_t **)&ctx->write_p, reg, value);
+    arm_copy_to_reg_16bit((uint32_t **)&ctx->code.write_p, reg, value);
   } else {
-    arm_copy_to_reg_32bit((uint32_t **)&ctx->write_p, reg, value);
+    arm_copy_to_reg_32bit((uint32_t **)&ctx->code.write_p, reg, value);
   }
 }
 
@@ -91,37 +91,37 @@ void emit_thumb_b16_cond(void *write_p, void *target, mambo_cond cond) {
 }
 
 void emit_thumb_push(mambo_context *ctx, uint32_t regs) {
-  ctx->plugin_pushed_reg_count += count_bits(regs);
+  ctx->code.plugin_pushed_reg_count += count_bits(regs);
 
-  uint16_t *write_p = ctx->write_p;
+  uint16_t *write_p = ctx->code.write_p;
   thumb_push_regs(&write_p, regs);
-  ctx->write_p = write_p;
+  ctx->code.write_p = write_p;
 }
 
 void emit_arm_push(mambo_context *ctx, uint32_t regs) {
-  ctx->plugin_pushed_reg_count += count_bits(regs);
+  ctx->code.plugin_pushed_reg_count += count_bits(regs);
 
-  uint32_t *write_p = ctx->write_p;
+  uint32_t *write_p = ctx->code.write_p;
   arm_push_regs(regs);
-  ctx->write_p = write_p;
+  ctx->code.write_p = write_p;
 }
 
 void emit_thumb_pop(mambo_context *ctx, uint32_t regs) {
-  ctx->plugin_pushed_reg_count -= count_bits(regs);
-  assert(ctx->plugin_pushed_reg_count >= 0);
+  ctx->code.plugin_pushed_reg_count -= count_bits(regs);
+  assert(ctx->code.plugin_pushed_reg_count >= 0);
 
-  uint16_t *write_p = ctx->write_p;
+  uint16_t *write_p = ctx->code.write_p;
   thumb_pop_regs(&write_p, regs);
-  ctx->write_p = write_p;
+  ctx->code.write_p = write_p;
 }
 
 void emit_arm_pop(mambo_context *ctx, uint32_t regs) {
-  ctx->plugin_pushed_reg_count -= count_bits(regs);
-  assert(ctx->plugin_pushed_reg_count >= 0);
+  ctx->code.plugin_pushed_reg_count -= count_bits(regs);
+  assert(ctx->code.plugin_pushed_reg_count >= 0);
 
-  uint32_t *write_p = ctx->write_p;
+  uint32_t *write_p = ctx->code.write_p;
   arm_pop_regs(regs);
-  ctx->write_p = write_p;
+  ctx->code.write_p = write_p;
 }
 
 void emit_arm_fcall(mambo_context *ctx, void *function_ptr) {
@@ -174,9 +174,9 @@ static inline int emit_thumb_add_sub(mambo_context *ctx, int rd, int rn, int rm)
 
 #ifdef __aarch64__
 void emit_a64_push(mambo_context *ctx, uint32_t regs) {
-  ctx->plugin_pushed_reg_count += count_bits(regs);
+  ctx->code.plugin_pushed_reg_count += count_bits(regs);
 
-  uint32_t *write_p = ctx->write_p;
+  uint32_t *write_p = ctx->code.write_p;
   uint32_t to_push[2];
   int reg_no;
 
@@ -192,14 +192,14 @@ void emit_a64_push(mambo_context *ctx, uint32_t regs) {
     }
   }
 
-  ctx->write_p = write_p;
+  ctx->code.write_p = write_p;
 }
 
 void emit_a64_pop(mambo_context *ctx, uint32_t regs) {
-  ctx->plugin_pushed_reg_count -= count_bits(regs);
-  assert(ctx->plugin_pushed_reg_count >= 0);
+  ctx->code.plugin_pushed_reg_count -= count_bits(regs);
+  assert(ctx->code.plugin_pushed_reg_count >= 0);
 
-  uint32_t *write_p = ctx->write_p;
+  uint32_t *write_p = ctx->code.write_p;
   uint32_t to_pop[2];
   int reg_no;
 
@@ -215,7 +215,7 @@ void emit_a64_pop(mambo_context *ctx, uint32_t regs) {
     }
   }
 
-  ctx->write_p = write_p;
+  ctx->code.write_p = write_p;
 }
 
 static inline int emit_a64_add_sub_shift(mambo_context *ctx, int rd, int rn, int rm,
@@ -254,7 +254,7 @@ void emit_push(mambo_context *ctx, uint32_t regs) {
 }
 
 void emit_pop(mambo_context *ctx, uint32_t regs) {
-  assert(ctx->plugin_pushed_reg_count >= 0);
+  assert(ctx->code.plugin_pushed_reg_count >= 0);
 #ifdef __arm__
   inst_set isa = mambo_get_inst_type(ctx);
   if (isa == ARM_INST) {
@@ -276,7 +276,7 @@ void emit_set_reg(mambo_context *ctx, enum reg reg, uintptr_t value) {
     emit_thumb_copy_to_reg_32bit(ctx, reg, value);
   }
 #elif __aarch64__
-  a64_copy_to_reg_64bits((uint32_t **)&ctx->write_p, reg, value);
+  a64_copy_to_reg_64bits((uint32_t **)&ctx->code.write_p, reg, value);
 #endif
 }
 
@@ -453,9 +453,9 @@ int emit_branch(mambo_context *ctx, void *target) {
 }
 
 int mambo_reserve_branch(mambo_context *ctx, mambo_branch *br) {
-  if (ctx->write_p) {
-    br->loc = ctx->write_p;
-    ctx->write_p += 4;
+  if (ctx->code.write_p) {
+    br->loc = ctx->code.write_p;
+    ctx->code.write_p += 4;
     return 0;
   }
   return -1;
@@ -464,7 +464,7 @@ int mambo_reserve_branch(mambo_context *ctx, mambo_branch *br) {
 int __emit_local_branch(mambo_context *ctx, mambo_branch *br, mambo_cond cond, bool link) {
   uintptr_t target = (uintptr_t)mambo_get_cc_addr(ctx);
 #ifdef __arm__
-  if (ctx->inst_type == THUMB_INST) {
+  if (ctx->code.inst_type == THUMB_INST) {
     target |= THUMB;
   }
 #endif
@@ -539,7 +539,7 @@ void emit_counter64_incr(mambo_context *ctx, void *counter, unsigned incr) {
 #ifdef __aarch64__
   assert(incr <= 0xFFF);
   emit_a64_push(ctx, (1 << x0) | (1 << x1));
-  a64_copy_to_reg_64bits((uint32_t **)&ctx->write_p, x0, (uintptr_t)counter);
+  a64_copy_to_reg_64bits((uint32_t **)&ctx->code.write_p, x0, (uintptr_t)counter);
   emit_a64_LDR_STR_unsigned_immed(ctx, 3, 0, 1, 0, x0, x1);
   emit_a64_ADD_SUB_immed(ctx, 1, 0, 0, 0, incr, x1, x1);
   emit_a64_LDR_STR_unsigned_immed(ctx, 3, 0, 0, 0, x0, x1);

@@ -183,14 +183,8 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
   int cont;
 
   if (global_data.free_plugin > 0) {
-    set_mambo_context(&ctx, thread_data, -1, -1, -1, -1, -1, NULL, NULL, (unsigned long *)args);
-    for (int i = 0; i < global_data.free_plugin; i++) {
-      if (global_data.plugins[i].cbs[PRE_SYSCALL_C] != NULL) {
-        ctx.plugin_id = i;
-        cont = global_data.plugins[i].cbs[PRE_SYSCALL_C](&ctx);
-        if (!cont) return 0;
-      } // if
-    } // for
+    set_mambo_context_syscall(&ctx, thread_data, PRE_SYSCALL_C, args);
+    mambo_deliver_callbacks_for_ctx(&ctx);
   }
 #endif
 
@@ -434,13 +428,8 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
 
 #ifdef PLUGINS_NEW
   if (do_syscall == 0 && global_data.free_plugin > 0) {
-    set_mambo_context(&ctx, thread_data, -1, -1, -1, -1, -1, NULL, NULL, (unsigned long *)args);
-    for (int i = 0; i < global_data.free_plugin; i++) {
-      if (global_data.plugins[i].cbs[POST_SYSCALL_C] != NULL) {
-        ctx.plugin_id = i;
-        global_data.plugins[i].cbs[POST_SYSCALL_C](&ctx);
-      } // if
-    } // for
+    set_mambo_context_syscall(&ctx, thread_data, POST_SYSCALL_C, (uintptr_t *)args);
+    mambo_deliver_callbacks_for_ctx(&ctx);
   }
 #endif
 
@@ -473,6 +462,9 @@ void syscall_handler_post(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_
   }
 
 #ifdef PLUGINS_NEW
-  mambo_deliver_callbacks(POST_SYSCALL_C, thread_data, -1, -1, -1, -1, -1, NULL, NULL, (unsigned long *)args);
+  mambo_context ctx;
+
+  set_mambo_context_syscall(&ctx, thread_data, POST_SYSCALL_C, (uintptr_t *)args);
+  mambo_deliver_callbacks_for_ctx(&ctx);
 #endif
 }
