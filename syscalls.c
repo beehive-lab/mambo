@@ -28,6 +28,8 @@
 #include <limits.h>
 #include <string.h>
 #include <errno.h>
+#include <sys/types.h>
+#include <sys/shm.h>
 
 #include "dbm.h"
 #include "kernel_sigaction.h"
@@ -371,6 +373,41 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
       }
 
       args[0] = syscall_ret;
+      do_syscall = 0;
+      break;
+    }
+
+    case __NR_shmat: {
+      uintptr_t syscall_ret = raw_syscall(syscall_no, args[0], args[1], args[2]);
+      if (syscall_ret != -1) {
+        struct shmid_ds shm;
+        int prot = PROT_READ;
+        prot |= (args[2] & SHM_EXEC) ? PROT_EXEC : 0;
+        prot |= (args[2] & SHM_RDONLY) ? 0 : PROT_WRITE;
+        int ret = shmctl(args[0], IPC_STAT, &shm);
+        assert(ret == 0);
+
+        notify_vm_op(VM_MAP, syscall_ret, shm.shm_segsz, prot, 0, -1, 0);
+      }
+
+      args[0] = syscall_ret;
+      do_syscall = 0;
+      break;
+    }
+
+    case __NR_shmdt: {
+      struct shmid_ds shm;
+      int ret = shmctl(args[0], IPC_STAT, &shm);
+      if (ret == 0) {
+        uintptr_t syscall_ret = raw_syscall(syscall_no, args[0]);
+        if (syscall_ret == 0) {
+          notify_vm_op(VM_UNMAP, args[0], shm.shm_segsz, 0, 0, -1, 0);
+        }
+        args[0] = syscall_ret;
+      } else {
+        args[0] = -errno;
+      }
+
       do_syscall = 0;
       break;
     }
