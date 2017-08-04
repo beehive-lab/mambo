@@ -51,6 +51,7 @@ enum reg {
 };
 
 enum reg_alt {
+  es = r4, // the first calleE-Saved register - not a standard alias
   sp = r13,
   lr = r14,
   pc = r15
@@ -99,6 +100,7 @@ enum reg_alt {
   ip0  =  x16,  // Intra-Procedure Call temporary registers
   ip1  =  x17,  // Intra-Procedure Call temporary registers
   pr   =  x18,  // Platform Register
+  es   =  x19,  // the first calleE-Saved register - not a standard alias
   fp   =  x29,  // Frame Pointer
   lr   =  x30,  // Link register
   sp   =  x31,  // Stack Pointer
