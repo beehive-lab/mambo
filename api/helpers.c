@@ -280,7 +280,53 @@ void emit_set_reg(mambo_context *ctx, enum reg reg, uintptr_t value) {
 #endif
 }
 
+int __emit_branch_cond(inst_set inst_type, void *write, uintptr_t target, mambo_cond cond, bool link) {
+  intptr_t diff = (target & (~THUMB)) - (uintptr_t)write;
+  if (cond != AL && link) return -1;
+#ifdef __arm__
+  switch (inst_type) {
+    case THUMB_INST:
+      diff -= 4;
+      if (cond == AL) {
+        bool to_arm = link && !(target & THUMB);
+        target &= ~THUMB;
+        if (diff < -16777216 || diff > 16777214) return -1;
+        thumb_b_bl_helper(write, target, link, to_arm);
+      } else {
+        if (diff < -1048576 || diff > 1048574) return -1;
+        void *write_c = write;
+        thumb_b32_cond_helper((uint16_t **)&write, target, cond);
+        assert((write_c + 4) == write);
+      }
+      break;
+    case ARM_INST:
+      if (target & THUMB) return -1;
+      diff -= 8;
+      if (diff < -33554432 || diff > 33554428) return -1;
+      arm_branch_helper(write, target, link, cond);
+      break;
+    default:
+      return -1;
+  }
+#endif
+#ifdef __aarch64__
+  if (cond == AL) {
+    if (diff < -134217728 || diff > 134217724) return -1;
+    a64_branch_helper(write, target, link);
+    //a64_b_helper(write, target);
+  } else {
+    if (diff < -1048576 || diff > 1048572) return -1;
+    a64_b_cond_helper(write, target, cond);
+  }
+#endif
+  return 0;
+}
+
 void emit_fcall(mambo_context *ctx, void *function_ptr) {
+  // First try an immediate call, and if that is out of range then generate an indirect call
+  int ret = __emit_branch_cond(ctx->code.inst_type, ctx->code.write_p, (uintptr_t)function_ptr, AL, true);
+  if (ret == 0) return;
+
   emit_set_reg(ctx, lr, (uintptr_t)function_ptr);
 #ifdef __arm__
   inst_set type = mambo_get_inst_type(ctx);
@@ -393,46 +439,9 @@ inline int emit_add_sub(mambo_context *ctx, int rd, int rn, int rm) {
   return emit_add_sub_shift(ctx, rd, rn, rm, LSL, 0);
 }
 
-int __emit_branch_cond(inst_set inst_type, void *write, uintptr_t target, mambo_cond cond) {
-  intptr_t diff = target - (uintptr_t)write;
-#ifdef __arm__
-  switch (inst_type) {
-    case THUMB_INST:
-      diff -= 4;
-      if (cond == AL) {
-        if (diff < -16777216 || diff > 16777214) return -1;
-        thumb_b32_helper(write, target);
-      } else {
-        if (diff < -1048576 || diff > 1048574) return -1;
-        void *write_c = write;
-        thumb_b32_cond_helper((uint16_t **)&write, target, cond);
-        assert((write_c + 4) == write);
-      }
-      break;
-    case ARM_INST:
-      diff -= 8;
-      if (diff < -33554432 || diff > 33554428) return -1;
-      arm_b32_helper(write, target, cond);
-      break;
-    default:
-      return -1;
-  }
-#endif
-#ifdef __aarch64__
-  if (cond == AL) {
-    if (diff < -134217728 || diff > 134217724) return -1;
-    a64_b_helper(write, target);
-  } else {
-    if (diff < -1048576 || diff > 1048572) return -1;
-    a64_b_cond_helper(write, target, cond);
-  }
-#endif
-  return 0;
-}
-
 int emit_branch_cond(mambo_context *ctx, void *target, mambo_cond cond) {
   void *write_p = mambo_get_cc_addr(ctx);
-  int ret = __emit_branch_cond(mambo_get_inst_type(ctx), write_p, (uintptr_t)target, cond);
+  int ret = __emit_branch_cond(mambo_get_inst_type(ctx), write_p, (uintptr_t)target, cond, false);
   if (ret == 0) {
     mambo_set_cc_addr(ctx, write_p + 4);
   }
@@ -452,13 +461,26 @@ int mambo_reserve_branch(mambo_context *ctx, mambo_branch *br) {
   return -1;
 }
 
-int emit_local_branch_cond(mambo_context *ctx, mambo_branch *br, mambo_cond cond) {
+int __emit_local_branch(mambo_context *ctx, mambo_branch *br, mambo_cond cond, bool link) {
   uintptr_t target = (uintptr_t)mambo_get_cc_addr(ctx);
-  return __emit_branch_cond(mambo_get_inst_type(ctx), br->loc, target, cond);
+#ifdef __arm__
+  if (ctx->inst_type == THUMB_INST) {
+    target |= THUMB;
+  }
+#endif
+  return __emit_branch_cond(mambo_get_inst_type(ctx), br->loc, target, cond, link);
+}
+
+int emit_local_branch_cond(mambo_context *ctx, mambo_branch *br, mambo_cond cond) {
+  return __emit_local_branch(ctx, br, cond, false);
 }
 
 int emit_local_branch(mambo_context *ctx, mambo_branch *br) {
-  return emit_local_branch_cond(ctx, br, AL);
+  return __emit_local_branch(ctx, br, AL, false);
+}
+
+int emit_local_fcall(mambo_context *ctx, mambo_branch *br) {
+  return __emit_local_branch(ctx, br, AL, true);
 }
 
 void emit_counter64_incr(mambo_context *ctx, void *counter, unsigned incr) {

@@ -40,6 +40,7 @@ void thumb_b32_helper(uint16_t *write_p, uint32_t dest_addr);
 void thumb_b32_cond_helper(uint16_t **write_p, uint32_t dest_addr, enum arm_cond_codes condition);
 void thumb_bl32_helper(uint16_t *write_p, uint32_t dest_addr);
 void thumb_blx32_helper(uint16_t *write_p, uint32_t dest_addr);
+void thumb_b_bl_helper(uint16_t *write_p, uint32_t dest_addr, bool link, bool to_arm);
 void thumb_adjust_b_bl_target(dbm_thread *thread_data, uint16_t *write_p, uint32_t dest_addr);
 void thumb_encode_cond_imm_branch(dbm_thread *thread_data,
                                        uint16_t **o_write_p,
@@ -62,6 +63,7 @@ void thumb_encode_cbz_branch(dbm_thread *thread_data,
 
 void arm_cc_branch(dbm_thread *thread_data, uint32_t *write_p, uint32_t target, uint32_t cond);
 void arm_b32_helper(uint32_t *write_p, uint32_t target, uint32_t cond);
+void arm_branch_helper(uint32_t *write_p, uint32_t target, bool link, uint32_t cond);
 void arm_adjust_b_bl_target(uint32_t *write_p, uint32_t dest_addr);
 void branch_save_context(dbm_thread *thread_data, uint16_t **o_write_p, bool late_app_sp);
 #endif

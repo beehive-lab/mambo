@@ -44,6 +44,7 @@ int emit_branch_cond(mambo_context *ctx, void *target, mambo_cond cond);
 int mambo_reserve_branch(mambo_context *ctx, mambo_branch *br);
 int emit_local_branch_cond(mambo_context *ctx, mambo_branch *br, mambo_cond cond);
 int emit_local_branch(mambo_context *ctx, mambo_branch *br);
+int emit_local_fcall(mambo_context *ctx, mambo_branch *br);
 
 static inline void emit_set_reg_ptr(mambo_context *ctx, enum reg reg, void *ptr) {
   emit_set_reg(ctx, reg, (uintptr_t)ptr);
