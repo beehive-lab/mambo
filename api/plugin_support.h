@@ -50,6 +50,16 @@ struct syscall_ctx {
   uintptr_t ret;
 };
 
+struct vm_ctx {
+  vm_op_t op;
+  void *addr;
+  size_t size;
+  int prot;
+  int flags;
+  int filedes;
+  off_t off;
+};
+
 typedef enum {
   PLUGIN_REG,
   PRE_INST_C,
@@ -63,6 +73,7 @@ typedef enum {
   PRE_THREAD_C,
   POST_THREAD_C,
   EXIT_C,
+  VM_OP_C,
   CALLBACK_MAX_IDX,
 } mambo_cb_idx;
 
@@ -73,6 +84,7 @@ typedef struct {
   union {
     struct code_ctx code;
     struct syscall_ctx syscall;
+    struct vm_ctx vm;
   };
 } mambo_context;
 
@@ -120,6 +132,7 @@ int mambo_register_post_syscall_cb(mambo_context *ctx, mambo_callback cb);
 int mambo_register_pre_thread_cb(mambo_context *ctx, mambo_callback cb);
 int mambo_register_post_thread_cb(mambo_context *ctx, mambo_callback cb);
 int mambo_register_exit_cb(mambo_context *ctx, mambo_callback cb);
+int mambo_register_vm_op_cb(mambo_context *ctx, mambo_callback cb);
 
 /* Memory management */
 void *mambo_alloc(mambo_context *ctx, size_t size);
@@ -143,6 +156,15 @@ void mambo_syscall_get_args(mambo_context *ctx, uintptr_t **args);
 int mambo_syscall_bypass(mambo_context *ctx);
 int mambo_syscall_get_return(mambo_context *ctx, uintptr_t *ret);
 int mambo_syscall_set_return(mambo_context *ctx, uintptr_t ret);
+
+/* VM-callback specific */
+vm_op_t mambo_get_vm_op(mambo_context *ctx);
+void *mambo_get_vm_addr(mambo_context *ctx);
+size_t mambo_get_vm_size(mambo_context *ctx);
+int mambo_get_vm_prot(mambo_context *ctx);
+int mambo_get_vm_flags(mambo_context *ctx);
+int mambo_get_vm_filedes(mambo_context *ctx);
+int mambo_get_vm_off(mambo_context *ctx);
 
 /* Other */
 int mambo_get_inst(mambo_context *ctx);

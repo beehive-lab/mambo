@@ -649,6 +649,20 @@ void notify_vm_op(vm_op_t op, uintptr_t addr, size_t size, int prot, int flags, 
       break;
     }
   } // switch
+
+#ifdef PLUGINS_NEW
+  mambo_context ctx;
+  set_mambo_context(&ctx, current_thread, VM_OP_C);
+  ctx.vm.op = op;
+  ctx.vm.addr = (void *)addr;
+  ctx.vm.size = size;
+  ctx.vm.prot = prot;
+  ctx.vm.flags = flags;
+  ctx.vm.filedes = fd;
+  ctx.vm.off = off;
+
+  mambo_deliver_callbacks_for_ctx(&ctx);
+#endif
 }
 
 void main(int argc, char **argv, char **envp) {

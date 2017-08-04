@@ -225,6 +225,12 @@ typedef enum {
   A64_INST,
 } inst_set;
 
+typedef enum {
+  VM_MAP,
+  VM_UNMAP,
+  VM_PROT
+} vm_op_t;
+
 #include "api/plugin_support.h"
 
 typedef struct {
@@ -251,12 +257,6 @@ typedef struct {
   uintptr_t tpc;
   uintptr_t spc;
 } cc_addr_pair;
-
-typedef enum {
-  VM_MAP,
-  VM_UNMAP,
-  VM_PROT
-} vm_op_t;
 
 void dbm_exit(dbm_thread *thread_data, uint32_t code);
 void thread_abort(dbm_thread *thread_data);
