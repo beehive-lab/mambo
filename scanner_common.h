@@ -67,6 +67,8 @@ void arm_branch_helper(uint32_t *write_p, uint32_t target, bool link, uint32_t c
 int thumb_cbz_cbnz_helper(uint16_t *write_p, uint32_t target, enum reg reg, bool cbz);
 void arm_adjust_b_bl_target(uint32_t *write_p, uint32_t dest_addr);
 void branch_save_context(dbm_thread *thread_data, uint16_t **o_write_p, bool late_app_sp);
+void arm_inline_hash_lookup(dbm_thread *thread_data, uint32_t **o_write_p, int basic_block, int r_target);
+void thumb_inline_hash_lookup(dbm_thread *thread_data, uint16_t **o_write_p, int basic_block, int r_target);
 #endif
 
 #ifdef __aarch64__

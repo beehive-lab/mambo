@@ -391,7 +391,9 @@ void arm_inline_hash_lookup(dbm_thread *thread_data, uint32_t **o_write_p, int b
   int target = target_reg_clean ? r_target : r5;
   int r_tmp = target_reg_clean ? r5 : r4;
 
-  thread_data->code_cache_meta[basic_block].rn = target;
+  if (basic_block != 0) {
+    thread_data->code_cache_meta[basic_block].rn = target;
+  }
 
   // MOVW+MOVT r_tmp, hash_mask
   arm_copy_to_reg_32bit(&write_p, r_tmp, CODE_CACHE_HASH_SIZE);

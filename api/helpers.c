@@ -659,4 +659,36 @@ void emit_counter64_incr(mambo_context *ctx, void *counter, unsigned incr) {
   emit_a64_pop(ctx, (1 << x0) | (1 << x1));
 #endif
 }
+
+int emit_indirect_branch_by_spc(mambo_context *ctx, enum reg reg) {
+#ifdef __aarch64__
+  // Uses fragment id 0 to prevent the dispatcher from attempting linking on an IHL miss
+  a64_inline_hash_lookup(current_thread, 0, (uint32_t **)&ctx->code.write_p, ctx->code.read_address, reg, false, false);
+#else
+  switch(ctx->code.inst_type) {
+    case ARM_INST:
+      emit_push(ctx, (1 << r4) | (1 << 5) | (1 << 6));
+      arm_inline_hash_lookup(current_thread, (uint32_t **)&ctx->code.write_p, 0, reg);
+      break;
+    case THUMB_INST: {
+      uint16_t *write_p = (uint16_t *)ctx->code.write_p;
+      if (reg != r5 && reg != r6) {
+        thumb_push16(&write_p, (1 << r5) | (1 << r6));
+      } else {
+        thumb_push16(&write_p, (1 << r4) | (1 << r5) | (1 << r6));
+        write_p++;
+        thumb_movh16(&write_p, 0, reg, r5);
+        reg = -1;
+      }
+      write_p++;
+
+      thumb_inline_hash_lookup(current_thread, &write_p, 0, reg);
+      ctx->code.write_p = write_p;
+      break;
+    }
+    default:
+      assert(0);
+  }
+#endif
+}
 #endif
