@@ -92,45 +92,6 @@ void flush_code_cache(dbm_thread *thread_data) {
   linked_list_init(thread_data->cc_links, MAX_CC_LINKS);
 }
 
-void mambo_deliver_callbacks_for_ctx(mambo_context *ctx) {
-#ifdef PLUGINS_NEW
-  unsigned cb_id = ctx->event_type;
-  assert(cb_id < CALLBACK_MAX_IDX);
-
-  for (int i = 0; i < global_data.free_plugin; i++) {
-    if (global_data.plugins[i].cbs[cb_id] != NULL) {
-      ctx->plugin_id = i;
-      global_data.plugins[i].cbs[cb_id](ctx);
-    } // if
-  } // for
-#endif
-}
-
-void mambo_deliver_callbacks(unsigned cb_id, dbm_thread *thread_data) {
-#ifdef PLUGINS_NEW
-  mambo_context ctx;
-
-  if (global_data.free_plugin > 0) {
-    set_mambo_context(&ctx, thread_data, cb_id);
-    mambo_deliver_callbacks_for_ctx(&ctx);
-  }
-#endif
-}
-
-void mambo_deliver_callbacks_code(unsigned cb_id, dbm_thread *thread_data, cc_type fragment_type,
-                                  int fragment_id, inst_set inst_type, int inst, mambo_cond cond,
-                                  void *read_address, void *write_p) {
-#ifdef PLUGINS_NEW
-  mambo_context ctx;
-
-  if (global_data.free_plugin > 0) {
-    set_mambo_context_code(&ctx, thread_data, cb_id, fragment_type, fragment_id,
-                           inst_type, inst, cond, read_address, write_p);
-    mambo_deliver_callbacks_for_ctx(&ctx);
-  }
-#endif
-}
-
 uintptr_t cc_lookup(dbm_thread *thread_data, uintptr_t target) {
   uintptr_t addr = hash_lookup(&thread_data->entry_address, target);
   return adjust_cc_entry(addr);
@@ -225,38 +186,6 @@ uintptr_t lookup_or_stub(dbm_thread *thread_data, uintptr_t target) {
 
   return block_address;
 }
-
-#ifdef PLUGINS_NEW
-void set_mambo_context(mambo_context *ctx, dbm_thread *thread_data, mambo_cb_idx event_type) {
-  ctx->thread_data = thread_data;
-  ctx->event_type = event_type;
-}
-
-void set_mambo_context_code(mambo_context *ctx, dbm_thread *thread_data, mambo_cb_idx event_type,
-                            cc_type fragment_type, int fragment_id, inst_set inst_type, int inst,
-                            mambo_cond cond, void *read_address, void *write_p) {
-  set_mambo_context(ctx, thread_data, event_type);
-  ctx->code.inst_type = inst_type;
-  ctx->code.fragment_type = fragment_type;
-  ctx->code.fragment_id = fragment_id;
-  ctx->code.inst = inst;
-  ctx->code.cond = cond;
-  ctx->code.read_address = read_address;
-  ctx->code.write_p = write_p;
-  ctx->code.replace = false;
-  ctx->code.pushed_regs = 0;
-  ctx->code.available_regs = 0;
-  ctx->code.plugin_pushed_reg_count = 0;
-}
-
-void set_mambo_context_syscall(mambo_context *ctx, dbm_thread *thread_data, mambo_cb_idx event_type,
-                               uintptr_t number, uintptr_t *regs) {
-  set_mambo_context(ctx, thread_data, event_type);
-  ctx->syscall.number = number;
-  ctx->syscall.regs = regs;
-  ctx->syscall.replace = false;
-}
-#endif
 
 uintptr_t scan(dbm_thread *thread_data, uint16_t *address, int basic_block) {
   uintptr_t thumb = (uintptr_t)address & THUMB;
