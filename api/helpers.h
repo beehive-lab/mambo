@@ -28,6 +28,12 @@ typedef struct {
 #define LSR 1
 #define ASR 2
 
+#ifdef __arm__
+  #define MAX_FCALL_ARGS 4
+#elif __aarch64__
+  #define MAX_FCALL_ARGS 8
+#endif
+
 void emit_counter64_incr(mambo_context *ctx, void *counter, unsigned incr);
 void emit_push(mambo_context *ctx, uint32_t regs);
 void emit_pop(mambo_context *ctx, uint32_t regs);

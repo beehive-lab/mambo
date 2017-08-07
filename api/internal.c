@@ -95,3 +95,41 @@ void mambo_deliver_callbacks_code(unsigned cb_id, dbm_thread *thread_data, cc_ty
   }
 #endif
 }
+
+void _function_callback_wrapper(mambo_context *ctx, watched_func_t *func) {
+#ifdef PLUGINS_NEW
+  ctx->plugin_id = func->plugin_id;
+  ctx->code.available_regs = ctx->code.pushed_regs;
+  ctx->code.func_name = func->name;
+
+  if (func->post_callback != NULL) {
+    emit_push(ctx, (1 << es) | (1 << lr));
+  }
+  if (func->pre_callback != NULL) {
+    func->pre_callback(ctx);
+  }
+  if (func->post_callback != NULL) {
+    mambo_branch fcall;
+    int ret = mambo_reserve_branch(ctx, &fcall);
+    assert(ret == 0);
+
+    ret = mambo_add_identity_mapping(ctx);
+    assert(ret == 0);
+
+    // Hack; pop the registers pushed by IHL routines
+    ctx->code.plugin_pushed_reg_count += 2;
+#ifdef __aarch64__
+    emit_pop(ctx, (1 << x0) | (1 << x1));
+#elif __arm__
+    emit_pop(ctx, (1 << r5) | (1 << r6));
+#endif
+
+    func->post_callback(ctx);
+
+    emit_pop(ctx, (1 << es) | (1 << lr));
+    // IHL(LR) - emulated return to the caller of malloc()
+    emit_indirect_branch_by_spc(ctx, lr);
+    emit_local_fcall(ctx, &fcall);
+  }
+#endif
+}

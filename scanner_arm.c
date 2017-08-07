@@ -269,6 +269,19 @@ bool arm_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id, 
       }
     }
 
+    if (cb_id == PRE_BB_C) {
+      watched_functions_t *wf = &global_data.watched_functions;
+      for (int i = 0; i < wf->funcp_count; i++) {
+        if (read_address == wf->funcps[i].addr) {
+          _function_callback_wrapper(&ctx, wf->funcps[i].func);
+
+          assert(ctx.code.replace == false);
+          write_p = ctx.code.write_p;
+          arm_check_free_space(thread_data, &write_p, &data_p, MIN_FSPACE, basic_block);
+        }
+      }
+    }
+
     *o_write_p = write_p;
     *o_data_p = data_p;
   }

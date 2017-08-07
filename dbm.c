@@ -556,6 +556,16 @@ void notify_vm_op(vm_op_t op, uintptr_t addr, size_t size, int prot, int flags, 
         int ret = interval_map_add(&global_data.exec_allocs, addr, addr + size, fd);
         assert(ret == 0);
       }
+#ifdef PLUGINS_NEW
+      if (fd >= 0 && (prot & PROT_EXEC)) {
+        Elf *elf = elf_begin(fd, ELF_C_READ, NULL);
+        if (elf != NULL) {
+          function_watch_parse_elf(&global_data.watched_functions, elf, (void *)addr);
+        }
+        int ret = elf_end(elf);
+        assert(ret == 0);
+      }
+#endif // PLUGINS_NEW
       break;
     }
     case VM_UNMAP: {

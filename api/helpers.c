@@ -35,12 +35,6 @@
   while(1);
 
 #ifdef __arm__
-  #define MAX_FCALL_ARGS 4
-#elif __aarch64__
-  #define MAX_FCALL_ARGS 8
-#endif
-
-#ifdef __arm__
 void emit_thumb_push_cpsr(mambo_context *ctx, enum reg tmp_reg) {
   uint16_t *write_p = ctx->code.write_p;
 
