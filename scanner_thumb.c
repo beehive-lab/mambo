@@ -901,7 +901,7 @@ bool thumb_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id
                               "a disallowed event (at %p).\n", i, read_address);
             }
           }
-          assert(ctx.code.plugin_pushed_reg_count == 0);
+          assert(count_bits(ctx.code.pushed_regs) == ctx.code.plugin_pushed_reg_count);
 
           thumb_check_free_space(thread_data, (uint16_t **)&ctx.code.write_p, &data_p, state,
                                  set_addr_prev_block, false, MIN_FSPACE, basic_block);
