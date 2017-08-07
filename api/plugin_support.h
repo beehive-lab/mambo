@@ -191,4 +191,7 @@ char *mambo_get_cb_function_name(mambo_context *ctx);
 
 mambo_branch_type mambo_get_branch_type(mambo_context *ctx);
 
+/* Misc functions not using a mambo_context */
+int get_symbol_info_by_addr(uintptr_t addr, char **sym_name, void **start_addr, char **filename);
+
 #endif

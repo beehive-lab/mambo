@@ -33,6 +33,83 @@
 #include "../dbm.h"
 #include "elf_loader.h"
 
+int get_symbol_info_by_addr(uintptr_t addr, char **sym_name, void **start_addr, char **filename) {
+  interval_map_entry fm;
+  int ret = interval_map_search_by_addr(&global_data.exec_allocs, addr, &fm);
+  *sym_name = NULL;
+  if (start_addr) {
+    *start_addr = NULL;
+  }
+  if (filename) {
+    *filename = NULL;
+  }
+  if (ret != 1 || fm.fd < 0) return -1;
+
+  uintptr_t sym_addr = 0;
+
+  Elf *elf = elf_begin(fm.fd, ELF_C_READ, NULL);
+  ELF_EHDR *ehdr;
+  if (elf != NULL) {
+    Elf_Scn *scn = NULL;
+    GElf_Shdr shdr;
+    GElf_Sym sym;
+    ehdr = ELF_GETEHDR(elf);
+    if (ehdr->e_type == ET_DYN) {
+      addr -= fm.start;
+    }
+
+    while((scn = elf_nextscn(elf, scn)) != NULL) {
+      gelf_getshdr(scn, &shdr);
+      if(shdr.sh_type == SHT_SYMTAB || shdr.sh_type == SHT_DYNSYM) {
+        Elf_Data *edata = elf_getdata(scn, NULL);
+        assert(edata != NULL);
+        int sym_count = shdr.sh_size / shdr.sh_entsize;
+
+        for (int i = 0; i < sym_count; i++) {
+          gelf_getsym(edata, i, &sym);
+          if (sym.st_value != 0 && ELF32_ST_TYPE(sym.st_info) == STT_FUNC) {
+            if (addr >= sym.st_value && addr < (sym.st_value + sym.st_size)) {
+              sym_addr = sym.st_value;
+              *sym_name = elf_strptr(elf, shdr.sh_link, sym.st_name);
+            }
+          }
+        }
+      } // shdr.sh_type == SHT_SYMTAB
+    } // while scn iterator
+
+    if (*sym_name != NULL) {
+      *sym_name = strdup(*sym_name);
+      assert(*sym_name != NULL);
+    }
+  }
+
+  if (start_addr) {
+    if (ehdr->e_type == ET_DYN || sym_addr == 0) {
+      sym_addr += fm.start;
+    }
+    *start_addr = (void *)sym_addr;
+  }
+
+  if (filename != NULL) {
+    const size_t buf_proc_size = 30;
+    char buf_proc[buf_proc_size];
+    const size_t buf_path_size = PATH_MAX + 1;
+    char buf_path[buf_path_size];
+    ret = snprintf(buf_proc, buf_proc_size, "/proc/self/fd/%d", fm.fd);
+    assert(ret > 0);
+    ret = readlink(buf_proc, buf_path, buf_path_size-1);
+    assert(ret > 0);
+    buf_path[ret] = '\0';
+    *filename = strdup(buf_path);
+    assert(*filename != NULL);
+  }
+
+  ret = elf_end(elf);
+  assert(ret == 0);
+
+  return 0;
+}
+
 void function_watch_lock_funcs(watched_functions_t *self) {
   int ret = pthread_mutex_lock(&self->funcs_lock);
   assert(ret == 0);
