@@ -284,7 +284,7 @@ void _generate_addr(mambo_context *ctx, int reg, int rn, int rm, int offset) {
 #endif
   int apply_offset = 0;
   if (rn == sp) {
-    apply_offset = count_bits(ctx->code.pushed_regs) + ctx->code.plugin_pushed_reg_count;
+    apply_offset = ctx->code.plugin_pushed_reg_count;
     apply_offset *= sizeof(uintptr_t);
   }
 
