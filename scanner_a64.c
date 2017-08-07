@@ -406,6 +406,9 @@ bool a64_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id, 
             }
           }
           assert(count_bits(ctx.code.pushed_regs) == ctx.code.plugin_pushed_reg_count);
+          if (allow_write && ctx.code.pushed_regs) {
+            emit_pop(&ctx, ctx.code.pushed_regs);
+          }
           write_p = ctx.code.write_p;
           a64_check_free_space(thread_data, &write_p, &data_p, MIN_FSPACE, basic_block);
         } else {

@@ -902,6 +902,9 @@ bool thumb_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id
             }
           }
           assert(count_bits(ctx.code.pushed_regs) == ctx.code.plugin_pushed_reg_count);
+          if (allow_write && ctx.code.pushed_regs) {
+            thumb_pop_regs((uint16_t **)&ctx.code.write_p, ctx.code.pushed_regs);
+          }
 
           thumb_check_free_space(thread_data, (uint16_t **)&ctx.code.write_p, &data_p, state,
                                  set_addr_prev_block, false, MIN_FSPACE, basic_block);
@@ -910,10 +913,6 @@ bool thumb_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id
         }
       } // global_data.plugins[i].cbs[cb_id] != NULL
     } // plugin iterator
-
-    if (allow_write && ctx.code.pushed_regs) {
-      thumb_pop_regs((uint16_t **)&ctx.code.write_p, ctx.code.pushed_regs);
-    }
 
     if (allow_write && state->cond_inst_after_it > 0) {
       if (ctx.code.write_p != write_p) {
