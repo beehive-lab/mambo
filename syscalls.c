@@ -433,7 +433,9 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
   }
 #endif
 
-  thread_data->status = THREAD_SYSCALL;
+  if (do_syscall) {
+    thread_data->status = THREAD_SYSCALL;
+  }
 
   return do_syscall;
 }
