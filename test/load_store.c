@@ -37,9 +37,9 @@
 #define CODE_SIZE  (1024*1024)
 #define HEAP_SIZE  (1024*1024)
 #define STACK_SIZE (1024*1024)
-#define CODE_BASE  ((void *)0x70000000)
-#define HEAP_BASE  ((void *)0x80000000)
-#define STACK_BASE ((void *)0x90000000)
+#define CODE_BASE  ((void *)0x50000000)
+#define HEAP_BASE  ((void *)0x60000000)
+#define STACK_BASE ((void *)0x70000000)
 
 #define CPSR_T (0x20)
 
