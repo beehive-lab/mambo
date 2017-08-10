@@ -310,16 +310,15 @@ void _generate_addr(mambo_context *ctx, int reg, int rn, int rm, int offset) {
     offset += apply_offset;
     emit_add_sub_i(ctx, reg, rn, offset);
   } else {
-    if (apply_offset != 0) {
-      assert(apply_offset <= 0xFFF && apply_offset > 0);
-      emit_add_sub_i(ctx, reg, rn, apply_offset);
-      rn = reg;
-    }
 #ifdef __arm__
     emit_add_sub_shift(ctx, reg, rn, rm, offset & 3, offset >> 2);
 #elif __aarch64__
     emit_a64_add_sub_ext(ctx, reg, rn, rm, offset & 7, offset >> 3);
 #endif
+    if (apply_offset != 0) {
+      assert(apply_offset <= 0xFFF && apply_offset > 0);
+      emit_add_sub_i(ctx, reg, reg, apply_offset);
+    }
   }
 
 #ifdef __arm__
