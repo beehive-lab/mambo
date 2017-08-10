@@ -395,6 +395,26 @@ void thumb_b16_helper(uint16_t *write_p, uint32_t dest_addr, enum arm_cond_codes
   }
 }
 
+int thumb_cbz_cbnz_helper(uint16_t *write_p, uint32_t target, enum reg reg, bool cbz) {
+  int difference = target - (uintptr_t)write_p - 4;
+
+  if (difference < 0 || difference >= 127) return -1;
+
+  thumb_misc_cbz_16(&write_p, cbz ? 0 : 1, difference >> 6, difference >> 1, reg);
+
+  return 0;
+}
+
+void thumb_cbz_helper(uint16_t *write_p, uint32_t target, enum reg reg) {
+  int ret = thumb_cbz_cbnz_helper(write_p, target, reg, true);
+  assert(ret == 0);
+}
+
+void thumb_cbnz_helper(uint16_t *write_p, uint32_t target, enum reg reg) {
+  int ret = thumb_cbz_cbnz_helper(write_p, target, reg, false);
+  assert(ret == 0);
+}
+
 #define DISP_CALL_SIZE 76
 void branch_save_context(dbm_thread *thread_data, uint16_t **o_write_p, bool late_app_sp) {
   uint16_t *write_p = *o_write_p;

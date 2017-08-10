@@ -96,20 +96,25 @@ void a64_b_cond_helper(uint32_t *write_p, uint64_t target, mambo_cond cond) {
   a64_B_cond(&write_p, difference >> 2, cond);
 }
 
-void a64_cbz_cbnz_helper(uint32_t *write_p, bool cbnz, uint64_t target, uint32_t sf, uint32_t rt) {
+int a64_cbz_cbnz_helper(uint32_t *write_p, bool cbnz, uint64_t target, uint32_t sf, uint32_t rt) {
   int64_t difference = target - (uint64_t)write_p;
-  assert(((difference & 3) == 0)
-         && (difference < 1024*1024 && difference >= - 1024*1024));
+  if (((difference & 3) != 0) ||
+      (difference >= 1024*1024 && difference < - 1024*1024)) {
+    return -1;
+  }
 
   a64_CBZ_CBNZ(&write_p, sf, cbnz ? 1 : 0, difference >> 2, rt);
+  return 0;
 }
 
 void a64_cbz_helper(uint32_t *write_p, uint64_t target, uint32_t sf, uint32_t rt) {
-  a64_cbz_cbnz_helper(write_p, false, target, sf, rt);
+  int ret = a64_cbz_cbnz_helper(write_p, false, target, sf, rt);
+  assert(ret == 0);
 }
 
 void a64_cbnz_helper(uint32_t *write_p, uint64_t target, uint32_t sf, uint32_t rt) {
-  a64_cbz_cbnz_helper(write_p, true, target, sf, rt);
+  int ret = a64_cbz_cbnz_helper(write_p, true, target, sf, rt);
+  assert(ret == 0);
 }
 
 void a64_tbz_tbnz_helper(uint32_t *write_p, bool is_tbnz,

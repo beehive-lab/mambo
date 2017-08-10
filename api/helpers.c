@@ -452,13 +452,61 @@ int emit_branch(mambo_context *ctx, void *target) {
   return emit_branch_cond(ctx, target, AL);
 }
 
-int mambo_reserve_branch(mambo_context *ctx, mambo_branch *br) {
+int __emit_branch_cbz_cbnz(mambo_context *ctx, void *write_p, void *target, enum reg reg, bool is_cbz) {
+  int ret = -1;
+#ifdef __aarch64__
+  ret = a64_cbz_cbnz_helper((uint32_t *)write_p, !is_cbz, (uint64_t)target, 1, reg);
+#elif __arm__
+  if (mambo_get_inst_type(ctx) == THUMB_INST) {
+    ret = thumb_cbz_cbnz_helper((uint16_t *)write_p, (uint32_t)target, reg, is_cbz);
+  }
+#endif
+  return ret;
+}
+
+int emit_branch_cbz_cbnz(mambo_context *ctx, void *target, enum reg reg, bool is_cbz) {
+  void *write_p = mambo_get_cc_addr(ctx);
+
+  int ret = __emit_branch_cbz_cbnz(ctx, write_p, target, reg, is_cbz);
+  if (ret == 0) {
+#ifdef __aarch64__
+    mambo_set_cc_addr(ctx, write_p + 4);
+#elif __arm__
+    mambo_set_cc_addr(ctx, write_p + 2);
+#endif
+  }
+  return ret;
+}
+
+int emit_branch_cbz(mambo_context *ctx, void *target, enum reg reg) {
+  return emit_branch_cbz_cbnz(ctx, target, reg, true);
+}
+
+int emit_branch_cbnz(mambo_context *ctx, void *target, enum reg reg) {
+  return emit_branch_cbz_cbnz(ctx, target, reg, false);
+}
+
+int __mambo_reserve(mambo_context *ctx, mambo_branch *br, size_t incr) {
   if (ctx->code.write_p) {
     br->loc = ctx->code.write_p;
-    ctx->code.write_p += 4;
+    ctx->code.write_p += incr;
     return 0;
   }
   return -1;
+}
+
+int mambo_reserve_branch(mambo_context *ctx, mambo_branch *br) {
+  return __mambo_reserve(ctx, br, 4);
+}
+
+int mambo_reserve_branch_cbz(mambo_context *ctx, mambo_branch *br) {
+#ifdef __arm__
+  if (mambo_get_inst_type(ctx) == THUMB_INST) {
+    __mambo_reserve(ctx, br, 2);
+  }
+  return -1;
+#endif
+  return __mambo_reserve(ctx, br, 4);
 }
 
 int __emit_local_branch(mambo_context *ctx, mambo_branch *br, mambo_cond cond, bool link) {
@@ -481,6 +529,18 @@ int emit_local_branch(mambo_context *ctx, mambo_branch *br) {
 
 int emit_local_fcall(mambo_context *ctx, mambo_branch *br) {
   return __emit_local_branch(ctx, br, AL, true);
+}
+
+int emit_local_branch_cbz_cbnz(mambo_context *ctx, mambo_branch *br, enum reg reg, bool is_cbz) {
+  return __emit_branch_cbz_cbnz(ctx, br->loc, mambo_get_cc_addr(ctx), reg, is_cbz);
+}
+
+int emit_local_branch_cbz(mambo_context *ctx, mambo_branch *br, enum reg reg) {
+  return emit_local_branch_cbz_cbnz(ctx, br, reg, true);
+}
+
+int emit_local_branch_cbnz(mambo_context *ctx, mambo_branch *br, enum reg reg) {
+  return emit_local_branch_cbz_cbnz(ctx, br, reg, false);
 }
 
 void emit_counter64_incr(mambo_context *ctx, void *counter, unsigned incr) {
