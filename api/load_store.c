@@ -276,6 +276,8 @@ bool mambo_is_load_or_store(mambo_context *ctx) {
 
 void _generate_addr(mambo_context *ctx, int reg, int rn, int rm, int offset) {
 #ifdef __arm__
+  enum reg rtmp = reg_invalid;
+
   assert(rm != pc && rm != sp);
 #elif __aarch64__
   assert(rm != sp);
@@ -293,8 +295,14 @@ void _generate_addr(mambo_context *ctx, int reg, int rn, int rm, int offset) {
       addr += offset;
       offset = 0;
     }
-    emit_set_reg(ctx, reg, addr);
-    rn = reg;
+    int rtpc = reg;
+    if (reg == rm) {
+      rtmp = (reg == 0) ? 1 : 0;
+      emit_push(ctx, 1 << rtmp);
+      rtpc = rtmp;
+    }
+    emit_set_reg(ctx, rtpc, addr);
+    rn = rtpc;
   }
 #endif
 
@@ -313,6 +321,12 @@ void _generate_addr(mambo_context *ctx, int reg, int rn, int rm, int offset) {
     emit_a64_add_sub_ext(ctx, reg, rn, rm, offset & 7, offset >> 3);
 #endif
   }
+
+#ifdef __arm__
+  if (rtmp != reg_invalid) {
+    emit_pop(ctx, 1 << rtmp);
+  }
+#endif
 }
 
 #ifdef __arm__
