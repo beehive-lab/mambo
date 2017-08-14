@@ -53,6 +53,7 @@ void *dbm_start_thread_pth(void *ptr) {
   current_thread = thread_data;
 
   pid_t tid = syscall(__NR_gettid);
+  thread_data->tid = tid;
   if (thread_data->clone_args->flags & CLONE_PARENT_SETTID) {
     *thread_data->clone_args->ptid = tid;
   }
@@ -82,8 +83,8 @@ void *dbm_start_thread_pth(void *ptr) {
 #endif
 
   // Release the lock
-  __asm__ volatile("dmb sy");
-  thread_data->tid = tid;
+  asm volatile("DMB SY" ::: "memory");
+  *(thread_data->set_tid) = tid;
 
   assert(register_thread(thread_data, false) == 0);
 
@@ -93,7 +94,7 @@ void *dbm_start_thread_pth(void *ptr) {
   return NULL;
 }
 
-dbm_thread *dbm_create_thread(dbm_thread *thread_data, void *next_inst, sys_clone_args *args) {
+dbm_thread *dbm_create_thread(dbm_thread *thread_data, void *next_inst, sys_clone_args *args, volatile pid_t *set_tid) {
   pthread_t thread;
   dbm_thread *new_thread_data;
 
@@ -103,7 +104,7 @@ dbm_thread *dbm_create_thread(dbm_thread *thread_data, void *next_inst, sys_clon
   }
   init_thread(new_thread_data);
   new_thread_data->clone_ret_addr = next_inst;
-  new_thread_data->tid = 0;
+  new_thread_data->set_tid = set_tid;
   new_thread_data->clone_args = args;
 
   pthread_attr_t attr;
@@ -208,10 +209,11 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
         }
         thread_data->clone_vm = true;
 
-        dbm_thread *child_data = dbm_create_thread(thread_data, next_inst, clone_args);
-        while(child_data->tid == 0);
-        __asm__ volatile("dmb sy");
-        args[0] = child_data->tid;
+        volatile pid_t child_tid = 0;
+        dbm_create_thread(thread_data, next_inst, clone_args, &child_tid);
+        while(child_tid == 0);
+        asm volatile("DMB SY" ::: "memory");
+        args[0] = child_tid;
 
         do_syscall = 0;
         break;

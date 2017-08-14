@@ -211,7 +211,8 @@ struct dbm_thread_s {
   void *plugin_priv[MAX_PLUGIN_NO];
 #endif
   void *clone_ret_addr;
-  volatile pid_t tid;
+  pid_t tid;
+  volatile pid_t *set_tid;
   sys_clone_args *clone_args;
   bool clone_vm;
   int pending_signals[_NSIG];
