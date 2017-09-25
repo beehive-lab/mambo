@@ -36,11 +36,13 @@ static inline bool is_pow2(unsigned int val) {
   return (val & (val -1)) == 0;
 }
 
+__attribute__((always_inline))
 static inline int cachesim_get_set(cachesim_model_t *cache, addr_t addr) {
   addr_t set = addr >> cache->set_shift;
   return (int)(set & cache->set_mask);
 }
 
+__attribute__((always_inline))
 static inline addr_t cachesim_get_tag(cachesim_model_t *cache, addr_t addr) {
   return addr >> cache->tag_shift;
 }
@@ -107,14 +109,17 @@ int cachesim_unlock(cachesim_model_t *cache) {
   return pthread_mutex_unlock(&cache->mutex);
 }
 
-void cachesim_load_line(cachesim_model_t *cache, int line_index, addr_t addr, bool is_write) {
+__attribute__((always_inline))
+static inline void cachesim_load_line(cachesim_model_t *cache, int line_index, addr_t addr, bool is_write) {
   if (cache->lines[line_index].tag & 1) {
     int counter_index = is_write ? 1 : 0;
-    cache->stats.writebacks[is_write]++;
+    cache->stats.writebacks[counter_index]++;
   }
   cache->lines[line_index].tag = cachesim_get_tag(cache, addr) << 1;
 }
 
+__attribute__((always_inline))
+static inline
 int cachesim_evict_line(cachesim_model_t *cache, int line_index) {
   int line = -1;
 
@@ -140,8 +145,16 @@ int cachesim_evict_line(cachesim_model_t *cache, int line_index) {
   return line;
 }
 
+__attribute__((always_inline))
+static inline void update_dirty_bit(cachesim_model_t *cache, int line, bool is_write) {
+  if (is_write) {
+    cache->lines[line].tag |= IS_DIRTY;
+  }
+}
+
+__attribute__((always_inline))
 static inline void update_line(cachesim_model_t *cache, int line, bool is_write) {
-  cache->lines[line].tag |= is_write ? IS_DIRTY : 0;
+  update_dirty_bit(cache, line, is_write);
   cache->lines[line].timestamp = cache->stats.references[0] + cache->stats.references[1];
 }
 
