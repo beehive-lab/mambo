@@ -54,6 +54,9 @@ struct cachesim_model {
   unsigned tag_shift;
   unsigned max_fetch_shift;
 
+  addr_t last_addr;
+  int last_line;
+
   pthread_mutex_t mutex;
 
   cachesim_model_t *parent;

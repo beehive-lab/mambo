@@ -169,15 +169,36 @@ int cachesim_ref(cachesim_model_t *cache, addr_t addr, unsigned size, bool is_wr
   cache->stats.references[counter_index] += (t_size & mask) ? 1 : 0;
 
   addr = (addr >> cache->set_shift) << cache->set_shift;
+  int line;
 
   for (; addr < end; addr += cache->line_size) {
-    int line = cachesim_get_set(cache, addr) * cache->assoc;
+    /* If it's the same as the previously used address, we have its cache line cached.
+       Also, we don't have to update the timestamp since it's already the highest one
+       in the cache. */
+    if (addr == cache->last_addr) {
+      line = cache->last_line;
+      update_dirty_bit(cache, line, is_write);
+      continue;
+    }
+
+    line = cachesim_get_set(cache, addr) * cache->assoc;
     addr_t tag = cachesim_get_tag(cache, addr);
     bool hit = false;
 
-    for (int i = 0; i < cache->assoc && !hit; i++) {
+    /* We keep the MRU tag in the first position of the line.
+       We can also avoid updating its timestamp because it's the highest one in this line */
+    if ((cache->lines[line].tag >> 1) == tag) {
+      update_dirty_bit(cache, line, is_write);
+      continue;
+    }
+
+    for (int i = 1; i < cache->assoc && !hit; i++) {
       if ((cache->lines[line + i].tag >> 1) == tag) {
-        line += i;
+        // Move the tag to the first position on the line
+        cachesim_model_line_t tmp = cache->lines[line];
+        cache->lines[line] = cache->lines[line+i];
+        cache->lines[line+i] = tmp;
+
         hit = true;
       }
     }
@@ -200,6 +221,9 @@ int cachesim_ref(cachesim_model_t *cache, addr_t addr, unsigned size, bool is_wr
 
     update_line(cache, line, is_write);
   }
+
+  cache->last_addr = addr;
+  cache->last_line = line;
 
   return 0;
 }
