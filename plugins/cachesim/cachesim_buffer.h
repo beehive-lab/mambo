@@ -1,1 +1,1 @@
-#define BUFLEN 2047
+#define BUFLEN 256
