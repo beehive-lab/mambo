@@ -1,13 +1,23 @@
 MAMBO: A Low-Overhead Dynamic Binary Modification Tool for ARM
 ==============================================================
 
-News:
+Tutorial
+--------
+
+We'll be running a MAMBO tutorial at the [HiPEAC conference in Manchester](https://www.hipeac.net/2018/manchester/), on 2018-01-23. The focus of this tutorial will be on implementing dynamic binary instrumentation and modification for ARM using MAMBO's API. More details will be added here and on the HiPEAC website.
+
+
+News
+----
+
 * 2017-04-24: An address decoder for load and store instructions was added to the API: `mambo_calc_ld_st_addr()`. It allows plugin developers to automatically obtain the base address of all data memory accesses. This API function is available for all supported instruction sets: A32, T32, A64. Its usage is demonstrated in the `plugins/mtrace.c` plugin.
 * 2017-04-04: Significantly improved support for Linux signals was implemented.
 * 2017-04-03: The AArch64 port of MAMBO is officially released. The initial AArch64 porting was done by Guillermo Callaghan <guillermocallaghan at hotmail dot com>.
 * We have presented the TACO paper at [HiPEAC](https://www.hipeac.net/events/activities/7477/session-9-binary-translation/) 2017, on 25th of January. The slides are available [here](http://www.cs.man.ac.uk/~gorgovc9/slides_hipeac.pdf).
 
-Publications:
+
+Publications
+------------
 * [Cosmin Gorgovan, Amanieu d’Antras, and Mikel Luján. 2016. MAMBO: A low-overhead dynamic binary modification tool for ARM. ACM Trans. Archit. Code Optim. 13, 1, Article 14 (April 2016)](http://dl.acm.org/citation.cfm?id=2896451). If you use MAMBO for your research, please cite this paper.
 
 Note that the version of MAMBO published in this repository is newer and has significantly lower overhead than the one used in the paper, mostly due to the implementation of traces. If you want to reproduce the results in the paper, please get in touch.
