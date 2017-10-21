@@ -2890,6 +2890,7 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
         thumb_vfp_ld_st_m_decode_fields(read_address, &p, &upwards, &writeback, &rn, &d, &vd, &imm8);
         assert(rn != pc);
         copy_thumb_32();
+        it_cond_handled = true;
         break;
         
       case THUMB_VFP_VLDR_DP:
