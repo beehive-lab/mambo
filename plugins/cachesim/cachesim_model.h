@@ -20,7 +20,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-typedef uint64_t addr_t;
+
+typedef uintptr_t addr_t;
 
 typedef enum {
   REPLACE_RANDOM,
