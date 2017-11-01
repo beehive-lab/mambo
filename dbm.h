@@ -318,10 +318,10 @@ extern __thread dbm_thread *current_thread;
 void set_mambo_context(mambo_context *ctx, dbm_thread *thread_data, inst_set inst_type,
                        cc_type fragment_type, int fragment_id, int inst, mambo_cond cond,
                        void *read_address, void *write_p, unsigned long *args);
+#endif
 void mambo_deliver_callbacks(unsigned cb_id, dbm_thread *thread_data, inst_set inst_type,
                              cc_type fragment_type, int fragment_id, int inst, mambo_cond cond,
                              void *read_address, void *write_p, unsigned long *regs);
-#endif
 
 #define min(a, b) (((a) < (b)) ? (a) : (b))
 #define max(a, b) (((a) > (b)) ? (a) : (b))
