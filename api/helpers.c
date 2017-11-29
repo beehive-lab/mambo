@@ -174,22 +174,24 @@ static inline int emit_thumb_add_sub(mambo_context *ctx, int rd, int rn, int rm)
 
 #ifdef __aarch64__
 void emit_a64_push(mambo_context *ctx, uint32_t regs) {
-  ctx->code.plugin_pushed_reg_count += count_bits(regs);
+  int reg_no = count_bits(regs);
+  ctx->code.plugin_pushed_reg_count += reg_no;
 
   uint32_t *write_p = ctx->code.write_p;
   uint32_t to_push[2];
-  int reg_no;
+
+  if (reg_no & 1) {
+    reg_no = get_highest_n_regs(regs, to_push, 1);
+    assert(reg_no == 1);
+    a64_push_reg(to_push[0]);
+    regs &= ~(1 << to_push[0]);
+  }
 
   while (regs != 0) {
     reg_no = get_highest_n_regs(regs, to_push, 2);
-    assert(reg_no == 1 || reg_no == 2);
-    if (reg_no == 2) {
-      a64_push_pair_reg(to_push[1], to_push[0]);
-      regs &= ~((1 << to_push[0]) | (1 << to_push[1]));
-    } else if (reg_no == 1) {
-      a64_push_reg(to_push[0]);
-      regs &= ~(1 << to_push[0]);
-    }
+    assert(reg_no == 2);
+    a64_push_pair_reg(to_push[1], to_push[0]);
+    regs &= ~((1 << to_push[0]) | (1 << to_push[1]));
   }
 
   ctx->code.write_p = write_p;
