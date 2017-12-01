@@ -265,3 +265,70 @@ abort:
 
 #endif
 .endfunc
+
+
+.global safe_fcall_trampoline
+.func safe_fcall_trampoline
+.type safe_fcall_trampoline, %function
+
+safe_fcall_trampoline:
+#ifdef __arm__
+  PUSH {R5-R7, R9, R12, LR}
+  VPUSH {d16-d31}
+  VPUSH {d0-d7}
+
+  MOV R7, SP
+  BIC R6, R7, #7
+  MOV SP, R6
+
+  MRS R5, CPSR
+  VMRS R6, FPSCR
+
+  BLX R4
+
+  MOV SP, R7
+
+  MSR CPSR, R5
+  VMSR FPSCR, R6
+
+  VPOP {d0-d7}
+  VPOP {d16-d31}
+  POP {R5-R7, R9, R12, PC}
+
+#elif __aarch64__
+  STP X8,  X9,  [SP, #-128]!
+  STP X10, X11, [SP, #16]
+  STP X12, X13, [SP, #32]
+  STP X14, X15, [SP, #48]
+  STP X16, X17, [SP, #64]
+  STP X18, X19, [SP, #80]
+  STP X20, X21, [SP, #96]
+  STP X29, X30, [SP, #112]
+
+  MRS X19, NZCV
+  MRS X20, FPCR
+  MRS X21, FPSR
+
+  BL push_neon
+
+  BLR X8
+
+  BL pop_neon
+
+  MSR NZCV, X19
+  MSR FPCR, X20
+  MSR FPSR, X21
+
+  LDP X10, X11, [SP, #16]
+  LDP X12, X13, [SP, #32]
+  LDP X14, X15, [SP, #48]
+  LDP X16, X17, [SP, #64]
+  LDP X18, X19, [SP, #80]
+  LDP X20, X21, [SP, #96]
+  LDP X29, X30, [SP, #112]
+  LDP X8,  X9,  [SP], #128
+
+  RET
+#endif
+
+.endfunc

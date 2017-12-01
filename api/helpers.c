@@ -342,6 +342,28 @@ void emit_fcall(mambo_context *ctx, void *function_ptr) {
 #endif
 }
 
+int emit_safe_fcall(mambo_context *ctx, void *function_ptr, int argno) {
+  uintptr_t to_push = (1 << lr);
+#ifdef __arm__
+  to_push |= (1 << r0) | (1 << r1) | (1 << r2) | (1 << r3) | (1 << r4);
+  #define MAX_ARGS 4
+#elif __aarch64__
+  to_push |= 0x1FF;
+  #define MAX_ARGS 8
+#endif
+
+  if (argno > MAX_ARGS) return -1;
+  to_push &= ~(((1 << MAX_ARGS)-1) >> (MAX_ARGS - argno));
+
+  emit_push(ctx, to_push);
+  emit_set_reg_ptr(ctx, MAX_ARGS, function_ptr);
+  emit_fcall(ctx, safe_fcall_trampoline);
+  emit_pop(ctx, to_push);
+
+  return 0;
+}
+#undef MAX_ARGS
+
 void emit_mov(mambo_context *ctx, enum reg rd, enum reg rn) {
 #ifdef __arm__
   assert(rd >= 0 && rd < pc && rn >= 0 && rn < pc);
