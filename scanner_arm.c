@@ -1143,6 +1143,14 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
         // This is used in OpenSSL in OPENSSL_cpuid_setup, a constructor. WTF
         } else if (coproc == 15 && opc1 == 0 && crn == 9 && crm == 13 && opc2 == 0 && load_store == 1 && rd != pc) {
           copy_arm();
+
+        // Data memory barrier operation, deprecated in ARMv7-a in favor of
+        // dmb(). This is used in Raspbian Jessie's libc6, which is apparently
+        // compiled for ARMv6 due to compatibility reasons. Section B3.12.33 in
+        // page B3-136 of ARM DDI 0406B has more information on this mcr op.
+        } else if (coproc == 15 && opc1 == 0 && crn == 7 && crm == 10 && opc2 == 5 && load_store == 0 && rd != pc) {
+          copy_arm();
+
         } else {
           fprintf(stderr, "unknown coproc: %d %d %d %d %d %d\n", opc1, crn, rd, coproc, opc2, crm);
           while(1);
