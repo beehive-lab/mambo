@@ -56,6 +56,23 @@ enum reg_alt {
   lr = r14,
   pc = r15
 };
+
+#define m_r0 (1 << r0)
+#define m_r1 (1 << r1)
+#define m_r2 (1 << r2)
+#define m_r3 (1 << r3)
+#define m_r4 (1 << r4)
+#define m_r5 (1 << r5)
+#define m_r6 (1 << r6)
+#define m_r7 (1 << r7)
+#define m_r8 (1 << r8)
+#define m_r9 (1 << r9)
+#define m_r10 (1 << r10)
+#define m_r11 (1 << r11)
+#define m_r12 (1 << r12)
+#define m_r13 (1 << r13)
+#define m_r14 (1 << r14)
+#define m_r15 (1 << r15)
 #endif // __arm__
 
 #ifdef __aarch64__
@@ -106,6 +123,45 @@ enum reg_alt {
   sp   =  x31,  // Stack Pointer
   xzr  =  x31,  // Zero Register
 };
+
+#define m_x0 (1 << x0)
+#define m_x1 (1 << x1)
+#define m_x2 (1 << x2)
+#define m_x3 (1 << x3)
+#define m_x4 (1 << x4)
+#define m_x5 (1 << x5)
+#define m_x6 (1 << x6)
+#define m_x7 (1 << x7)
+#define m_x8 (1 << x8)
+#define m_x9 (1 << x9)
+#define m_x10 (1 << x10)
+#define m_x11 (1 << x11)
+#define m_x12 (1 << x12)
+#define m_x13 (1 << x13)
+#define m_x14 (1 << x14)
+#define m_x15 (1 << x15)
+#define m_x16 (1 << x16)
+#define m_x17 (1 << x17)
+#define m_x18 (1 << x18)
+#define m_x19 (1 << x19)
+#define m_x20 (1 << x20)
+#define m_x21 (1 << x21)
+#define m_x22 (1 << x22)
+#define m_x23 (1 << x23)
+#define m_x24 (1 << x24)
+#define m_x25 (1 << x25)
+#define m_x26 (1 << x26)
+#define m_x27 (1 << x27)
+#define m_x28 (1 << x28)
+#define m_x29 (1 << x29)
+#define m_x30 (1 << x30)
+#define m_x31 (1 << x31)
+
+#define m_xr  (1 << xr)
+#define m_ip0 (1 << ip0)
+#define m_ip1 (1 << ip1)
+#define m_pr  (1 << pr)
+#define m_xzr (1 << xzr)
 #endif
 
 enum reg_portable {
