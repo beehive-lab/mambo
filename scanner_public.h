@@ -108,6 +108,22 @@ enum reg_alt {
 };
 #endif
 
+enum reg_portable {
+  reg0 = 0,
+  reg1 = 1,
+  reg2 = 2,
+  reg3 = 3,
+  reg4 = 4,
+  reg5 = 5,
+  reg6 = 6,
+  reg7 = 7,
+  reg8 = 8,
+  reg9 = 9,
+  reg10 = 10,
+  reg11 = 11,
+  reg12 = 12
+};
+
 typedef enum arm_cond_codes {
   EQ = 0,
   NE = 1,
