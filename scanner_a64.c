@@ -387,8 +387,14 @@ bool a64_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id, 
     uint32_t *write_p = *o_write_p;
     uint32_t *data_p = *o_data_p;
 
+    mambo_cond cond = AL;
+    if (inst == A64_B_COND) {
+      uint32_t tmp;
+      a64_B_cond_decode_fields(read_address, &tmp, &cond);
+    }
+
     mambo_context ctx;
-    set_mambo_context_code(&ctx, thread_data, cb_id, type, basic_block, A64_INST, inst, AL, read_address, write_p);
+    set_mambo_context_code(&ctx, thread_data, cb_id, type, basic_block, A64_INST, inst, cond, read_address, write_p);
 
     for (int i = 0; i < global_data.free_plugin; i++) {
       if (global_data.plugins[i].cbs[cb_id] != NULL) {
