@@ -526,7 +526,7 @@ int mambo_reserve_branch(mambo_context *ctx, mambo_branch *br) {
 int mambo_reserve_branch_cbz(mambo_context *ctx, mambo_branch *br) {
 #ifdef __arm__
   if (mambo_get_inst_type(ctx) == THUMB_INST) {
-    __mambo_reserve(ctx, br, 2);
+    return __mambo_reserve(ctx, br, 2);
   }
   return -1;
 #endif
