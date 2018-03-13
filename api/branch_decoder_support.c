@@ -153,7 +153,7 @@ mambo_branch_type __get_arm_branch_type(mambo_context *ctx) {
     case ARM_RSC: {
       uint32_t immediate, opcode, set_flags, rd, rn, operand2, rm = reg_invalid;
       arm_data_proc_decode_fields(ctx->code.read_address, &immediate, &opcode, &set_flags, &rd, &rn, &operand2);
-      if (rn == pc) {
+      if (rd == pc) {
         type = BRANCH_INDIRECT | BRANCH_INTERWORKING;
       }
       break;
