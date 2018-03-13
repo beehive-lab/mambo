@@ -882,11 +882,21 @@ bool thumb_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id
     uint32_t *data_p = *o_data_p;
 
     mambo_cond cond;
-    if (state->cond_inst_after_it > 0) {
-      cond = (((state->it_mask >> 5) & 1) == (state->it_cond & 1))
-             ? state->it_cond : arm_inverse_cond_code[state->it_cond];
-    } else {
-      cond = AL;
+    uint32_t tmp;
+    switch(inst) {
+      case THUMB_B_COND16:
+        thumb_b_cond16_decode_fields(read_address, &cond, &tmp);
+        break;
+      case THUMB_B_COND32:
+        thumb_b_cond32_decode_fields(read_address, &tmp, &cond, &tmp, &tmp, &tmp, &tmp);
+        break;
+      default:
+        if (state->cond_inst_after_it > 0) {
+          cond = (((state->it_mask >> 5) & 1) == (state->it_cond & 1))
+                 ? state->it_cond : arm_inverse_cond_code[state->it_cond];
+        } else {
+          cond = AL;
+        }
     }
 
     /* If the previous instruction was IT, allow the plugins to overwrite it */
