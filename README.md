@@ -4,6 +4,7 @@ MAMBO: A Low-Overhead Dynamic Binary Modification Tool for ARM
 News
 ----
 
+* 2018-04-11: We've presented our ICPE paper. The slides are available [here](http://www2.cs.man.ac.uk/~gorgovc9/slides_icpe2018.pdf).
 * 2018-01-23: We've ran a tutorial on using MAMBO's API at HiPEAC 2018. The slides are available [here](http://www2.cs.man.ac.uk/~gorgovc9/mambo_tutorial_hipeac_2018.pdf).
 * 2017-04-24: An address decoder for load and store instructions was added to the API: `mambo_calc_ld_st_addr()`. It allows plugin developers to automatically obtain the base address of all data memory accesses. This API function is available for all supported instruction sets: A32, T32, A64. Its usage is demonstrated in the `plugins/mtrace.c` plugin.
 * 2017-04-04: Significantly improved support for Linux signals was implemented.
@@ -15,7 +16,7 @@ Publications
 ------------
 * [Cosmin Gorgovan, Amanieu d’Antras, and Mikel Luján. 2016. MAMBO: A low-overhead dynamic binary modification tool for ARM. ACM Trans. Archit. Code Optim. 13, 1, Article 14 (April 2016)](http://dl.acm.org/citation.cfm?id=2896451). If you use MAMBO for your research, please cite this paper.
 
-Note that the version of MAMBO published in this repository is newer and has significantly lower overhead than the one used in the paper, mostly due to the implementation of traces. If you want to reproduce the results in the paper, please get in touch.
+* [Cosmin Gorgovan, Amanieu d’Antras, and Mikel Luján. 2018. Optimising Dynamic Binary Modification Across ARM Microarchitectures. In Proceedings of the 2018 ACM/SPEC International Conference on Performance Engineering (ICPE '18)](https://dl.acm.org/citation.cfm?id=3184425).
 
 MAMBO was created as part of Cosmin's [EPSRC](https://www.epsrc.ac.uk)-funded PhD in the [School of Computer Science](http://www.cs.manchester.ac.uk/) at the [University of Manchester](http://www.manchester.ac.uk/). MAMBO is currently being developed as part of the [PAMELA EP/K008730/1](http://apt.cs.manchester.ac.uk/projects/PAMELA/) and DOME EP/J016330/1 EPSRC projects.
 
