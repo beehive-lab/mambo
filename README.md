@@ -14,9 +14,9 @@ News
 
 Publications
 ------------
-* [Cosmin Gorgovan, Amanieu d’Antras, and Mikel Luján. 2016. MAMBO: A low-overhead dynamic binary modification tool for ARM. ACM Trans. Archit. Code Optim. 13, 1, Article 14 (April 2016)](http://dl.acm.org/citation.cfm?id=2896451). If you use MAMBO for your research, please cite this paper.
+* [Cosmin Gorgovan, Amanieu d’Antras, and Mikel Luján. 2016. MAMBO: A low-overhead dynamic binary modification tool for ARM. ACM Trans. Archit. Code Optim. 13, 1, Article 14 (April 2016)](http://dl.acm.org/citation.cfm?id=2896451). **Open access**. If you use MAMBO for your research, please cite this paper.
 
-* [Cosmin Gorgovan, Amanieu d’Antras, and Mikel Luján. 2018. Optimising Dynamic Binary Modification Across ARM Microarchitectures. In Proceedings of the 2018 ACM/SPEC International Conference on Performance Engineering (ICPE '18)](https://dl.acm.org/citation.cfm?id=3184425).
+* [Cosmin Gorgovan, Amanieu d’Antras, and Mikel Luján. 2018. Optimising Dynamic Binary Modification Across ARM Microarchitectures. In Proceedings of the 2018 ACM/SPEC International Conference on Performance Engineering (ICPE '18)](https://dl.acm.org/citation.cfm?id=3184425). **Free download** [via research.manchester.ac.uk](https://www.research.manchester.ac.uk/portal/en/publications/optimising-dynamic-binary-modification-across-arm-microarchitectures(6eedcdc7-d5af-488a-815e-6e4968f96fc5).html).
 
 MAMBO was created as part of Cosmin's [EPSRC](https://www.epsrc.ac.uk)-funded PhD in the [School of Computer Science](http://www.cs.manchester.ac.uk/) at the [University of Manchester](http://www.manchester.ac.uk/). MAMBO is currently being developed as part of the [PAMELA EP/K008730/1](http://apt.cs.manchester.ac.uk/projects/PAMELA/) and DOME EP/J016330/1 EPSRC projects.
 
