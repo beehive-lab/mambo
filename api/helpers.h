@@ -34,6 +34,7 @@ void emit_pop(mambo_context *ctx, uint32_t regs);
 void emit_set_reg(mambo_context *ctx, enum reg reg, uintptr_t value);
 void emit_fcall(mambo_context *ctx, void *function_ptr);
 int emit_safe_fcall(mambo_context *ctx, void *function_ptr, int argno);
+int emit_safe_fcall_static_args(mambo_context *ctx, void *fptr, int argno, ...);
 
 void emit_mov(mambo_context *ctx, enum reg rd, enum reg rn);
 int emit_add_sub_i(mambo_context *ctx, int rd, int rn, int offset);

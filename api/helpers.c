@@ -21,6 +21,7 @@
 
 #include <stdio.h>
 #include <assert.h>
+#include <stdarg.h>
 #include "../plugins.h"
 #ifdef __arm__
 #include "../pie/pie-thumb-encoder.h"
@@ -32,6 +33,12 @@
 #define not_implemented() \
   fprintf(stderr, "%s: Implement me\n", __PRETTY_FUNCTION__); \
   while(1);
+
+#ifdef __arm__
+  #define MAX_FCALL_ARGS 4
+#elif __aarch64__
+  #define MAX_FCALL_ARGS 8
+#endif
 
 #ifdef __arm__
 void emit_thumb_push_cpsr(mambo_context *ctx, enum reg tmp_reg) {
@@ -346,23 +353,45 @@ int emit_safe_fcall(mambo_context *ctx, void *function_ptr, int argno) {
   uintptr_t to_push = (1 << lr);
 #ifdef __arm__
   to_push |= (1 << r0) | (1 << r1) | (1 << r2) | (1 << r3) | (1 << r4);
-  #define MAX_ARGS 4
 #elif __aarch64__
   to_push |= 0x1FF;
-  #define MAX_ARGS 8
 #endif
 
-  if (argno > MAX_ARGS) return -1;
-  to_push &= ~(((1 << MAX_ARGS)-1) >> (MAX_ARGS - argno));
+  if (argno > MAX_FCALL_ARGS) return -1;
+  to_push &= ~(((1 << MAX_FCALL_ARGS)-1) >> (MAX_FCALL_ARGS - argno));
 
   emit_push(ctx, to_push);
-  emit_set_reg_ptr(ctx, MAX_ARGS, function_ptr);
+  emit_set_reg_ptr(ctx, MAX_FCALL_ARGS, function_ptr);
   emit_fcall(ctx, safe_fcall_trampoline);
   emit_pop(ctx, to_push);
 
   return 0;
 }
-#undef MAX_ARGS
+
+int emit_safe_fcall_static_args(mambo_context *ctx, void *fptr, int argno, ...) {
+  va_list args;
+  uint32_t reglist = 0;
+
+  if (argno > MAX_FCALL_ARGS || argno < 0) return -1;
+  if (argno > 0) {
+    reglist = 0xFF >> (8-argno);
+    emit_push(ctx, reglist);
+
+    va_start(args, argno);
+    for (int a = 0; a < argno; a++) {
+      emit_set_reg(ctx, a, va_arg(args, uintptr_t));
+    }
+    va_end(args);
+  }
+
+  emit_safe_fcall(ctx, fptr, argno);
+
+  if (argno > 0) {
+    emit_pop(ctx, reglist);
+  }
+
+  return 0;
+}
 
 void emit_mov(mambo_context *ctx, enum reg rd, enum reg rn) {
 #ifdef __arm__
