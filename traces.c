@@ -89,6 +89,7 @@ uint32_t scan_trace(dbm_thread *thread_data, void *address, cc_type type, int *s
 
   thread_data->code_cache_meta[trace_id].source_addr = address;
   thread_data->code_cache_meta[trace_id].tpc = (uintptr_t)write_p;
+  thread_data->code_cache_meta[trace_id].branch_cache_status = 0;
 
 #ifdef __arm__
   if (thumb) {
