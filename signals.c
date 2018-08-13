@@ -210,7 +210,7 @@ void unlink_fragment(int fragment_id, uintptr_t pc) {
   dbm_code_cache_meta *bb_meta;
 
 #ifdef DBM_TRACES
-  // Skip over trace fragments ending in unlinked unconditional branches
+  // Skip over trace fragments with elided unconditional branches
   branch_type type;
 
   do {
@@ -228,14 +228,11 @@ void unlink_fragment(int fragment_id, uintptr_t pc) {
          fragment_id >= CODE_CACHE_SIZE &&
          fragment_id < current_thread->active_trace.id);
 
-  if (fragment_id >= current_thread->active_trace.id) {
-    if (bb_meta->branch_cache_status == 0) {
-      assert(current_thread->active_trace.active);
-      return;
-    }
-  }
-
   fragment_id--;
+  // If the fragment isn't installed, make sure it's active
+  if (fragment_id >= current_thread->trace_id) {
+    assert(current_thread->active_trace.active);
+  }
 #else
   bb_meta = &current_thread->code_cache_meta[fragment_id];
 #endif
