@@ -99,7 +99,7 @@ new_thread_trampoline:
   STP X23, X24, [SP, #32]
   STP X25, X26, [SP, #48]
   STP X27, X28, [SP, #64]
-  STP X29, LR, [SP, #80]
+  STP X29, X30, [SP, #80]
   MOV X1, SP
 #endif
   B dbm_start_thread_pth
@@ -118,7 +118,7 @@ return_with_sp:
   LDP X23, X24, [SP, #32]
   LDP X25, X26, [SP, #48]
   LDP X27, X28, [SP, #64]
-  LDP X29, LR, [SP, #80]
+  LDP X29, X30, [SP, #80]
   LDP X19, X20, [SP], #96
   RET
 #endif
