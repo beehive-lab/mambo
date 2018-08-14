@@ -45,5 +45,7 @@ extern uintptr_t raw_syscall(long number, ...);
 void signal_trampoline(int i, siginfo_t *, void *);
 
 void safe_fcall_trampoline();
+void *new_thread_trampoline();
+void return_with_sp(void *sp);
 #endif
 

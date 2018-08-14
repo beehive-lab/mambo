@@ -46,11 +46,11 @@
   #define SIG_FRAG_OFFSET 0
 #endif
 
-void *dbm_start_thread_pth(void *ptr) {
+void *dbm_start_thread_pth(void *ptr, void *mambo_sp) {
   dbm_thread *thread_data = (dbm_thread *)ptr;
   assert(thread_data->clone_args->child_stack);
-
   current_thread = thread_data;
+  current_thread->mambo_sp = mambo_sp;
 
   pid_t tid = syscall(__NR_gettid);
   thread_data->tid = tid;
@@ -116,7 +116,7 @@ dbm_thread *dbm_create_thread(dbm_thread *thread_data, void *next_inst, sys_clon
      Also see man pthread_attr_setguardsize BUGS. */
   pthread_attr_setstacksize(&attr, PTHREAD_STACK_MIN + 4096);
   pthread_attr_setguardsize(&attr, 4096);
-  pthread_create(&thread, &attr, dbm_start_thread_pth, new_thread_data);
+  pthread_create(&thread, &attr, new_thread_trampoline, new_thread_data);
 
   return new_thread_data;
 }
@@ -235,11 +235,11 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
       break;
     case __NR_exit:
       debug("thread exit\n");
-
+      void *sp = thread_data->mambo_sp;
       assert(unregister_thread(thread_data, false) == 0);
       assert(free_thread_data(thread_data) == 0);
 
-      pthread_exit(NULL); // this should never return
+      return_with_sp(sp); // this should never return
       while(1); 
       break;
 #ifdef __arm__

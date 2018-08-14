@@ -217,6 +217,7 @@ struct dbm_thread_s {
   bool clone_vm;
   int pending_signals[_NSIG];
   uint32_t is_signal_pending;
+  void *mambo_sp;
 };
 
 typedef enum {
