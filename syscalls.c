@@ -404,7 +404,7 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
       do_syscall = 0;
       break;
     case __ARM_NR_cacheflush:
-      fprintf(stderr, "cache flush\n");
+      debug("cache flush\n");
       /* Returning to the calling BB is potentially unsafe because the remaining
          contents of the BB or other basic blocks it is linked against could be stale */
       flush_code_cache(thread_data);
