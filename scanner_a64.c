@@ -303,7 +303,6 @@ void a64_branch_imm_reg(dbm_thread *thread_data, uint32_t **o_write_p,
   *write_p = NOP;
   write_p++;
 
-  assert(rt != sp);
   a64_branch_save_context(&write_p);
 
   cbz_branch = write_p++;
