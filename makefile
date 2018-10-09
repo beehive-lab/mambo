@@ -26,7 +26,7 @@ SOURCES= dispatcher.S common.c dbm.c traces.c syscalls.c dispatcher.c signals.c 
 SOURCES+=api/helpers.c api/plugin_support.c api/branch_decoder_support.c api/load_store.c
 SOURCES+=elf_loader/elf_loader.o
 
-ARCH=$(shell $(CROSS_COMPILE)$(CC) -dumpmachine | awk -F '-' '{print $$1}')
+ARCH=$(shell $(CC) -dumpmachine | awk -F '-' '{print $$1}')
 ifeq ($(findstring arm, $(ARCH)), arm)
 	CFLAGS += -mfpu=neon
 	HEADERS += api/emit_arm.h api/emit_thumb.h
@@ -56,10 +56,10 @@ pie:
 	@$(MAKE) --no-print-directory -C pie/ native
 
 %.o: %.c %.h
-	$(CROSS_COMPILE)$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CFLAGS) -c -o $@ $<
 
 dbm: $(HEADERS) $(SOURCES) $(PLUGINS)
-	$(CROSS_COMPILE)$(CC) $(CFLAGS) $(LDFLAGS) $(OPTS) $(INCLUDES) -o $@ $(SOURCES) $(PLUGINS) $(PIE) $(LIBS)
+	$(CC) $(CFLAGS) $(LDFLAGS) $(OPTS) $(INCLUDES) -o $@ $(SOURCES) $(PLUGINS) $(PIE) $(LIBS)
 
 clean:
 	rm -f dbm elf_loader/elf_loader.o
