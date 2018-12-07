@@ -120,12 +120,6 @@ int load_elf(char *filename, Elf **ret_elf, struct elf_loader_auxv *auxv, uintpt
   char *tmpmem;
   size_t phnum;
 
-  // Reserve the area below MAMBO's image for the application. libelf uses the heap.
-  uintptr_t tmpbase = max(PAGE_SIZE, 0x8000);
-  size_t tmpsz = align_lower((uintptr_t)&__ehdr_start-tmpbase, PAGE_SIZE);
-  tmpmem = mmap((void *)tmpbase, tmpsz, PROT_NONE, MAP_PRIVATE|MAP_ANONYMOUS|MAP_FIXED, -1, 0);
-  assert(tmpmem !=  MAP_FAILED);
-
   fd = open(filename, O_RDONLY);
   if (fd < 0) {
     printf("Couldn't open file %s\n", filename);
@@ -171,27 +165,39 @@ int load_elf(char *filename, Elf **ret_elf, struct elf_loader_auxv *auxv, uintpt
   elf_getphdrnum(elf, &phnum);
   phdr = ELF_GETPHDR(elf);
 
-  munmap(tmpmem, tmpsz);
-
   /* entry address is the actual execution entry point, either in the interpreter
      (if one is used), or in the executable */
   *entry_addr = ehdr->e_entry;
 
   /* Allocate the whole memory region, using ASLR if enabled in the kernel */
   void *base_addr = NULL;
-  uintptr_t max_size = 0;
-  if (ehdr->e_type == ET_DYN) {
-    for (int i = 0; i < phnum; i++) {
-      if (phdr[i].p_type == PT_LOAD) {
-        uintptr_t size = phdr[i].p_vaddr + phdr[i].p_memsz;
-        if (size > max_size) {
-          max_size = size;
-        }
+  uintptr_t min_addr = UINTPTR_MAX;
+  uintptr_t max_addr = 0;
+
+  for (int i = 0; i < phnum; i++) {
+    if (phdr[i].p_type == PT_LOAD) {
+      uintptr_t end = phdr[i].p_vaddr + phdr[i].p_memsz;
+      if (end > max_addr) {
+        max_addr = end;
+      }
+      if (phdr[i].p_vaddr < min_addr) {
+        min_addr = phdr[i].p_vaddr;
       }
     }
-    base_addr = mmap(NULL, max_size, PROT_NONE, MAP_ANONYMOUS|MAP_PRIVATE, -1, 0);
+  }
+
+  if (ehdr->e_type == ET_DYN) {
+    assert(min_addr == 0);
+  } else {
+    assert(min_addr != 0);
+  }
+
+  base_addr = mmap((void *)min_addr, max_addr - min_addr, PROT_NONE, MAP_ANONYMOUS|MAP_PRIVATE, -1, 0);
+  if (ehdr->e_type == ET_DYN) {
     assert(base_addr != MAP_FAILED);
     *entry_addr += (uintptr_t)base_addr;
+  } else {
+    assert(base_addr == (void*)min_addr);
   }
 
   // AT_ENTRY in the AUXV points to the original executable
