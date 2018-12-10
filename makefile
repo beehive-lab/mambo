@@ -55,7 +55,7 @@ all:
 	@$(MAKE) --no-print-directory pie && $(MAKE) --no-print-directory dbm
 
 pie:
-	@$(MAKE) --no-print-directory -C pie/ native
+	@$(MAKE) --no-print-directory -C pie/ all
 
 %.o: %.c %.h
 	$(CC) $(CFLAGS) -c -o $@ $<
