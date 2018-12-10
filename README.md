@@ -40,7 +40,7 @@ Also read the *Known issues* section below.
 Build
 -----
 
-Prerequisites: an ARM system (physical or virtual) to build and run MAMBO on; dependencies: gcc toolchain, libelf(-dev), ruby (>=1.9.1).
+Prerequisites: an ARM system (physical or virtual) to build and run MAMBO on; dependencies: gcc toolchain, libelf(-dev), ruby (>=1.9.1). Ubuntu 18.04 users can run `sudo apt-get install build-essential libelf-dev ruby`.
 
     git clone --recurse-submodules https://github.com/beehive-lab/mambo.git
     cd mambo
