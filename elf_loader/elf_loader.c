@@ -165,10 +165,6 @@ int load_elf(char *filename, Elf **ret_elf, struct elf_loader_auxv *auxv, uintpt
   elf_getphdrnum(elf, &phnum);
   phdr = ELF_GETPHDR(elf);
 
-  /* entry address is the actual execution entry point, either in the interpreter
-     (if one is used), or in the executable */
-  *entry_addr = ehdr->e_entry;
-
   /* Allocate the whole memory region, using ASLR if enabled in the kernel */
   void *base_addr = NULL;
   uintptr_t min_addr = UINTPTR_MAX;
@@ -195,14 +191,18 @@ int load_elf(char *filename, Elf **ret_elf, struct elf_loader_auxv *auxv, uintpt
   base_addr = mmap((void *)min_addr, max_addr - min_addr, PROT_NONE, MAP_ANONYMOUS|MAP_PRIVATE, -1, 0);
   if (ehdr->e_type == ET_DYN) {
     assert(base_addr != MAP_FAILED);
-    *entry_addr += (uintptr_t)base_addr;
+    ehdr->e_entry += (uintptr_t)base_addr;
   } else {
     assert(base_addr == (void*)min_addr);
   }
 
+  /* entry address is the actual execution entry point, either in the interpreter
+     (if one is used), or in the executable */
+  *entry_addr = ehdr->e_entry;
+
   // AT_ENTRY in the AUXV points to the original executable
   if (!is_interp) {
-    auxv->at_entry = (uintptr_t)base_addr + ehdr->e_entry;
+    auxv->at_entry = ehdr->e_entry;
   }
 
   // Look for an INTERP header
