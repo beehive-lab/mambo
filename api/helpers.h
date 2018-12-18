@@ -42,6 +42,7 @@ int emit_add_sub_shift(mambo_context *ctx, int rd, int rn, int rm,
                        unsigned int shift_type, unsigned int shift);
 int emit_add_sub(mambo_context *ctx, int rd, int rn, int rm);
 int mambo_calc_ld_st_addr(mambo_context *ctx, enum reg reg);
+int mambo_calc_br_target(mambo_context *ctx, enum reg reg);
 
 int emit_branch(mambo_context *ctx, void *target);
 int emit_branch_cond(mambo_context *ctx, void *target, mambo_cond cond);

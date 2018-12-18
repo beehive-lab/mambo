@@ -3,7 +3,7 @@
       https://github.com/beehive-lab/mambo
 
   Copyright 2016 Cosmin Gorgovan <cosmin at linux-geek dot org>
-  Copyright 2017 The University of Manchester
+  Copyright 2017-2019 The University of Manchester
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@
 
 #include "../dbm.h"
 #include "../common.h"
-#include "plugin_support.h"
+#include "../plugins.h"
 
 #ifdef __arm__
   #include "../pie/pie-thumb-decoder.h"
@@ -257,6 +257,55 @@ mambo_branch_type mambo_get_branch_type(mambo_context *ctx) {
 #endif // __aarch64__
 
   return type;
+}
+
+void __br_set_addr_w_offset(mambo_context *ctx, enum reg reg, uintptr_t offset) {
+  offset += (uintptr_t)mambo_get_source_addr(ctx);
+  emit_set_reg(ctx, reg, offset);
+}
+
+int mambo_calc_br_target(mambo_context *ctx, enum reg reg) {
+#ifdef __aarch64__
+  switch(mambo_get_inst(ctx)) {
+    case A64_CBZ_CBNZ: {
+      uint32_t sf, op, imm, rt;
+      a64_CBZ_CBNZ_decode_fields(mambo_get_source_addr(ctx), &sf, &op, &imm, &rt);
+      __br_set_addr_w_offset(ctx, reg, sign_extend64(19, imm) << 2);
+      return 0;
+    }
+    case A64_TBZ_TBNZ: {
+      uint32_t b5, op, b40, imm, rt;
+      a64_TBZ_TBNZ_decode_fields(mambo_get_source_addr(ctx), &b5, &op, &b40, &imm, &rt);
+      __br_set_addr_w_offset(ctx, reg, sign_extend64(14, imm) << 2);
+      return 0;
+    }
+    case A64_B_COND: {
+      uint32_t imm19, cond;
+      a64_B_cond_decode_fields(mambo_get_source_addr(ctx), &imm19, &cond);
+      __br_set_addr_w_offset(ctx, reg, sign_extend64(19, imm19) << 2);
+      return 0;
+    }
+    case A64_B_BL: {
+      uint32_t op, imm26;
+      a64_B_BL_decode_fields(mambo_get_source_addr(ctx), &op, &imm26);
+      __br_set_addr_w_offset(ctx, reg, sign_extend64(26, imm26) << 2);
+      return 0;
+    }
+    case A64_BR:
+    case A64_BLR:
+    case A64_RET: {
+      uint32_t rn;
+      a64_BR_decode_fields(mambo_get_source_addr(ctx), &rn);
+      if (rn != reg) {
+        emit_mov(ctx, reg, rn);
+      }
+      return 0;
+    }
+  }
+#else
+  // Only implemented for AArch64 atm
+#endif
+  return -1;
 }
 
 #endif // PLUGINS_NEW
