@@ -974,6 +974,64 @@ bool thumb_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id
   return replaced;
 }
 
+// Returns the target address for direct branches
+int _thumb_get_dir_br_target(uint16_t *read_address, thumb_instruction inst, uintptr_t *addr) {
+  switch (inst) {
+    case THUMB_B32:
+    case THUMB_BL32:
+    case THUMB_BL_ARM32: {
+      uint32_t sign_bit, offset_high, link, j1, thumb_arm, j2, offset_low;
+      thumb_branch32_decode_fields(read_address, &sign_bit, &offset_high,
+                                   &link, &j1, &thumb_arm, &j2, &offset_low);
+      *addr = sign_bit ? 0xFF000000 : 0;
+      *addr |= (j1 ^ sign_bit) ? 0 : 1 << 23;
+      *addr |= (j2 ^ sign_bit) ? 0: 1 << 22;
+      *addr |= offset_high << 12;
+      *addr |= offset_low << 1;
+      *addr += (uint32_t)read_address + 4 + 1;
+      if (inst == THUMB_BL_ARM32) {
+        *addr &= ~3;
+      }
+      return 0;
+    }
+    case THUMB_CBZ16:
+    case THUMB_CBNZ16: {
+      uint32_t n, imm1, imm5, rn, branch_offset;
+      thumb_misc_cbz_16_decode_fields(read_address, &n, &imm1, &imm5, &rn);
+      branch_offset = (imm1 << 6) | (imm5 << 1);
+      *addr = (uint32_t)read_address + branch_offset + 4 + 1;
+      return 0;
+    }
+    case THUMB_B_COND16: {
+      uint32_t condition, imm8, branch_offset;
+      thumb_b_cond16_decode_fields(read_address, &condition, &imm8);
+      branch_offset = ((int8_t)imm8) << 1;
+      *addr = (uint32_t)read_address + 4 + 1 + branch_offset;
+      return 0;
+    }
+    case THUMB_B16: {
+      uint32_t imm, branch_offset;
+      thumb_b16_decode_fields(read_address, &imm);
+      branch_offset = (imm & 0x400) ? 0xFFFFF000 : 0;
+      branch_offset |= imm << 1;
+      *addr = (uint32_t)read_address + 4 + 1 + branch_offset;
+      return 0;
+    }
+    case THUMB_B_COND32: {
+      uint32_t sign_bit, cond, off_h, j1, j2, off_l, branch_offset;
+      thumb_b_cond32_decode_fields(read_address, &sign_bit, &cond, &off_h, &j1, &j2, &off_l);
+      branch_offset = sign_bit ? 0xFFF00000 : 0;
+      branch_offset |= j2 << 19;
+      branch_offset |= j1 << 18;
+      branch_offset |= off_h << 12;
+      branch_offset |= off_l << 1;
+      *addr = (uint32_t)read_address + branch_offset + 4 + 1;
+      return 0;
+    }
+  }
+  return -1;
+}
+
 size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_block, cc_type type, uint16_t *write_p) {
   bool stop = false;
 
@@ -1092,6 +1150,7 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
 
   uint32_t addr_prev_block = 0;
   uint32_t set_addr_prev_block = 0;
+  int ret;
 
 #ifdef DBM_INLINE_UNCOND_IMM
   int inline_back_count = 0;
@@ -1540,12 +1599,8 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
         thumb_misc_cbz_16_decode_fields(read_address, &n, &imm1, &imm5, &rn);
         assert(rn != pc);
         
-        branch_offset = (imm1 << 6) | (imm5 << 1);
-        debug("Branch offset: %d\n", branch_offset);
-        
-        // Seems ok, but keep an eye on this
-        target = (uint32_t)read_address + branch_offset + 4 + 1;
-        debug("Branch taken: 0x%x\n", target);
+        ret = _thumb_get_dir_br_target(read_address, inst, &target);
+        assert(ret == 0);
 
         thumb_check_free_space(thread_data, &write_p, &data_p, &it_state,
                                &set_addr_prev_block, true, CBZ_SIZE, basic_block);
@@ -1682,12 +1737,8 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
         
       case THUMB_B_COND16:
         thumb_b_cond16_decode_fields(read_address, &condition, &imm8);
-        branch_offset = ((int8_t)imm8) << 1;
-        debug("Branch offset: %d\n", branch_offset);
-        
-        // Seems ok, but keep an eye on this
-        target = (uint32_t)read_address + 4 + 1 + branch_offset;
-        debug("Branch taken: 0x%x\n", target);
+        ret = _thumb_get_dir_br_target(read_address, inst, &target);
+        assert(ret == 0);
 
         thumb_check_free_space(thread_data, &write_p, &data_p, &it_state,
                                &set_addr_prev_block, true, IMM_SIZE, basic_block);
@@ -1744,12 +1795,9 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
       
       case THUMB_B16:
         thumb_b16_decode_fields(read_address, &imm1);
-        
-        branch_offset = (imm1 & 0x400) ? 0xFFFFF000 : 0;
-        branch_offset |= imm1 << 1;
-        debug("offset: %d\n", branch_offset);
-        target = (uint32_t)read_address + 4 + 1 + branch_offset;
-        debug("target : 0x%x\n", target);
+        ret = _thumb_get_dir_br_target(read_address, inst, &target);
+        assert(ret == 0);
+
 #ifdef DBM_INLINE_UNCOND_IMM
         if ((target - 1) <= (uint32_t)read_address) {
           if (inline_back_count >= MAX_BACK_INLINE) {
@@ -2377,26 +2425,12 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
       case THUMB_B32:
       case THUMB_BL32:
       case THUMB_BL_ARM32:
-        thumb_branch32_decode_fields(read_address, &sign_bit, &offset_high, &link, &j1, &thumb_arm, &j2, &offset_low);
-        debug("B32/BL32/BL_ARM32 sign_bit: %d, j1: %d, j2: %d, offset_high 0x%x, offset_low 0x%x\n",
-              sign_bit, j1, j2, offset_high, offset_low);
-
-        branch_offset = sign_bit ? 0xFF000000 : 0;
-        branch_offset |= (j1 ^ sign_bit) ? 0 : 1 << 23;
-        branch_offset |= (j2 ^ sign_bit) ? 0: 1 << 22;
-        branch_offset |= offset_high << 12;
-        branch_offset |= offset_low << 1;
-
-        debug("branch_offset = 0x%x\n", branch_offset);
+        ret = _thumb_get_dir_br_target(read_address, inst, &target);
+        assert(ret == 0);
 
         if (link_bx_alt(thread_data, &write_p, it_state.cond_inst_after_it, (uint32_t)read_address + 5)) {
           it_cond_handled = true;
         }
-
-        // Seems ok, but keep an eye on this
-        target = (uint32_t)read_address + branch_offset + 4 + 1;
-        if(inst == THUMB_BL_ARM32) target &= 0xFFFFFFFC;
-        debug("branch_target = 0x%x\n", target);
 
         // Set the link register
         if (inst != THUMB_B32) {
@@ -2459,18 +2493,8 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
       case THUMB_B_COND32:
         // Warning: at some point we might want to restore the values of any scratch registers here
         thumb_b_cond32_decode_fields(read_address, &sign_bit, &condition, &offset_high, &j1, &j2, &offset_low);
-        debug("B_COND32: sign_bit %d, j2: %d, j1: %d, offset_high: %x, offset_low %x\n", sign_bit, j2, j1, offset_high, offset_low);
-        branch_offset = sign_bit ? 0xFFF00000 : 0;
-        branch_offset |= j2 << 19;
-        branch_offset |= j1 << 18;
-        branch_offset |= offset_high << 12;
-        branch_offset |= offset_low << 1;
-
-        debug("branch_offset = %d\n", branch_offset);
-
-        // Seems ok, but keep an eye on this
-        target = (uint32_t)read_address + branch_offset + 4 + 1;
-        debug("Computed target: 0x%x\n", target);
+        ret = _thumb_get_dir_br_target(read_address, inst, &target);
+        assert(ret == 0);
 
         thumb_check_free_space(thread_data, &write_p, &data_p, &it_state,
                                &set_addr_prev_block, true, IMM_SIZE, basic_block);
