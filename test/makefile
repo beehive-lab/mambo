@@ -10,7 +10,7 @@ ifeq ($(ARCH),aarch64)
 endif
 
 CFLAGS+=-std=gnu99
-LDFLAGS=-lpthread
+LDFLAGS+=-lpthread
 
 .PHONY: clean
 
