@@ -3017,6 +3017,7 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
       case THUMB_NEON_VAND:
       case THUMB_NEON_VBIC:
       case THUMB_NEON_VBSL:
+      case THUMB_NEON_VCEQ_I:
       case THUMB_NEON_VCGT_I:
       case THUMB_NEON_VCLTZ:
       case THUMB_NEON_VDUP_SCAL:
