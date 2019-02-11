@@ -30,7 +30,7 @@ SOURCES+=elf_loader/elf_loader.o
 
 ARCH=$(shell $(CC) -dumpmachine | awk -F '-' '{print $$1}')
 ifeq ($(findstring arm, $(ARCH)), arm)
-	CFLAGS += -mfpu=neon
+	CFLAGS += -march=armv7-a -mfpu=neon
 	HEADERS += api/emit_arm.h api/emit_thumb.h
 	PIE = pie/pie-arm-encoder.o pie/pie-arm-decoder.o pie/pie-arm-field-decoder.o
 	PIE += pie/pie-thumb-encoder.o pie/pie-thumb-decoder.o pie/pie-thumb-field-decoder.o
