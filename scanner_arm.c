@@ -1663,6 +1663,7 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
 
       /* NEON and VFP instructions which can't access the PC */
       case ARM_NEON_VABD_I:
+      case ARM_NEON_VABDL:
       case ARM_NEON_VABS:
       case ARM_NEON_VADD_F:
       case ARM_NEON_VADD_I:
