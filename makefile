@@ -20,7 +20,7 @@ OPTS+=-DDBM_TRACES #-DTB_AS_TRACE_HEAD #-DBLXI_AS_TRACE_HEAD
 CFLAGS=-D_GNU_SOURCE -g -std=gnu99 -O2
 #CFLAGS+=-mcpu=native
 
-LDFLAGS=-static -ldl -Wl,-Ttext-segment=0xa8000000
+LDFLAGS=-static -ldl -Wl,-Ttext-segment=$(or $(TEXT_SEGMENT),0xa8000000)
 LIBS=-lelf -lpthread
 HEADERS=*.h makefile
 INCLUDES=-I/usr/include/libelf
