@@ -806,18 +806,52 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
 #else
           assert((condition_code >> 28) == AL);
 #endif
-          assert(writeback);
-          assert(((1 << rn) & registers) == 0);
-          if (registers & 0x7FFF) {
-            arm_ldm(&write_p, rn, registers & 0x7FFF, prepostindex, updown, writeback, psr);
-            write_p++;
+          if ((1 << rn) & registers) {
+            // Handles LDM sp, {*, sp, pc}
+            assert(rn == sp && !writeback && !prepostindex);
+            if (registers & 0x1FFF) {
+              arm_ldm(&write_p, rn, registers & 0x1FFF, prepostindex, updown, writeback, psr);
+              write_p++;
+            }
+          } else {
+            assert(writeback);
+            if (registers & 0x7FFF) {
+              arm_ldm(&write_p, rn, registers & 0x7FFF, prepostindex, updown, writeback, psr);
+              write_p++;
+            }
           }
 
           thread_data->code_cache_meta[basic_block].exit_branch_type = uncond_reg_arm;
           thread_data->code_cache_meta[basic_block].exit_branch_addr = (uint16_t *)write_p;
 
 #ifdef DBM_INLINE_HASH
-          if (rn == sp) {
+          if ((1 << rn) & registers) {
+            // We should adjust the offset if LR is also popped
+            assert(((1 << lr) & registers) == 0);
+
+            // PUSH {R0, R1}
+            arm_push_regs((1 << r0)|(1 << r1));
+            // LDR R0 [SP, offset_to_sp]
+            arm_ldr(&write_p, IMM_LDR, r0, sp, (count_bits(registers)-2+2)<<2, 1, updown, writeback);
+            write_p++;
+            // LDR R1 [SP, offset_to_pc]
+            arm_ldr(&write_p, IMM_LDR, r1, sp, (count_bits(registers)-1+2)<<2, 1, updown, writeback);
+            write_p++;
+            // STMFD R0!, {R4-R6}
+            arm_stm(&write_p, r0, (1 << r4) | (1 << r5) | (1 << r6), 1, 0, 1, 0);
+            write_p++;
+            // MOV R5, R1
+            arm_mov(&write_p, 0, 0, r5, r1);
+            write_p++;
+            // MOV R6, R0
+            arm_mov(&write_p, 0, 0, r6, r0);
+            write_p++;
+            // POP {R0, R1}
+            arm_pop_regs((1 << r0)|(1 << r1));
+            // MOV SP, R6
+            arm_mov(&write_p, 0, 0, sp, r6);
+            write_p++;
+          } else if (rn == sp) {
             assert(!prepostindex && updown && writeback && !psr);
             arm_push_regs((1 << r4) | (1 << r5));
             arm_ldr(&write_p, IMM_LDR, r5, sp, 8, 1, 1, 0);
@@ -834,6 +868,9 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
           arm_check_free_space(thread_data, &write_p, &data_p, IHL_SPACE, basic_block);
           arm_inline_hash_lookup(thread_data, &write_p, basic_block, -1);
 #else
+          // instructions of this type are only supported with inline hash table lookups
+          assert((1 << rn) & registers == 0);
+
           arm_branch_save_context(thread_data, &write_p, false);
           arm_branch_jump(thread_data, &write_p, basic_block, 0, read_address, (*read_address >> 28), SETUP);
 
