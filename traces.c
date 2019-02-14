@@ -456,6 +456,7 @@ void trace_dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_in
     case uncond_blxi_arm:
       arm_sub((uint32_t **)&write_p, IMM_PROC, 0, pc, pc, 3);
       write_p += 2;
+      __clear_cache(write_p-2, write_p);
       break;
 
     /* This is a new target for an indirect branch from the trace cache, generate a trace head */
