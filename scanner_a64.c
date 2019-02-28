@@ -439,6 +439,119 @@ bool a64_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id, 
   return replaced;
 }
 
+void a64_inline_hash_lookup(dbm_thread *thread_data, int basic_block, uint32_t **o_write_p,
+                            uint32_t *read_address, enum reg rn, bool link, bool set_meta) {
+  /*
+   * Indirect Branch LookUp
+   * ======== ====== ======
+   *
+   *                 STP  X0, X1, [SP, #-16]!
+   *                 STP  X2, [SP, #-16]!        **
+   *                 MOV  X1, rn                 ** rn = X1
+   *                 MOV  LR, read_address + 4   ##
+   *                 MOV  X0, #hash_table
+   *                 AND  Xtmp, rn, #(hash_mask << 2)
+   *                 ADD  X0, X0, Xtmp, LSL #2
+   *          loop:
+   *                 LDR  Xtmp, [X0], #16
+   *                 CBZ  Xtmp, not_found
+   *                 SUB  Xtmp, Xtmp, rn
+   *                 CBNZ Xtmp, loop
+   *                 LDR  X0, [X0,  #-8]
+   *                 LDR  X2, [SP], #16           **
+   *                 BR   X0
+   *     not_found:
+   *                 MOV  X0, rn
+   *                 MOV  X1, #bb
+   *                 LDR  X2, [SP], #16           **
+   *                 B    dispatcher
+   *
+   * ** if rn is X0, X1 or (BLR LR)
+   * ## for BLR
+   */
+
+  uint32_t *write_p = *o_write_p;
+  uint32_t *loop;
+  uint32_t *branch_to_not_found;
+  uint32_t reg_spc, reg_tmp;
+  bool use_x2 = false;
+
+  if ((rn == x0) || (rn == x1) || (link && rn == lr)) {
+    reg_spc = x1;
+    reg_tmp = x2;
+    use_x2 = true;
+  } else {
+    reg_spc = rn;
+    reg_tmp = x1;
+  }
+
+  if (set_meta) {
+    thread_data->code_cache_meta[basic_block].rn = reg_spc;
+  }
+
+  a64_push_pair_reg(x0, x1);
+
+  if (use_x2) {
+    a64_push_reg(x2);
+    if (rn != reg_spc) {
+      a64_logical_reg(&write_p, 1, 1, 0, 0, rn, 0, xzr, reg_spc);
+      write_p++;
+    }
+  }
+
+  if (link) {
+    // MOV LR, read_address+4
+    a64_copy_to_reg_64bits(&write_p, lr, (uint64_t)read_address + 4);
+  }
+
+  a64_copy_to_reg_64bits(&write_p, x0,
+                         (uint64_t)&thread_data->entry_address.entries);
+
+  a64_logical_immed(&write_p, 1, 0, 1, 62, 18, reg_spc, reg_tmp);
+  write_p++;
+
+  a64_ADD_SUB_shift_reg(&write_p, 1, 0, 0, 0, reg_tmp, 0x2, x0, x0);
+  write_p++;
+
+  loop = write_p;
+  a64_LDR_STR_immed(&write_p, 3, 0, 1, 16, 1, x0, reg_tmp);
+  write_p++;
+
+  branch_to_not_found = write_p++;
+
+  a64_ADD_SUB_shift_reg(&write_p, 1, 1, 0, 0, reg_spc, 0, reg_tmp, reg_tmp);
+  write_p++;
+
+  a64_cbnz_helper(write_p, (uint64_t)loop, 1, reg_tmp);
+  write_p++;
+
+  a64_LDR_STR_immed(&write_p, 3, 0, 1, -8, 0, x0, x0);
+  write_p++;
+
+  if (use_x2) {
+    a64_pop_reg(x2);
+  }
+
+  a64_BR(&write_p, x0);
+  write_p++;
+
+  a64_cbz_helper(branch_to_not_found, (uint64_t)write_p, 1, reg_tmp);
+
+  a64_logical_reg(&write_p, 1, 1, 0, 0, reg_spc, 0, xzr, x0);
+  write_p++;
+
+  a64_copy_to_reg_64bits(&write_p, x1, basic_block);
+
+  if (use_x2) {
+    a64_pop_reg(x2);
+  }
+
+  a64_b_helper(write_p, (uint64_t)thread_data->dispatcher_addr);
+  write_p++;
+
+  *o_write_p = write_p;
+}
+
 size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
                 int basic_block, cc_type type, uint32_t *write_p) {
   bool stop = false;
@@ -665,109 +778,7 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
 
         a64_branch_jump(thread_data, &write_p, basic_block, 0, INSERT_BRANCH);
 #else
-            /*
-             * Indirect Branch LookUp
-             * ======== ====== ======
-             *
-             *                 STP  X0, X1, [SP, #-16]!
-             *                 STP  X2, [SP, #-16]!        **
-             *                 MOV  X1, Rn                 ** Rn = X1
-             *                 MOV  LR, read_address + 4   ##
-             *                 MOV  X0, #hash_table
-             *                 AND  Xtmp, Rn, #(hash_mask << 2)
-             *                 ADD  X0, X0, Xtmp, LSL #2
-             *          loop:
-             *                 LDR  Xtmp, [X0], #16
-             *                 CBZ  Xtmp, not_found
-             *                 SUB  Xtmp, Xtmp, Rn
-             *                 CBNZ Xtmp, loop
-             *                 LDR  X0, [X0,  #-8]
-             *                 LDR  X2, [SP], #16           **
-             *                 BR   X0
-             *     not_found:
-             *                 MOV  X0, Rn
-             *                 MOV  X1, #bb
-             *                 LDR  X2, [SP], #16           **
-             *                 B    dispatcher
-             *
-             * ** if Rn is X0, X1 or (BLR LR)
-             * ## for BLR
-             */
-
-            uint32_t *loop;
-            uint32_t *branch_to_not_found;
-            uint32_t reg_spc, reg_tmp;
-            bool use_x2 = false;
-
-            if ((Rn == x0) || (Rn == x1) || (inst == A64_BLR && Rn == lr)) {
-              reg_spc = x1;
-              reg_tmp = x2;
-              use_x2 = true;
-            } else {
-              reg_spc = Rn;
-              reg_tmp = x1;
-            }
-            thread_data->code_cache_meta[basic_block].rn = reg_spc;
-
-            a64_push_pair_reg(x0, x1);
-
-            if (use_x2) {
-              a64_push_reg(x2);
-              if (Rn != reg_spc) {
-                a64_logical_reg(&write_p, 1, 1, 0, 0, Rn, 0, xzr, reg_spc);
-                write_p++;
-              }
-            }
-
-            if (inst == A64_BLR) {
-              // MOV LR, read_address+4
-              a64_copy_to_reg_64bits(&write_p, lr, (uint64_t)read_address + 4);
-            }
-
-            a64_copy_to_reg_64bits(&write_p, x0,
-                                    (uint64_t)&thread_data->entry_address.entries);
-
-            a64_logical_immed(&write_p, 1, 0, 1, 62, 18, reg_spc, reg_tmp);
-            write_p++;
-
-            a64_ADD_SUB_shift_reg(&write_p, 1, 0, 0, 0, reg_tmp, 0x2, x0, x0);
-            write_p++;
-
-            loop = write_p;
-            a64_LDR_STR_immed(&write_p, 3, 0, 1, 16, 1, x0, reg_tmp);
-            write_p++;
-
-            branch_to_not_found = write_p++;
-
-            a64_ADD_SUB_shift_reg(&write_p, 1, 1, 0, 0, reg_spc, 0, reg_tmp, reg_tmp);
-            write_p++;
-
-            a64_cbnz_helper(write_p, (uint64_t)loop, 1, reg_tmp);
-            write_p++;
-
-            a64_LDR_STR_immed(&write_p, 3, 0, 1, -8, 0, x0, x0);
-            write_p++;
-
-            if (use_x2) {
-              a64_pop_reg(x2);
-            }
-
-            a64_BR(&write_p, x0);
-            write_p++;
-
-            a64_cbz_helper(branch_to_not_found, (uint64_t)write_p, 1, reg_tmp);
-
-            a64_logical_reg(&write_p, 1, 1, 0, 0, reg_spc, 0, xzr, x0);
-            write_p++;
-
-            a64_copy_to_reg_64bits(&write_p, x1, basic_block);
-
-            if (use_x2) {
-              a64_pop_reg(x2);
-            }
-
-            a64_b_helper(write_p, (uint64_t)thread_data->dispatcher_addr);
-            write_p++;
+        a64_inline_hash_lookup(thread_data, basic_block, &write_p, read_address, Rn, (inst == A64_BLR), true);
 #endif
         stop = true;
         break;

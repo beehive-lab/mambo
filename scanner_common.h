@@ -82,6 +82,8 @@ void a64_tbz_tbnz_helper(uint32_t *write_p, bool is_tbnz,
 void a64_tbz_helper(uint32_t *write_p, uint64_t target, enum reg reg, uint32_t bit);
 void a64_tbnz_helper(uint32_t *write_p, uint64_t target, enum reg reg, uint32_t bit);
 void a64_cc_branch(dbm_thread *thread_data, uint32_t *write_p, uint64_t target);
+void a64_inline_hash_lookup(dbm_thread *thread_data, int basic_block, uint32_t **o_write_p,
+                            uint32_t *read_address, enum reg rn, bool link, bool set_meta);
 #endif
 
 extern void inline_hash_lookup();
