@@ -36,7 +36,7 @@
 #include "common.h"
 #include "scanner_common.h"
 
-#include "elf_loader/elf_loader.h"
+#include "elf/elf_loader.h"
 
 #ifdef __arm__
 #include "pie/pie-thumb-decoder.h"

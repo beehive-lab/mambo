@@ -1,4 +1,4 @@
 dbm
 api/emit_*.c
 api/emit_*.h
-elf_loader/elf_loader.o
+elf/elf_loader.o
