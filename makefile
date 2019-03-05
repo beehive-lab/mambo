@@ -6,6 +6,7 @@
 #PLUGINS+=plugins/poc_log_returns.c
 #PLUGINS+=plugins/instruction_mix.c
 #PLUGINS+=plugins/strace.c
+#PLUGINS+=plugins/symbol_example.c
 
 OPTS= -DDBM_LINK_UNCOND_IMM
 OPTS+=-DDBM_INLINE_UNCOND_IMM
