@@ -110,8 +110,15 @@ typedef enum {
 } mambo_branch_type;
 
 typedef struct {
+  char *name;
+  char *version;
+  char *description;
+} mambo_plugin_info;
+
+typedef struct {
   mambo_callback cbs[CALLBACK_MAX_IDX];
   void *data;
+  mambo_plugin_info *info;
 } mambo_plugin;
 
 enum mambo_plugin_error {
@@ -131,6 +138,7 @@ struct stack_frame {
 
 /* Public functions */
 mambo_context *mambo_register_plugin(void);
+mambo_context *mambo_register_plugin_winfo(char *name, char *version, char *description);
 
 int mambo_register_pre_inst_cb(mambo_context *ctx, mambo_callback cb);
 int mambo_register_post_inst_cb(mambo_context *ctx, mambo_callback cb);

@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 
 #include "dbm.h"
 #include "info.h"
@@ -40,26 +41,36 @@ void usage(char *argv0) {
   printf("Usage: %s <elf_file> [<arguments>]\n", argv0);
 
 #ifdef PLUGINS_NEW
+#define check_str(str, fb) (((str != NULL) && (strlen(str) > 0)) ? str : fb)
   printf("\nPlugins:\n\n");
   mambo_plugin *plugins = global_data.plugins;
-  for (int i = 0; i < global_data.free_plugin; i++) {
-    printf("  [%i] %p\n", i, plugins[i].cbs);
+  for (int k = 0; k < global_data.free_plugin; k++) {
+    mambo_plugin_info *i = plugins[k].info;
+    char str[256];
+    (i != NULL) ?
+      sprintf(str, "%s (%s): %s",
+        check_str(i->name, "<no name>"),
+        check_str(i->version, "untracked"),
+        check_str(i->description, "<no description>")
+      )
+    : sprintf(str, "%s", "no plugin info available");
+    printf("  [%i] %p %s\n", k, plugins[k].cbs, str);
   }
 
   watched_functions_t *wf = &global_data.watched_functions;
 
   if (wf->func_count) {
-    printf("\nwatched func: %i\n\n", wf->func_count);
+    printf("\nwatched func:\n\n");
     for (int i = 0; i < wf->func_count; i++) {
-      watched_func_t *func = &wf->funcs[i];
-      printf("  %s [%i]\n", func->name, func->plugin_id);
+      watched_func_t *f = &wf->funcs[i];
+      printf("  [%i] %s %s\n", f->plugin_id, f->name, "(<args>) -> <hook>");
     }
   }
   if (wf->funcp_count) {
-    printf("\nwatched funcp: %i\n\n", wf->funcp_count);
+    printf("\nwatched funcp:\n\n");
     for (int i = 0; i < wf->funcp_count; i++) {
-      watched_funcp_t *funcp = &wf->funcps[i];
-      printf("  %p %s [%i]\n", funcp->addr, funcp->func->name, funcp->func->plugin_id);
+      watched_funcp_t *fp = &wf->funcps[i];
+      printf("  %p %s [%i]\n", fp->addr, fp->func->name, fp->func->plugin_id);
     }
   }
 #endif

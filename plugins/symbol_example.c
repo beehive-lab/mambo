@@ -48,9 +48,10 @@ int se_hook(mambo_context *ctx) {
 }
 
 __attribute__((constructor)) void memcheck_init_plugin() {
-  mambo_context *ctx = mambo_register_plugin();
+  mambo_context *ctx = mambo_register_plugin_winfo("symbol_hook", "",
+  "example of how to replace a function through a symbol hook");
   assert(ctx != NULL);
 
-  int ret = mambo_register_function_cb(ctx, "malloc", &se_hook, NULL, 1);
+  int ret = mambo_register_function_cb(ctx, "malloc", &se_hook, NULL);;
   assert(ret == MAMBO_SUCCESS);
 }

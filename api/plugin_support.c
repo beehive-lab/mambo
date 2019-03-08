@@ -44,6 +44,18 @@ mambo_context *mambo_register_plugin(void) {
   return &tmp_ctx;
 }
 
+mambo_context *mambo_register_plugin_winfo(char *name, char *version, char *description) {
+  mambo_context *tmp_ctx = mambo_register_plugin();
+
+  mambo_plugin_info *info = malloc(sizeof(mambo_plugin_info));
+  info->name = name;
+  info->version = version;
+  info->description = description;
+  global_data.plugins[tmp_ctx->plugin_id].info = info;
+
+  return tmp_ctx;
+}
+
 /* Callback management */
 int __mambo_register_cb(mambo_context *ctx, mambo_cb_idx cb_idx, mambo_callback cb) {
   unsigned int p_id = ctx->plugin_id;

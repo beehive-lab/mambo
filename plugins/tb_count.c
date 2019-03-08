@@ -75,7 +75,8 @@ int tb_cnt_post_thread_handler(mambo_context *ctx) {
 }
 
 __attribute__((constructor)) void tb_init_plugin() {
-  mambo_context *ctx = mambo_register_plugin();
+  mambo_context *ctx = mambo_register_plugin_winfo("tb_count","v0.0.0",
+  "count number of executed TB instructions");
   assert(ctx != NULL);
 
   mambo_register_pre_inst_cb(ctx, &tb_cnt_pre_inst_handler);
