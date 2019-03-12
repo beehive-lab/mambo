@@ -32,6 +32,10 @@
 #include "../dbm.h"
 #include "../common.h"
 
+#ifndef AT_MINSIGSTKSZ
+  #define AT_MINSIGSTKSZ 51
+#endif
+
 #define DEBUG 1
 #undef DEBUG
 #ifdef DEBUG
@@ -316,6 +320,7 @@ void elf_run(uintptr_t entry_address, char *filename, int argc, char **argv, cha
       case AT_RANDOM:
       case AT_PLATFORM:
       case AT_SYSINFO_EHDR:
+      case AT_MINSIGSTKSZ:
         d_aux->a_type = s_aux->a_type;
         d_aux->a_un.a_val = s_aux->a_un.a_val;
         break;
