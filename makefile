@@ -5,6 +5,7 @@
 #PLUGINS+=plugins/cachesim/cachesim.c plugins/cachesim/cachesim.S plugins/cachesim/cachesim_model.c
 #PLUGINS+=plugins/poc_log_returns.c
 #PLUGINS+=plugins/instruction_mix.c
+#PLUGINS+=plugins/strace.c
 
 OPTS= -DDBM_LINK_UNCOND_IMM
 OPTS+=-DDBM_INLINE_UNCOND_IMM
