@@ -44,6 +44,7 @@ struct code_ctx {
 };
 
 struct syscall_ctx {
+  uintptr_t number;
   uintptr_t *regs;
   bool replace;
 };

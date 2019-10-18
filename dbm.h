@@ -321,7 +321,7 @@ void set_mambo_context_code(mambo_context *ctx, dbm_thread *thread_data, mambo_c
                             cc_type fragment_type, int fragment_id, inst_set inst_type, int inst,
                             mambo_cond cond, void *read_address, void *write_p);
 void set_mambo_context_syscall(mambo_context *ctx, dbm_thread *thread_data, mambo_cb_idx event_type,
-                               uintptr_t *regs);
+                               uintptr_t number, uintptr_t *regs);
 #endif
 
 void mambo_deliver_callbacks_for_ctx(mambo_context *ctx);

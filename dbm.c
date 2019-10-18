@@ -252,8 +252,9 @@ void set_mambo_context_code(mambo_context *ctx, dbm_thread *thread_data, mambo_c
 }
 
 void set_mambo_context_syscall(mambo_context *ctx, dbm_thread *thread_data, mambo_cb_idx event_type,
-                               uintptr_t *regs) {
+                               uintptr_t number, uintptr_t *regs) {
   set_mambo_context(ctx, thread_data, event_type);
+  ctx->syscall.number = number;
   ctx->syscall.regs = regs;
   ctx->syscall.replace = false;
 }

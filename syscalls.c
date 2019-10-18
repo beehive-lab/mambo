@@ -183,7 +183,7 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
   int cont;
 
   if (global_data.free_plugin > 0) {
-    set_mambo_context_syscall(&ctx, thread_data, PRE_SYSCALL_C, args);
+    set_mambo_context_syscall(&ctx, thread_data, PRE_SYSCALL_C, syscall_no, args);
     mambo_deliver_callbacks_for_ctx(&ctx);
   }
 
@@ -433,7 +433,7 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
 #ifdef PLUGINS_NEW
   } // if (!ctx.syscall.replace)
   if (do_syscall == 0 && global_data.free_plugin > 0) {
-    set_mambo_context_syscall(&ctx, thread_data, POST_SYSCALL_C, (uintptr_t *)args);
+    set_mambo_context_syscall(&ctx, thread_data, POST_SYSCALL_C, syscall_no, (uintptr_t *)args);
     mambo_deliver_callbacks_for_ctx(&ctx);
   }
 #endif
@@ -471,7 +471,7 @@ void syscall_handler_post(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_
 #ifdef PLUGINS_NEW
   mambo_context ctx;
 
-  set_mambo_context_syscall(&ctx, thread_data, POST_SYSCALL_C, (uintptr_t *)args);
+  set_mambo_context_syscall(&ctx, thread_data, POST_SYSCALL_C, syscall_no, (uintptr_t *)args);
   mambo_deliver_callbacks_for_ctx(&ctx);
 #endif
 }
