@@ -186,6 +186,10 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
     set_mambo_context_syscall(&ctx, thread_data, PRE_SYSCALL_C, args);
     mambo_deliver_callbacks_for_ctx(&ctx);
   }
+
+  if (ctx.syscall.replace) {
+    do_syscall = 0;
+  } else {
 #endif
 
   switch(syscall_no) {
@@ -427,6 +431,7 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
   }
 
 #ifdef PLUGINS_NEW
+  } // if (!ctx.syscall.replace)
   if (do_syscall == 0 && global_data.free_plugin > 0) {
     set_mambo_context_syscall(&ctx, thread_data, POST_SYSCALL_C, (uintptr_t *)args);
     mambo_deliver_callbacks_for_ctx(&ctx);
