@@ -47,6 +47,7 @@ struct syscall_ctx {
   uintptr_t number;
   uintptr_t *regs;
   bool replace;
+  uintptr_t ret;
 };
 
 typedef enum {
@@ -135,6 +136,13 @@ int mambo_get_scratch_regs(mambo_context *ctx, int count, ...);
 int mambo_get_scratch_reg(mambo_context *ctx, int *regp);
 int mambo_free_scratch_regs(mambo_context *ctx, uint32_t regs);
 int mambo_free_scratch_reg(mambo_context *ctx, int reg);
+
+/* Syscalls */
+int mambo_syscall_get_no(mambo_context *ctx, uintptr_t *no);
+void mambo_syscall_get_args(mambo_context *ctx, uintptr_t **args);
+int mambo_syscall_bypass(mambo_context *ctx);
+int mambo_syscall_get_return(mambo_context *ctx, uintptr_t *ret);
+int mambo_syscall_set_return(mambo_context *ctx, uintptr_t ret);
 
 /* Other */
 int mambo_get_inst(mambo_context *ctx);

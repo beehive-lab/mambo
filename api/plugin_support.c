@@ -285,4 +285,58 @@ int mambo_free_scratch_regs(mambo_context *ctx, uint32_t regs) {
 int mambo_free_scratch_reg(mambo_context *ctx, int reg) {
   return mambo_free_scratch_reg(ctx, 1 << reg);
 }
+
+/* Syscall helpers */
+int mambo_syscall_get_no(mambo_context *ctx, uintptr_t *no) {
+  if (ctx->event_type == PRE_SYSCALL_C ||
+      ctx->event_type == POST_SYSCALL_C) {
+    *no = ctx->syscall.number;
+    return 0;
+  }
+  return -1;
+}
+
+void mambo_syscall_get_args(mambo_context *ctx, uintptr_t **args) {
+  *args = NULL;
+  if (ctx->event_type == PRE_SYSCALL_C) {
+    *args = ctx->syscall.regs;
+  }
+}
+
+int mambo_syscall_bypass(mambo_context *ctx) {
+  if (ctx->event_type == PRE_SYSCALL_C) {
+    assert(ctx->syscall.replace == false);
+    ctx->syscall.replace = true;
+    // Initialise the return value
+    // This is similar to leaving all registers untouched, as opposed to a NOP syscall
+    ctx->syscall.ret = ctx->syscall.regs[reg0];
+    return 0;
+  }
+  return -1;
+}
+
+int mambo_syscall_get_return(mambo_context *ctx, uintptr_t *ret) {
+  if (ctx->event_type == POST_SYSCALL_C) {
+    *ret = ctx->syscall.regs[reg0];
+    return 0;
+  }
+  if (ctx->event_type == PRE_SYSCALL_C && ctx->syscall.replace) {
+    *ret = ctx->syscall.ret;
+    return 0;
+  }
+  return -1;
+}
+
+int mambo_syscall_set_return(mambo_context *ctx, uintptr_t ret) {
+  if (ctx->event_type == POST_SYSCALL_C) {
+    ctx->syscall.regs[reg0] = ret;
+    return 0;
+  }
+  // This way we preserve the arguments even after setting a return
+  if (ctx->event_type == PRE_SYSCALL_C && ctx->syscall.replace) {
+    ctx->syscall.ret = ret;
+    return 0;
+  }
+  return -1;
+}
 #endif

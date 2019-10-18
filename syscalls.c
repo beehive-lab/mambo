@@ -189,6 +189,7 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
 
   if (ctx.syscall.replace) {
     do_syscall = 0;
+    args[0] = ctx.syscall.ret;
   } else {
 #endif
 
