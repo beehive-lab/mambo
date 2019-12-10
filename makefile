@@ -62,7 +62,7 @@ pie:
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 dbm: $(HEADERS) $(SOURCES) $(PLUGINS)
-	$(CC) $(CFLAGS) $(LDFLAGS) $(OPTS) $(INCLUDES) -o $@ $(SOURCES) $(PLUGINS) $(PIE) $(LIBS)
+	$(CC) $(CFLAGS) $(LDFLAGS) $(OPTS) $(INCLUDES) -o $@ $(SOURCES) $(PLUGINS) $(PIE) $(LIBS) $(PLUGIN_ARGS)
 
 clean:
 	rm -f dbm elf_loader/elf_loader.o
