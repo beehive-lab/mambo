@@ -1903,11 +1903,13 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
         
         assert(rdn != pc);
         if (rn == pc) {
+          modify_in_it_pre(3);
           copy_to_reg_32bit(&write_p, rdn, get_original_pc() + ((imm1 << 11) | (imm3 << 8) | imm8 ));
+          modify_in_it_post();
         } else {
           copy_thumb_32();
-          it_cond_handled = true;
         }
+        it_cond_handled = true;
         
         break;
         
