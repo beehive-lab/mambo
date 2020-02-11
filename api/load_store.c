@@ -741,8 +741,12 @@ int _a64_calc_ld_st_addr(mambo_context *ctx, enum reg reg) {
     case A64_LDR_STR_REG: {
       uint32_t size, v, opc, rm, opt, s, rn, rt;
       a64_LDR_STR_reg_decode_fields(ctx->code.read_address, &size, &v, &opc, &rm, &opt, &s, &rn, &rt);
-      int shift = s ? (((v & (opc >> 1)) << 2) + size) : 0;
-      _generate_addr(ctx, reg, rn, rm, (shift << 3) | opt);
+      if (rm == x31) {
+        _generate_addr(ctx, reg, rn, reg_invalid, 0);
+      } else {
+        int shift = s ? (((v & (opc >> 1)) << 2) + size) : 0;
+        _generate_addr(ctx, reg, rn, rm, (shift << 3) | opt);
+      }
       return 0;
     }
     case A64_LDX_STX: {
