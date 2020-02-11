@@ -633,7 +633,8 @@ void main(int argc, char **argv, char **envp) {
   global_data.argc = argc;
   global_data.argv = argv;
 
-  page_size = getauxval(AT_PAGESZ);
+  // Obtain the page size if it's not already known
+  PAGE_SIZE;
   assert(page_size > 0);
 
   int ret = pthread_mutex_init(&global_data.thread_list_mutex, NULL);

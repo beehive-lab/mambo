@@ -25,6 +25,7 @@
 #include <signal.h>
 #include <limits.h>
 #include <stdint.h>
+#include <sys/auxv.h>
 
 #ifdef __arm__
 #include "pie/pie-arm-decoder.h"
@@ -360,7 +361,7 @@ void mambo_deliver_callbacks_code(unsigned cb_id, dbm_thread *thread_data, cc_ty
 #define CC_SZ_ROUND(input) ROUND_UP(input, CC_PAGE_SIZE)
 #define METADATA_SZ_ROUND(input) ROUND_UP(input, CC_PAGE_SIZE)
 
-#define PAGE_SIZE (page_size)
+#define PAGE_SIZE (page_size != 0 ? page_size : (page_size = getauxval(AT_PAGESZ)))
 
 #define trampolines_size_bytes         ((uintptr_t)&end_of_dispatcher_s - (uintptr_t)&start_of_dispatcher_s)
 #define trampolines_size_bbs           ((trampolines_size_bytes / sizeof(dbm_block)) \
