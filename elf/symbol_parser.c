@@ -110,6 +110,43 @@ int get_symbol_info_by_addr(uintptr_t addr, char **sym_name, void **start_addr, 
   return 0;
 }
 
+
+stack_frame_t *get_frame(stack_frame_t *frame) {
+  void *fp = frame;
+#ifdef __arm__
+  fp -= 4;
+#endif
+  return (stack_frame_t *)fp;
+}
+
+int get_backtrace(stack_frame_t *fp, stack_frame_handler handler, void *data) {
+  char *filename;
+  char *symbol;
+  void *symbol_base;
+
+  if (fp != NULL && fp != (void *)1) {
+    stack_frame_t frame;
+    int frame_rerror;
+    do {
+      fp = get_frame(fp);
+      frame_rerror = try_memcpy(&frame, fp, sizeof(frame));
+      if (frame_rerror == 0) {
+        int ret = get_symbol_info_by_addr(frame.lr, &symbol, &symbol_base, &filename);
+        if (ret == 0) {
+          ret = handler(data, (void *)fp->lr, symbol, symbol_base, filename);
+          free(symbol);
+          free(filename);
+          if (ret != 0) return ret;
+        }
+      }
+    } while(frame_rerror == 0 && (frame.prev > fp) && (fp = frame.prev));
+
+    return 0;
+  }
+
+  return -1;
+}
+
 void function_watch_lock_funcs(watched_functions_t *self) {
   int ret = pthread_mutex_lock(&self->funcs_lock);
   assert(ret == 0);

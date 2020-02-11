@@ -118,6 +118,13 @@ enum mambo_plugin_error {
   MAMBO_INVALID_THREAD = -4,
 };
 
+/* Stack frame */
+typedef struct stack_frame stack_frame_t;
+struct stack_frame {
+  stack_frame_t *prev;
+  uintptr_t lr;
+};
+
 /* Public functions */
 mambo_context *mambo_register_plugin(void);
 
@@ -191,7 +198,9 @@ char *mambo_get_cb_function_name(mambo_context *ctx);
 
 mambo_branch_type mambo_get_branch_type(mambo_context *ctx);
 
-/* Misc functions not using a mambo_context */
+/* Symbol-related functions */
 int get_symbol_info_by_addr(uintptr_t addr, char **sym_name, void **start_addr, char **filename);
+typedef int (*stack_frame_handler)(void *data, void *addr, char *sym_name, void *symbol_start_addr, char *filename);
+int get_backtrace(stack_frame_t *fp, stack_frame_handler handler, void *ptr);
 
 #endif
