@@ -871,7 +871,7 @@ void do_it_iter(thumb_it_state *state) {
 }
 
 bool thumb_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id, thumb_it_state *state,
-                                     uint16_t *read_address, thumb_instruction inst, uint16_t **o_write_p,
+                                     uint16_t **o_read_address, thumb_instruction inst, uint16_t **o_write_p,
                                      uint32_t **o_data_p, int basic_block, cc_type type,
                                      uint32_t *set_addr_prev_block, bool allow_write) {
   bool replaced = false;
@@ -880,6 +880,7 @@ bool thumb_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id
   if (global_data.free_plugin > 0) {
     uint16_t *write_p = *o_write_p;
     uint32_t *data_p = *o_data_p;
+    uint16_t *read_address = *o_read_address;
 
     mambo_cond cond;
     uint32_t tmp;
@@ -949,8 +950,9 @@ bool thumb_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id
       for (int i = 0; i < wf->funcp_count; i++) {
         if (read_address == (wf->funcps[i].addr -1)) {
           _function_callback_wrapper(&ctx, wf->funcps[i].func);
-
-          assert(ctx.code.replace == false);
+          if (ctx.code.replace) {
+            read_address = ctx.code.read_address;
+          }
           write_p = ctx.code.write_p;
           thumb_check_free_space(thread_data, (uint16_t **)&ctx.code.write_p, &data_p, state,
                                  set_addr_prev_block, false, MIN_FSPACE, basic_block);
@@ -983,6 +985,7 @@ bool thumb_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id
 
     *o_write_p = write_p;
     *o_data_p = data_p;
+    *o_read_address = read_address;
   }
 #endif
   return replaced;
@@ -1141,9 +1144,9 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
   }
 #endif
 
-  thumb_scanner_deliver_callbacks(thread_data, PRE_FRAGMENT_C, &it_state, read_address, -1,
+  thumb_scanner_deliver_callbacks(thread_data, PRE_FRAGMENT_C, &it_state, &read_address, -1,
                                   &write_p, &data_p, basic_block, type, &set_addr_prev_block, true);
-  thumb_scanner_deliver_callbacks(thread_data, PRE_BB_C, &it_state, read_address, -1,
+  thumb_scanner_deliver_callbacks(thread_data, PRE_BB_C, &it_state, &read_address, -1,
                                   &write_p, &data_p, basic_block, type, &set_addr_prev_block, true);
 
   while(!stop) {
@@ -1155,7 +1158,7 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
     it_cond_handled = false;
 
 #ifdef PLUGINS_NEW
-    bool skip_inst = thumb_scanner_deliver_callbacks(thread_data, PRE_INST_C, &it_state, read_address,
+    bool skip_inst = thumb_scanner_deliver_callbacks(thread_data, PRE_INST_C, &it_state, &read_address,
                               inst, &write_p, &data_p, basic_block, type, &set_addr_prev_block, true);
 #endif
 
@@ -1749,9 +1752,10 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
         thumb_blx32_helper(write_p, thread_data->syscall_wrapper_addr);
         write_p += 2;
 
-        thumb_scanner_deliver_callbacks(thread_data, POST_BB_C, &it_state, read_address, -1,
+        thumb_scanner_deliver_callbacks(thread_data, POST_BB_C, &it_state, &read_address, -1,
                                   &write_p, &data_p, basic_block, type, &set_addr_prev_block, false);
-        thumb_scanner_deliver_callbacks(thread_data, PRE_BB_C, &it_state, read_address + 1, -1,
+        uint16_t *ra = read_address + 1;
+        thumb_scanner_deliver_callbacks(thread_data, PRE_BB_C, &it_state, &ra, -1,
                                   &write_p, &data_p, basic_block, type, &set_addr_prev_block, true);
 
         break;
@@ -1783,9 +1787,10 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
            This is a hack to avoid trying to elide the b.n 0x7e8c instruction in
            in some versions of ld.so */
         if ((uint32_t)target >= 0x8000) {
-          thumb_scanner_deliver_callbacks(thread_data, POST_BB_C, &it_state, read_address, -1,
+          thumb_scanner_deliver_callbacks(thread_data, POST_BB_C, &it_state, &read_address, -1,
                                   &write_p, &data_p, basic_block, type, &set_addr_prev_block, false);
-          thumb_scanner_deliver_callbacks(thread_data, PRE_BB_C, &it_state, (uint16_t *)(target -1), -1,
+          uint16_t *ra = (uint16_t *)(target -1);
+          thumb_scanner_deliver_callbacks(thread_data, PRE_BB_C, &it_state, &ra, -1,
                                   &write_p, &data_p, basic_block, type, &set_addr_prev_block, true);
           read_address = (uint16_t *)(target - 2 - 1);
           break;
@@ -2436,9 +2441,10 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
             }
           }
 
-          thumb_scanner_deliver_callbacks(thread_data, POST_BB_C, &it_state, read_address, -1,
+          thumb_scanner_deliver_callbacks(thread_data, POST_BB_C, &it_state, &read_address, -1,
                                   &write_p, &data_p, basic_block, type, &set_addr_prev_block, false);
-          thumb_scanner_deliver_callbacks(thread_data, PRE_BB_C, &it_state, (uint16_t *)(target -1), -1,
+          uint16_t *ra = (uint16_t *)(target -1);
+          thumb_scanner_deliver_callbacks(thread_data, PRE_BB_C, &it_state, &ra, -1,
                                   &write_p, &data_p, basic_block, type, &set_addr_prev_block, true);
 
           read_address = (uint16_t *)(target - 4 - 1);
@@ -3146,7 +3152,7 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
     }
     debug("\n");
 #ifdef PLUGINS_NEW
-    thumb_scanner_deliver_callbacks(thread_data, POST_INST_C, &it_state, read_address, inst, &write_p,
+    thumb_scanner_deliver_callbacks(thread_data, POST_INST_C, &it_state, &read_address, inst, &write_p,
                                     &data_p, basic_block, type, &set_addr_prev_block, !stop);
 #endif
 

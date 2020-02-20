@@ -241,6 +241,15 @@ void mambo_replace_inst(mambo_context *ctx) {
   ctx->code.replace = true;
 }
 
+int mambo_set_source_addr(mambo_context *ctx, void *source_addr) {
+  if (ctx->event_type != PRE_FN_C) return -1;
+
+  ctx->code.read_address = (uint32_t *)source_addr;
+  ctx->code.replace = true;
+
+  return 0;
+}
+
 /* Allows scratch registers to be shared by multiple plugins
   This will likely be modified in the future to allocate dead
   application registers if available.

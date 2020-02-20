@@ -106,6 +106,7 @@ void _function_callback_wrapper(mambo_context *ctx, watched_func_t *func) {
     emit_push(ctx, (1 << es) | (1 << lr));
   }
   if (func->pre_callback != NULL) {
+    ctx->event_type = PRE_FN_C;
     func->pre_callback(ctx);
   }
   if (func->post_callback != NULL) {
@@ -124,6 +125,7 @@ void _function_callback_wrapper(mambo_context *ctx, watched_func_t *func) {
     emit_pop(ctx, (1 << r5) | (1 << r6));
 #endif
 
+    ctx->event_type = POST_FN_C;
     func->post_callback(ctx);
 
     emit_pop(ctx, (1 << es) | (1 << lr));

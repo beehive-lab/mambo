@@ -220,7 +220,7 @@ void arm_bl32_helper(uint32_t *write_p, uint32_t target, uint32_t cond) {
 
 #define MIN_FSPACE 72
 
-bool arm_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id, uint32_t *read_address,
+bool arm_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id, uint32_t **o_read_address,
                                    arm_instruction inst, uint32_t **o_write_p, uint32_t **o_data_p,
                                    int basic_block, cc_type type, bool allow_write) {
   bool replaced = false;
@@ -228,6 +228,7 @@ bool arm_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id, 
   if (global_data.free_plugin > 0) {
     uint32_t *write_p = *o_write_p;
     uint32_t *data_p = *o_data_p;
+    uint32_t *read_address = *o_read_address;
 
     mambo_cond cond = (*read_address >> 28);
     if (cond == ALT) {
@@ -274,8 +275,9 @@ bool arm_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id, 
       for (int i = 0; i < wf->funcp_count; i++) {
         if (read_address == wf->funcps[i].addr) {
           _function_callback_wrapper(&ctx, wf->funcps[i].func);
-
-          assert(ctx.code.replace == false);
+          if (ctx.code.replace) {
+            read_address = ctx.code.read_address;
+          }
           write_p = ctx.code.write_p;
           arm_check_free_space(thread_data, &write_p, &data_p, MIN_FSPACE, basic_block);
         }
@@ -284,6 +286,7 @@ bool arm_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id, 
 
     *o_write_p = write_p;
     *o_data_p = data_p;
+    *o_read_address = read_address;
   }
 #endif
   return replaced;
@@ -307,9 +310,9 @@ bool inline_uncond_imm(dbm_thread *thread_data, bool insert_branch, uint32_t **w
   }
 
   if (insert_branch) {
-    arm_scanner_deliver_callbacks(thread_data, POST_BB_C, *read_addr, -1,
+    arm_scanner_deliver_callbacks(thread_data, POST_BB_C, read_addr, -1,
                                   write_p, data_p, basic_block, type, false);
-    arm_scanner_deliver_callbacks(thread_data, PRE_BB_C, (uint32_t *)target, -1,
+    arm_scanner_deliver_callbacks(thread_data, PRE_BB_C, (uint32_t **)&target, -1,
                                   write_p, data_p, basic_block, type, true);
   }
 
@@ -565,9 +568,9 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
   }
 #endif
 
-  arm_scanner_deliver_callbacks(thread_data, PRE_FRAGMENT_C, read_address, -1,
+  arm_scanner_deliver_callbacks(thread_data, PRE_FRAGMENT_C, &read_address, -1,
                                 &write_p, &data_p, basic_block, type, true);
-  arm_scanner_deliver_callbacks(thread_data, PRE_BB_C, read_address, -1,
+  arm_scanner_deliver_callbacks(thread_data, PRE_BB_C, &read_address, -1,
                                 &write_p, &data_p, basic_block, type, true);
   
   while(!stop) {
@@ -577,7 +580,7 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
     
     debug("instruction word: 0x%x\n", *read_address); 
 #ifdef PLUGINS_NEW
-    bool skip_inst = arm_scanner_deliver_callbacks(thread_data, PRE_INST_C, read_address, inst,
+    bool skip_inst = arm_scanner_deliver_callbacks(thread_data, PRE_INST_C, &read_address, inst,
                                                    &write_p, &data_p, basic_block, type, true);
     if (!skip_inst) {
 #endif
@@ -1233,9 +1236,10 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
           arm_b32_helper(tr_start, (uint32_t)write_p, condition_code);
         }
 
-        arm_scanner_deliver_callbacks(thread_data, POST_BB_C, read_address, -1,
+        arm_scanner_deliver_callbacks(thread_data, POST_BB_C, &read_address, -1,
                                 &write_p, &data_p, basic_block, type, false);
-        arm_scanner_deliver_callbacks(thread_data, PRE_BB_C, read_address + 1, -1,
+        uint32_t *ra = read_address + 1;
+        arm_scanner_deliver_callbacks(thread_data, PRE_BB_C, &ra, -1,
                                 &write_p, &data_p, basic_block, type, true);
         break;
       }
@@ -1853,7 +1857,7 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
     if (!stop) arm_check_free_space(thread_data, &write_p, &data_p, MIN_FSPACE, basic_block);
 
 #ifdef PLUGINS_NEW
-    arm_scanner_deliver_callbacks(thread_data, POST_INST_C, read_address, inst, &write_p, &data_p, basic_block, type, !stop);
+    arm_scanner_deliver_callbacks(thread_data, POST_INST_C, &read_address, inst, &write_p, &data_p, basic_block, type, !stop);
 #endif
 
     debug("write_p: %p\n", write_p);

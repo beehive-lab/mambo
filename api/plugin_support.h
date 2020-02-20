@@ -72,6 +72,8 @@ typedef enum {
   POST_SYSCALL_C,
   PRE_THREAD_C,
   POST_THREAD_C,
+  PRE_FN_C,
+  POST_FN_C,
   EXIT_C,
   VM_OP_C,
   CALLBACK_MAX_IDX,
@@ -182,6 +184,7 @@ int mambo_get_fragment_id(mambo_context *ctx);
 cc_type mambo_get_fragment_type(mambo_context *ctx);
 int mambo_get_inst_len(mambo_context *ctx);
 void *mambo_get_source_addr(mambo_context *ctx);
+int mambo_set_source_addr(mambo_context *ctx, void *source_addr);
 void *mambo_get_cc_addr(mambo_context *ctx);
 void mambo_set_cc_addr(mambo_context *ctx, void *addr);
 int mambo_get_thread_id(mambo_context *ctx);
