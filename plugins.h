@@ -33,3 +33,4 @@
 #endif
 #include "api/helpers.h"
 #include "scanner_common.h"
+#include "api/hash_table.h"
