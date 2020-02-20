@@ -7,6 +7,7 @@
 #PLUGINS+=plugins/instruction_mix.c
 #PLUGINS+=plugins/strace.c
 #PLUGINS+=plugins/symbol_example.c
+#PLUGINS+=plugins/memcheck/memcheck.S plugins/memcheck/memcheck.c plugins/memcheck/naive_stdlib.c
 
 OPTS= -DDBM_LINK_UNCOND_IMM
 OPTS+=-DDBM_INLINE_UNCOND_IMM
@@ -22,7 +23,7 @@ OPTS+=-DDBM_TRACES #-DTB_AS_TRACE_HEAD #-DBLXI_AS_TRACE_HEAD
 CFLAGS+=-D_GNU_SOURCE -g -std=gnu99 -O2
 CFLAGS+=-DGIT_VERSION=\"$(shell git describe --abbrev=8 --dirty --always)\"
 
-LDFLAGS+=-static -ldl -Wl,-Ttext-segment=$(or $(TEXT_SEGMENT),0xa8000000)
+LDFLAGS+=-static -ldl
 LIBS=-lelf -lpthread -lz
 HEADERS=*.h makefile
 INCLUDES=-I/usr/include/libelf
@@ -33,6 +34,7 @@ SOURCES+=elf/elf_loader.o elf/symbol_parser.o
 ARCH=$(shell $(CC) -dumpmachine | awk -F '-' '{print $$1}')
 ifeq ($(findstring arm, $(ARCH)), arm)
 	CFLAGS += -march=armv7-a -mfpu=neon
+	LDFLAGS += -Wl,-Ttext-segment=$(or $(TEXT_SEGMENT),0xa8000000)
 	HEADERS += api/emit_arm.h api/emit_thumb.h
 	PIE = pie/pie-arm-encoder.o pie/pie-arm-decoder.o pie/pie-arm-field-decoder.o
 	PIE += pie/pie-thumb-encoder.o pie/pie-thumb-decoder.o pie/pie-thumb-field-decoder.o
@@ -41,6 +43,7 @@ ifeq ($(findstring arm, $(ARCH)), arm)
 endif
 ifeq ($(ARCH),aarch64)
 	HEADERS += api/emit_a64.h
+	LDFLAGS += -Wl,-Ttext-segment=$(or $(TEXT_SEGMENT),0x7000000000)
 	PIE += pie/pie-a64-field-decoder.o pie/pie-a64-encoder.o pie/pie-a64-decoder.o
 	SOURCES += scanner_a64.c
 	SOURCES += api/emit_a64.c
@@ -67,6 +70,9 @@ $(or $(OUTPUT_FILE),dbm): $(HEADERS) $(SOURCES) $(PLUGINS)
 
 cachesim:
 	PLUGINS="plugins/cachesim/cachesim.c plugins/cachesim/cachesim.S plugins/cachesim/cachesim_model.c" OUTPUT_FILE=mambo_cachesim make
+
+memcheck:
+	PLUGINS="plugins/memcheck/memcheck.S plugins/memcheck/memcheck.c plugins/memcheck/naive_stdlib.c" OUTPUT_FILE=mambo_memcheck make
 
 clean:
 	rm -f dbm elf/elf_loader.o elf/symbol_parser.o
