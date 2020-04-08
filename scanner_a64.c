@@ -379,7 +379,7 @@ void pass1_a64(uint32_t *read_address, branch_type *bb_type) {
 
 bool a64_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id, uint32_t **o_read_address,
                                    a64_instruction inst, uint32_t **o_write_p, uint32_t **o_data_p,
-                                   int basic_block, cc_type type, bool allow_write) {
+                                   int basic_block, cc_type type, bool allow_write, bool *stop) {
   bool replaced = false;
 #ifdef PLUGINS_NEW
   if (global_data.free_plugin > 0) {
@@ -394,7 +394,7 @@ bool a64_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id, 
     }
 
     mambo_context ctx;
-    set_mambo_context_code(&ctx, thread_data, cb_id, type, basic_block, A64_INST, inst, cond, read_address, write_p);
+    set_mambo_context_code(&ctx, thread_data, cb_id, type, basic_block, A64_INST, inst, cond, read_address, write_p, stop);
 
     for (int i = 0; i < global_data.free_plugin; i++) {
       if (global_data.plugins[i].cbs[cb_id] != NULL) {
@@ -630,10 +630,10 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
 #endif
 
   a64_scanner_deliver_callbacks(thread_data, PRE_FRAGMENT_C, &read_address, -1,
-                                &write_p, &data_p, basic_block, type, true);
+                                &write_p, &data_p, basic_block, type, true, &stop);
 
   a64_scanner_deliver_callbacks(thread_data, PRE_BB_C, &read_address, -1,
-                                &write_p, &data_p, basic_block, type, true);
+                                &write_p, &data_p, basic_block, type, true, &stop);
 
   while(!stop) {
     debug("A64 scan read_address: %p, w: : %p, bb: %d\n", read_address, write_p, basic_block);
@@ -643,7 +643,7 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
 
 #ifdef PLUGINS_NEW
     bool skip_inst = a64_scanner_deliver_callbacks(thread_data, PRE_INST_C, &read_address, inst,
-                                                   &write_p, &data_p, basic_block, type, true);
+                                                   &write_p, &data_p, basic_block, type, true, &stop);
     if (!skip_inst) {
 #endif
 
@@ -680,10 +680,10 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
         a64_pop_pair_reg(x0, x1);
 
         a64_scanner_deliver_callbacks(thread_data, POST_BB_C, &read_address, -1,
-                                &write_p, &data_p, basic_block, type, false);
+                                &write_p, &data_p, basic_block, type, false, &stop);
         uint32_t *ra = read_address + 1;
         a64_scanner_deliver_callbacks(thread_data, PRE_BB_C, &ra, -1,
-                                &write_p, &data_p, basic_block, type, true);
+                                &write_p, &data_p, basic_block, type, true, &stop);
         break;
 
       case A64_MRS_MSR_REG:
@@ -994,7 +994,7 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
       a64_check_free_space(thread_data, &write_p, &data_p, MIN_FSPACE, basic_block);
     }
 #ifdef PLUGINS_NEW
-    a64_scanner_deliver_callbacks(thread_data, POST_INST_C, &read_address, inst, &write_p, &data_p, basic_block, type, !stop);
+    a64_scanner_deliver_callbacks(thread_data, POST_INST_C, &read_address, inst, &write_p, &data_p, basic_block, type, !stop, &stop);
 #endif
 
     read_address++;

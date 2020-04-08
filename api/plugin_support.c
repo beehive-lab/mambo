@@ -418,4 +418,22 @@ int mambo_get_vm_off(mambo_context *ctx) {
 char *mambo_get_cb_function_name(mambo_context *ctx) {
   return ctx->code.func_name;
 }
+
+int mambo_stop_scan(mambo_context *ctx) {
+  if (ctx->event_type != PRE_INST_C
+      && ctx->event_type != POST_INST_C
+      && ctx->event_type != PRE_BB_C
+      && ctx->event_type != POST_BB_C
+      && ctx->event_type != PRE_FRAGMENT_C
+      && ctx->event_type != POST_FRAGMENT_C
+      && ctx->event_type != PRE_FN_C
+      && ctx->event_type != POST_FN_C) {
+    return -1;
+  }
+
+  if (ctx->code.stop == NULL) return -1;
+  *ctx->code.stop = true;
+
+  return 0;
+}
 #endif

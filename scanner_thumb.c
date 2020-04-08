@@ -880,7 +880,7 @@ void do_it_iter(thumb_it_state *state) {
 bool thumb_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id, thumb_it_state *state,
                                      uint16_t **o_read_address, thumb_instruction inst, uint16_t **o_write_p,
                                      uint32_t **o_data_p, int basic_block, cc_type type,
-                                     uint32_t *set_addr_prev_block, bool allow_write) {
+                                     uint32_t *set_addr_prev_block, bool allow_write, bool *stop) {
   bool replaced = false;
   void *prev_write_p;
 #ifdef PLUGINS_NEW
@@ -916,7 +916,7 @@ bool thumb_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id
     }
 
     mambo_context ctx;
-    set_mambo_context_code(&ctx, thread_data, PRE_INST_C, type, basic_block, THUMB_INST, inst, cond, read_address, write_p);
+    set_mambo_context_code(&ctx, thread_data, PRE_INST_C, type, basic_block, THUMB_INST, inst, cond, read_address, write_p, stop);
 
     for (int i = 0; i < global_data.free_plugin; i++) {
       if (global_data.plugins[i].cbs[cb_id] != NULL) {
@@ -1152,9 +1152,9 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
 #endif
 
   thumb_scanner_deliver_callbacks(thread_data, PRE_FRAGMENT_C, &it_state, &read_address, -1,
-                                  &write_p, &data_p, basic_block, type, &set_addr_prev_block, true);
+                                  &write_p, &data_p, basic_block, type, &set_addr_prev_block, true, &stop);
   thumb_scanner_deliver_callbacks(thread_data, PRE_BB_C, &it_state, &read_address, -1,
-                                  &write_p, &data_p, basic_block, type, &set_addr_prev_block, true);
+                                  &write_p, &data_p, basic_block, type, &set_addr_prev_block, true, &stop);
 
   while(!stop) {
     debug("thumb scan read_address: %p\n", read_address);
@@ -1166,7 +1166,7 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
 
 #ifdef PLUGINS_NEW
     bool skip_inst = thumb_scanner_deliver_callbacks(thread_data, PRE_INST_C, &it_state, &read_address,
-                              inst, &write_p, &data_p, basic_block, type, &set_addr_prev_block, true);
+                              inst, &write_p, &data_p, basic_block, type, &set_addr_prev_block, true, &stop);
 #endif
 
     addr_prev_block = set_addr_prev_block;
@@ -1759,10 +1759,10 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
         write_p += 2;
 
         thumb_scanner_deliver_callbacks(thread_data, POST_BB_C, &it_state, &read_address, -1,
-                                  &write_p, &data_p, basic_block, type, &set_addr_prev_block, false);
+                                  &write_p, &data_p, basic_block, type, &set_addr_prev_block, false, &stop);
         uint16_t *ra = read_address + 1;
         thumb_scanner_deliver_callbacks(thread_data, PRE_BB_C, &it_state, &ra, -1,
-                                  &write_p, &data_p, basic_block, type, &set_addr_prev_block, true);
+                                  &write_p, &data_p, basic_block, type, &set_addr_prev_block, true, &stop);
 
         break;
       
@@ -1794,10 +1794,10 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
            in some versions of ld.so */
         if ((uint32_t)target >= 0x8000) {
           thumb_scanner_deliver_callbacks(thread_data, POST_BB_C, &it_state, &read_address, -1,
-                                  &write_p, &data_p, basic_block, type, &set_addr_prev_block, false);
+                                  &write_p, &data_p, basic_block, type, &set_addr_prev_block, false, &stop);
           uint16_t *ra = (uint16_t *)(target -1);
           thumb_scanner_deliver_callbacks(thread_data, PRE_BB_C, &it_state, &ra, -1,
-                                  &write_p, &data_p, basic_block, type, &set_addr_prev_block, true);
+                                  &write_p, &data_p, basic_block, type, &set_addr_prev_block, true, &stop);
           read_address = (uint16_t *)(target - 2 - 1);
           break;
         }
@@ -2446,10 +2446,10 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
           }
 
           thumb_scanner_deliver_callbacks(thread_data, POST_BB_C, &it_state, &read_address, -1,
-                                  &write_p, &data_p, basic_block, type, &set_addr_prev_block, false);
+                                  &write_p, &data_p, basic_block, type, &set_addr_prev_block, false, &stop);
           uint16_t *ra = (uint16_t *)(target -1);
           thumb_scanner_deliver_callbacks(thread_data, PRE_BB_C, &it_state, &ra, -1,
-                                  &write_p, &data_p, basic_block, type, &set_addr_prev_block, true);
+                                  &write_p, &data_p, basic_block, type, &set_addr_prev_block, true, &stop);
 
           read_address = (uint16_t *)(target - 4 - 1);
         } else {
@@ -3156,7 +3156,7 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
     debug("\n");
 #ifdef PLUGINS_NEW
     thumb_scanner_deliver_callbacks(thread_data, POST_INST_C, &it_state, &read_address, inst, &write_p,
-                                    &data_p, basic_block, type, &set_addr_prev_block, !stop);
+                                    &data_p, basic_block, type, &set_addr_prev_block, !stop, &stop);
 #endif
 
     if (inst < THUMB_ADC32) {

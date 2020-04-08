@@ -231,7 +231,7 @@ void arm_bl32_helper(uint32_t *write_p, uint32_t target, uint32_t cond) {
 
 bool arm_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id, uint32_t **o_read_address,
                                    arm_instruction inst, uint32_t **o_write_p, uint32_t **o_data_p,
-                                   int basic_block, cc_type type, bool allow_write) {
+                                   int basic_block, cc_type type, bool allow_write, bool *stop) {
   bool replaced = false;
 #ifdef PLUGINS_NEW
   if (global_data.free_plugin > 0) {
@@ -245,7 +245,7 @@ bool arm_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id, 
     }
 
     mambo_context ctx;
-    set_mambo_context_code(&ctx, thread_data, PRE_INST_C, type, basic_block, ARM_INST, inst, cond, read_address, write_p);
+    set_mambo_context_code(&ctx, thread_data, PRE_INST_C, type, basic_block, ARM_INST, inst, cond, read_address, write_p, stop);
 
     for (int i = 0; i < global_data.free_plugin; i++) {
       if (global_data.plugins[i].cbs[cb_id] != NULL) {
@@ -303,7 +303,7 @@ bool arm_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id, 
 
 bool inline_uncond_imm(dbm_thread *thread_data, bool insert_branch, uint32_t **write_p,
                        uint32_t **data_p, uint32_t **read_addr, uint32_t target,
-                       int *inlined_back_count, int basic_block, cc_type type) {
+                       int *inlined_back_count, int basic_block, cc_type type, bool *stop) {
   if (target <= (uint32_t)*read_addr) {
     if (*inlined_back_count >= MAX_BACK_INLINE) {
       if (insert_branch) {
@@ -320,9 +320,9 @@ bool inline_uncond_imm(dbm_thread *thread_data, bool insert_branch, uint32_t **w
 
   if (insert_branch) {
     arm_scanner_deliver_callbacks(thread_data, POST_BB_C, read_addr, -1,
-                                  write_p, data_p, basic_block, type, false);
+                                  write_p, data_p, basic_block, type, false, stop);
     arm_scanner_deliver_callbacks(thread_data, PRE_BB_C, (uint32_t **)&target, -1,
-                                  write_p, data_p, basic_block, type, true);
+                                  write_p, data_p, basic_block, type, true, stop);
   }
 
   // Assummes the read pointer is incremented at the end of the current scanner iteration
@@ -352,7 +352,7 @@ void pass1_arm(dbm_thread *thread_data, uint32_t *read_address, branch_type *bb_
           uint32_t target = (int32_t)read_address + 8 + branch_offset;
 
           if(!inline_uncond_imm(thread_data, false, NULL, NULL, &read_address,
-                                target, &inlined_back_count, -1, -1)) {
+                                target, &inlined_back_count, -1, -1, NULL)) {
             *bb_type = uncond_imm_arm;
           }
 #else
@@ -578,9 +578,9 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
 #endif
 
   arm_scanner_deliver_callbacks(thread_data, PRE_FRAGMENT_C, &read_address, -1,
-                                &write_p, &data_p, basic_block, type, true);
+                                &write_p, &data_p, basic_block, type, true, &stop);
   arm_scanner_deliver_callbacks(thread_data, PRE_BB_C, &read_address, -1,
-                                &write_p, &data_p, basic_block, type, true);
+                                &write_p, &data_p, basic_block, type, true, &stop);
   
   while(!stop) {
     debug("arm scan read_address: %p\n", read_address);
@@ -590,7 +590,7 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
     debug("instruction word: 0x%x\n", *read_address); 
 #ifdef PLUGINS_NEW
     bool skip_inst = arm_scanner_deliver_callbacks(thread_data, PRE_INST_C, &read_address, inst,
-                                                   &write_p, &data_p, basic_block, type, true);
+                                                   &write_p, &data_p, basic_block, type, true, &stop);
     if (!skip_inst) {
 #endif
 
@@ -711,7 +711,7 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
         if (condition_code == AL) {
           thread_data->code_cache_meta[basic_block].exit_branch_addr = (uint16_t *)write_p;
           if (!inline_uncond_imm(thread_data, true, &write_p, &data_p, &read_address,
-                                 target, &inlined_back_count, basic_block, type)) {
+                                 target, &inlined_back_count, basic_block, type, &stop)) {
             thread_data->code_cache_meta[basic_block].exit_branch_type = trace_inline_max;
             thread_data->code_cache_meta[basic_block].branch_taken_addr = target;
             stop = true;
@@ -1241,10 +1241,10 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
         }
 
         arm_scanner_deliver_callbacks(thread_data, POST_BB_C, &read_address, -1,
-                                &write_p, &data_p, basic_block, type, false);
+                                &write_p, &data_p, basic_block, type, false, &stop);
         uint32_t *ra = read_address + 1;
         arm_scanner_deliver_callbacks(thread_data, PRE_BB_C, &ra, -1,
-                                &write_p, &data_p, basic_block, type, true);
+                                &write_p, &data_p, basic_block, type, true, &stop);
         break;
       }
 
@@ -1859,7 +1859,7 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
     if (!stop) arm_check_free_space(thread_data, &write_p, &data_p, MIN_FSPACE, basic_block);
 
 #ifdef PLUGINS_NEW
-    arm_scanner_deliver_callbacks(thread_data, POST_INST_C, &read_address, inst, &write_p, &data_p, basic_block, type, !stop);
+    arm_scanner_deliver_callbacks(thread_data, POST_INST_C, &read_address, inst, &write_p, &data_p, basic_block, type, !stop, &stop);
 #endif
 
     debug("write_p: %p\n", write_p);

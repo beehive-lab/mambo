@@ -41,6 +41,7 @@ struct code_ctx {
   char *func_name;
 
   bool replace;
+  bool *stop;
 };
 
 struct syscall_ctx {
@@ -198,6 +199,7 @@ bool mambo_is_load_or_store(mambo_context *ctx);
 int mambo_get_ld_st_size(mambo_context *ctx);
 int mambo_add_identity_mapping(mambo_context *ctx);
 char *mambo_get_cb_function_name(mambo_context *ctx);
+int mambo_stop_scan(mambo_context *ctx);
 
 mambo_branch_type mambo_get_branch_type(mambo_context *ctx);
 
