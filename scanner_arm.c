@@ -166,6 +166,15 @@ void arm_branch_jump(dbm_thread *thread_data, uint32_t **o_write_p, int basic_bl
   *o_write_p = write_p;
 }
 
+void arm_simple_exit(dbm_thread *thread_data, uint32_t **o_write_p, int bb_index,
+                     uint32_t offset, uint32_t *read_address, uint32_t cond) {
+  uint32_t *write_p = *o_write_p;
+  arm_branch_save_context(thread_data, &write_p, false);
+  arm_branch_jump(thread_data, &write_p, bb_index, offset, read_address,
+                  cond, SETUP|REPLACE_TARGET|INSERT_BRANCH);
+  *o_write_p = write_p;
+}
+
 void arm_check_free_space(dbm_thread *thread_data, uint32_t **write_p,
                           uint32_t **data_p, uint32_t size, int cur_block) {
   int basic_block;
@@ -723,8 +732,7 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
           write_p++;
         }
 
-        arm_branch_save_context(thread_data, &write_p, false);
-        arm_branch_jump(thread_data, &write_p, basic_block, offset, read_address, condition_code, SETUP|REPLACE_TARGET|INSERT_BRANCH);
+        arm_simple_exit(thread_data, &write_p, basic_block, offset, read_address, condition_code);
         stop = true;
 
         break;
@@ -792,15 +800,11 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
         
         thread_data->code_cache_meta[basic_block].exit_branch_type = uncond_blxi_arm;
         thread_data->code_cache_meta[basic_block].exit_branch_addr = (uint16_t *)write_p;
-        
-        arm_branch_save_context(thread_data, &write_p, false);
-        arm_branch_jump(thread_data, &write_p, basic_block, 0, read_address, (*read_address >> 28), SETUP);
-        
-        arm_copy_to_reg_32bit(&write_p, r0, (uint32_t)read_address + 8 + branch_offset);
-        
-        arm_branch_jump(thread_data, &write_p, basic_block, 0, read_address, (*read_address >> 28), INSERT_BRANCH);
+
+        arm_simple_exit(thread_data, &write_p, basic_block, 0,
+                        (uint32_t *)((uint32_t)read_address + branch_offset), AL);
         stop = true;
-        
+
         break;
       }
       
@@ -1605,9 +1609,7 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
           thread_data->code_cache_meta[basic_block].exit_branch_addr = (uint16_t *)write_p;
           thread_data->code_cache_meta[basic_block].branch_taken_addr = (uint32_t)read_address;
 
-          arm_branch_save_context(thread_data, &write_p, false);
-          arm_branch_jump(thread_data, &write_p, basic_block, -2, read_address,
-                          AL, SETUP|REPLACE_TARGET|INSERT_BRANCH);
+          arm_simple_exit(thread_data, &write_p, basic_block, -2, read_address, AL);
           stop = true;
         }
         break;
@@ -1880,8 +1882,7 @@ void arm_encode_stub_bb(dbm_thread *thread_data, int basic_block, uint32_t targe
 
   arm_pop_regs((1 << r5) | (1 << r6));
 
-  arm_branch_save_context(thread_data, &write_p, false);
-  arm_branch_jump(thread_data, &write_p, basic_block, 0, (uint32_t *)(target - 8), AL, SETUP|REPLACE_TARGET|INSERT_BRANCH);
+  arm_simple_exit(thread_data, &write_p, basic_block, 0, (uint32_t *)(target - 8), AL);
 }
 
 #endif // __arm__
