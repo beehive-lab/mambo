@@ -339,6 +339,12 @@ void install_system_sig_handlers();
 #define MAP_APP (0x20000000)
 void notify_vm_op(vm_op_t op, uintptr_t addr, size_t size, int prot, int flags, int fd, off_t off);
 
+#ifdef __arm__
+void thumb_simple_exit(dbm_thread *thread_data, uint16_t **o_write_p, int bb_index, uint32_t target);
+void arm_simple_exit(dbm_thread *thread_data, uint32_t **o_write_p, int bb_index,
+                     uint32_t offset, uint32_t *read_address, uint32_t cond);
+#endif
+
 inline static uintptr_t adjust_cc_entry(uintptr_t addr) {
 #ifdef __arm__
   if (addr != UINT_MAX) {

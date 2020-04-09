@@ -244,7 +244,36 @@ void mambo_replace_inst(mambo_context *ctx) {
 int mambo_set_source_addr(mambo_context *ctx, void *source_addr) {
   if (ctx->event_type != PRE_FN_C) return -1;
 
-  ctx->code.read_address = (uint32_t *)source_addr;
+#ifdef __arm__
+  bool change_type = false;
+  if (((uintptr_t)source_addr & 1) && mambo_get_inst_type(ctx) == ARM_INST) {
+    change_type = true;
+  } else if ((((uintptr_t)source_addr & 1) == 0) && mambo_get_inst_type(ctx) == THUMB_INST) {
+    change_type = true;
+  }
+
+  if (change_type) {
+    uint16_t *write_p = (uint16_t *)mambo_get_cc_addr(ctx);
+    int fragment_id = mambo_get_fragment_id(ctx);
+    ctx->thread_data->code_cache_meta[fragment_id].exit_branch_addr = write_p;
+
+    if (mambo_get_inst_type(ctx) == THUMB_INST) {
+      ctx->thread_data->code_cache_meta[fragment_id].exit_branch_type = uncond_blxi_thumb;
+      thumb_simple_exit(ctx->thread_data, &write_p, fragment_id, (uintptr_t)source_addr);
+    } else {
+      ctx->thread_data->code_cache_meta[fragment_id].exit_branch_type = uncond_blxi_arm;
+      arm_simple_exit(ctx->thread_data, (uint32_t **)&write_p, fragment_id,
+                      0, (uint32_t *)(source_addr-8), AL);
+    }
+
+    mambo_set_cc_addr(ctx, write_p);
+    mambo_stop_scan(ctx);
+
+    return 0;
+  }
+#endif
+
+  ctx->code.read_address = (void *)((uintptr_t)source_addr & ~1);
   ctx->code.replace = true;
 
   return 0;

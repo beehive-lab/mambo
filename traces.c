@@ -274,7 +274,8 @@ void create_trace(dbm_thread *thread_data, uint32_t bb_source, cc_addr_pair *ret
       thread_data->code_cache_meta[bb_source].exit_branch_type == uncond_reg_thumb ||
       thread_data->code_cache_meta[bb_source].exit_branch_type == cond_imm_arm ||
       thread_data->code_cache_meta[bb_source].exit_branch_type == uncond_imm_arm ||
-      thread_data->code_cache_meta[bb_source].exit_branch_type == uncond_reg_arm) {
+      thread_data->code_cache_meta[bb_source].exit_branch_type == uncond_reg_arm ||
+      thread_data->code_cache_meta[bb_source].exit_branch_type == uncond_blxi_thumb) {
 #endif
 #ifdef __aarch64__
   if (thread_data->code_cache_meta[bb_source].exit_branch_type == cbz_a64
