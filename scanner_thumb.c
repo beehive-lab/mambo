@@ -459,6 +459,13 @@ void branch_jump(dbm_thread *thread_data, uint16_t **o_write_p, int bb_index, ui
   *o_write_p = write_p;
 }
 
+void thumb_simple_exit(dbm_thread *thread_data, uint16_t **o_write_p, int bb_index, uint32_t target) {
+  uint16_t *write_p = *o_write_p;
+  branch_save_context(thread_data, &write_p, false);
+  branch_jump(thread_data, &write_p, bb_index, target, SETUP|REPLACE_TARGET|INSERT_BRANCH);
+  *o_write_p = write_p;
+}
+
 void set_cc_imm_links(dbm_thread *thread_data,
                          int16_t *write_p,
                          int basic_block,
@@ -1378,8 +1385,7 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
           write_p++;
           
           // This is branch not taken
-          branch_save_context(thread_data, &write_p, false);
-          branch_jump(thread_data, &write_p, basic_block, (uint32_t)read_address+2+1, SETUP|REPLACE_TARGET|INSERT_BRANCH);
+          thumb_simple_exit(thread_data, &write_p, basic_block, (uint32_t)read_address+2+1);
 #endif
       
           it_cond_handled = true;
@@ -1806,9 +1812,7 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
           thumb_cc_branch(thread_data, write_p, block_address);
         } else {
 #endif
-          branch_save_context(thread_data, &write_p, false);
-              
-          branch_jump(thread_data, &write_p, basic_block, target, SETUP|REPLACE_TARGET|INSERT_BRANCH);
+          thumb_simple_exit(thread_data, &write_p, basic_block, target);
 #ifdef DBM_LINK_UNCOND_IMM
         }
 #endif
@@ -2467,8 +2471,7 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
             thumb_cc_branch(thread_data, write_p, block_address);
           } else {
 #endif
-            branch_save_context(thread_data, &write_p, false);
-            branch_jump(thread_data, &write_p, basic_block, target, SETUP|REPLACE_TARGET|INSERT_BRANCH);
+            thumb_simple_exit(thread_data, &write_p, basic_block, target);
 #ifdef DBM_LINK_UNCOND_IMM
           }
 #endif
@@ -3184,8 +3187,7 @@ void thumb_encode_stub_bb(dbm_thread *thread_data, int basic_block, uint32_t tar
   thumb_pop16(&write_p, (1 << r5) | (1 << r6));
   write_p++;
 
-  branch_save_context(thread_data, &write_p, false);
-  branch_jump(thread_data, &write_p, basic_block, target, SETUP|REPLACE_TARGET|INSERT_BRANCH);
+  thumb_simple_exit(thread_data, &write_p, basic_block, target);
 }
 
 #endif // __arm__
