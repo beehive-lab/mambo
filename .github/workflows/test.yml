@@ -1,0 +1,16 @@
+name: 'test'
+
+on:
+  push:
+  pull_request:
+
+jobs:
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v1
+      with:
+        submodules: recursive
+    - run: docker run --rm --privileged aptman/qus -s -- -p aarch64
+    - run: docker run --rm -tv $(pwd):/src aptman/dbhi:bionic-mambo-arm64 /src/ci.sh
