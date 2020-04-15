@@ -210,8 +210,7 @@ bool close_it_gap(uint16_t **write_p, thumb_it_state *it_state) {
 }
 
 void thumb_check_free_space(dbm_thread *thread_data, uint16_t **o_write_p, uint32_t **o_data_p,
-                            thumb_it_state *it_state, uint32_t *addr_prev_block, bool handle_it,
-                            size_t size, int cur_block) {
+                            thumb_it_state *it_state, bool handle_it, size_t size, int cur_block) {
   uint16_t *write_p = *o_write_p;
   uint32_t *data_p = *o_data_p;
 
@@ -235,7 +234,6 @@ void thumb_check_free_space(dbm_thread *thread_data, uint16_t **o_write_p, uint3
         close_it_gap(&write_p, it_state);
       }
     }
-    *addr_prev_block = (uint32_t)write_p;
     data_p = (uint32_t *)&thread_data->code_cache->blocks[new_block + 1];
   }
 
@@ -880,7 +878,7 @@ void do_it_iter(thumb_it_state *state) {
 bool thumb_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id, thumb_it_state *state,
                                      uint16_t **o_read_address, thumb_instruction inst, uint16_t **o_write_p,
                                      uint32_t **o_data_p, int basic_block, cc_type type,
-                                     uint32_t *set_addr_prev_block, bool allow_write, bool *stop) {
+                                     bool allow_write, bool *stop) {
   bool replaced = false;
   void *prev_write_p;
 #ifdef PLUGINS_NEW
@@ -945,7 +943,7 @@ bool thumb_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id
           }
 
           thumb_check_free_space(thread_data, (uint16_t **)&ctx.code.write_p, &data_p, state,
-                                 set_addr_prev_block, false, MIN_FSPACE, basic_block);
+                                 false, MIN_FSPACE, basic_block);
         } else {
           assert(ctx.code.write_p == write_p);
         }
@@ -962,7 +960,7 @@ bool thumb_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id
           }
           write_p = ctx.code.write_p;
           thumb_check_free_space(thread_data, (uint16_t **)&ctx.code.write_p, &data_p, state,
-                                 set_addr_prev_block, false, MIN_FSPACE, basic_block);
+                                 false, MIN_FSPACE, basic_block);
         }
       }
     }
@@ -1114,9 +1112,6 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
   uint32_t poped_regs = 0;
   bool is_valid;
 
-  uint32_t addr_prev_block = 0;
-  uint32_t set_addr_prev_block = 0;
-
 #ifdef DBM_INLINE_UNCOND_IMM
   int inline_back_count = 0;
 #endif
@@ -1152,9 +1147,9 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
 #endif
 
   thumb_scanner_deliver_callbacks(thread_data, PRE_FRAGMENT_C, &it_state, &read_address, -1,
-                                  &write_p, &data_p, basic_block, type, &set_addr_prev_block, true, &stop);
+                                  &write_p, &data_p, basic_block, type, true, &stop);
   thumb_scanner_deliver_callbacks(thread_data, PRE_BB_C, &it_state, &read_address, -1,
-                                  &write_p, &data_p, basic_block, type, &set_addr_prev_block, true, &stop);
+                                  &write_p, &data_p, basic_block, type, true, &stop);
 
   while(!stop) {
     debug("thumb scan read_address: %p\n", read_address);
@@ -1166,11 +1161,8 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
 
 #ifdef PLUGINS_NEW
     bool skip_inst = thumb_scanner_deliver_callbacks(thread_data, PRE_INST_C, &it_state, &read_address,
-                              inst, &write_p, &data_p, basic_block, type, &set_addr_prev_block, true, &stop);
+                                                     inst, &write_p, &data_p, basic_block, type, true, &stop);
 #endif
-
-    addr_prev_block = set_addr_prev_block;
-    set_addr_prev_block = 0;
 
     // Check if the previous instruction is a POP
     if (set_inst_pop_regs) {
@@ -1296,7 +1288,7 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
 
 #ifdef DBM_INLINE_HASH
           thumb_check_free_space(thread_data, &write_p, &data_p, &it_state,
-                               &set_addr_prev_block, true, IHL_FSPACE, basic_block);
+                                 true, IHL_FSPACE, basic_block);
           thumb_inline_hash_lookup(thread_data, &write_p, basic_block, -1);
 #else
           branch_jump(thread_data, &write_p, basic_block, 0, SETUP|INSERT_BRANCH|LATE_APP_SP);
@@ -1351,7 +1343,7 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
             data_p = inst_pop_regs_data;
             
             thumb_check_free_space(thread_data, &write_p, &data_p, &it_state,
-                                   &set_addr_prev_block, true, 8, basic_block);
+                                   true, 8, basic_block);
 
             thumb_b16(&write_p, 3);
             write_p++;
@@ -1436,7 +1428,7 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
         }
 
         thumb_check_free_space(thread_data, &write_p, &data_p, &it_state,
-                               &set_addr_prev_block, true, IHL_FSPACE, basic_block);
+                               true, IHL_FSPACE, basic_block);
         thumb_inline_hash_lookup(thread_data, &write_p, basic_block, r_target);
 #else
         branch_save_context(thread_data, &write_p, true);
@@ -1571,7 +1563,7 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
         debug("Branch taken: 0x%x\n", target);
 
         thumb_check_free_space(thread_data, &write_p, &data_p, &it_state,
-                               &set_addr_prev_block, true, CBZ_SIZE, basic_block);
+                               true, CBZ_SIZE, basic_block);
 
         // Mark this as the beggining of code emulating B
         thread_data->code_cache_meta[basic_block].exit_branch_type = cbz_thumb;
@@ -1642,7 +1634,7 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
           write_p++;
 
           thumb_check_free_space(thread_data, &write_p, &data_p, &it_state,
-                               &set_addr_prev_block, true, IHL_FSPACE, basic_block);
+                                 true, IHL_FSPACE, basic_block);
           thumb_inline_hash_lookup(thread_data, &write_p, basic_block, -1);
 #else
           thumb_pop16(&write_p, reglist & 0xFF);
@@ -1713,7 +1705,7 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
         debug("Branch taken: 0x%x\n", target);
 
         thumb_check_free_space(thread_data, &write_p, &data_p, &it_state,
-                               &set_addr_prev_block, true, IMM_SIZE, basic_block);
+                               true, IMM_SIZE, basic_block);
 
         // Mark this as the beggining of code emulating B
         thread_data->code_cache_meta[basic_block].exit_branch_type = cond_imm_thumb;
@@ -1759,10 +1751,10 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
         write_p += 2;
 
         thumb_scanner_deliver_callbacks(thread_data, POST_BB_C, &it_state, &read_address, -1,
-                                  &write_p, &data_p, basic_block, type, &set_addr_prev_block, false, &stop);
+                                        &write_p, &data_p, basic_block, type, false, &stop);
         uint16_t *ra = read_address + 1;
         thumb_scanner_deliver_callbacks(thread_data, PRE_BB_C, &it_state, &ra, -1,
-                                  &write_p, &data_p, basic_block, type, &set_addr_prev_block, true, &stop);
+                                        &write_p, &data_p, basic_block, type, true, &stop);
 
         break;
       
@@ -1794,10 +1786,10 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
            in some versions of ld.so */
         if ((uint32_t)target >= 0x8000) {
           thumb_scanner_deliver_callbacks(thread_data, POST_BB_C, &it_state, &read_address, -1,
-                                  &write_p, &data_p, basic_block, type, &set_addr_prev_block, false, &stop);
+                                          &write_p, &data_p, basic_block, type, false, &stop);
           uint16_t *ra = (uint16_t *)(target -1);
           thumb_scanner_deliver_callbacks(thread_data, PRE_BB_C, &it_state, &ra, -1,
-                                  &write_p, &data_p, basic_block, type, &set_addr_prev_block, true, &stop);
+                                          &write_p, &data_p, basic_block, type, true, &stop);
           read_address = (uint16_t *)(target - 2 - 1);
           break;
         }
@@ -2025,7 +2017,7 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
             }
 
             thumb_check_free_space(thread_data, &write_p, &data_p, &it_state,
-                               &set_addr_prev_block, true, IHL_FSPACE, basic_block);
+                                   true, IHL_FSPACE, basic_block);
             thumb_inline_hash_lookup(thread_data, &write_p, basic_block, -1);
 #else
             scratch_reg = (rn == r0) ? 1 : 0;
@@ -2139,7 +2131,7 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
 
 #ifdef DBM_INLINE_HASH
         thumb_check_free_space(thread_data, &write_p, &data_p, &it_state,
-                               &set_addr_prev_block, true, IHL_FSPACE, basic_block);
+                               true, IHL_FSPACE, basic_block);
           thumb_inline_hash_lookup(thread_data, &write_p, basic_block, -1);
 #else
           branch_jump(thread_data, &write_p, basic_block, target, SETUP|INSERT_BRANCH|LATE_APP_SP);
@@ -2446,16 +2438,16 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
           }
 
           thumb_scanner_deliver_callbacks(thread_data, POST_BB_C, &it_state, &read_address, -1,
-                                  &write_p, &data_p, basic_block, type, &set_addr_prev_block, false, &stop);
+                                          &write_p, &data_p, basic_block, type, false, &stop);
           uint16_t *ra = (uint16_t *)(target -1);
           thumb_scanner_deliver_callbacks(thread_data, PRE_BB_C, &it_state, &ra, -1,
-                                  &write_p, &data_p, basic_block, type, &set_addr_prev_block, true, &stop);
+                                          &write_p, &data_p, basic_block, type, true, &stop);
 
           read_address = (uint16_t *)(target - 4 - 1);
         } else {
 #endif
           thumb_check_free_space(thread_data, &write_p, &data_p, &it_state,
-                                 &set_addr_prev_block, true, DISP_CALL_SIZE, basic_block);
+                                 true, DISP_CALL_SIZE, basic_block);
 
           if (inst == THUMB_BL_ARM32) {
             thread_data->code_cache_meta[basic_block].exit_branch_type = uncond_blxi_thumb;
@@ -2498,7 +2490,7 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
         debug("Computed target: 0x%x\n", target);
 
         thumb_check_free_space(thread_data, &write_p, &data_p, &it_state,
-                               &set_addr_prev_block, true, IMM_SIZE, basic_block);
+                               true, IMM_SIZE, basic_block);
 
         // Mark this as the beggining of code emulating B
         thread_data->code_cache_meta[basic_block].exit_branch_type = cond_imm_thumb;
@@ -2670,7 +2662,7 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
           /*basic_block = */thread_data->free_block++;
           data_p += BASIC_BLOCK_SIZE;
           thumb_check_free_space(thread_data, &write_p, &data_p, &it_state,
-                                 &set_addr_prev_block, true, 472, basic_block);
+                                 true, 472, basic_block);
   #else
           if (type == mambo_trace || type == mambo_trace_entry) {
   #endif
@@ -2765,7 +2757,7 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
           write_p++;
 
           thumb_check_free_space(thread_data, &write_p, &data_p, &it_state,
-                                 &set_addr_prev_block, true, 118, basic_block);
+                                 true, 118, basic_block);
    
           if (rn == pc) {
             copy_to_reg_32bit(&write_p, sr[1], (uint32_t)read_address + 4);
@@ -2880,7 +2872,7 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
             write_p += 2;
           }
           thumb_check_free_space(thread_data, &write_p, &data_p, &it_state,
-                               &set_addr_prev_block, true, IHL_FSPACE, basic_block);
+                                 true, IHL_FSPACE, basic_block);
           thumb_inline_hash_lookup(thread_data, &write_p, basic_block, -1);
 #else
           branch_save_context(thread_data, &write_p, false);
@@ -3151,12 +3143,12 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
     
     if (!stop) {
       thumb_check_free_space(thread_data, &write_p, &data_p, &it_state,
-                             &set_addr_prev_block, true, MIN_FSPACE, basic_block);
+                             true, MIN_FSPACE, basic_block);
     }
     debug("\n");
 #ifdef PLUGINS_NEW
     thumb_scanner_deliver_callbacks(thread_data, POST_INST_C, &it_state, &read_address, inst, &write_p,
-                                    &data_p, basic_block, type, &set_addr_prev_block, !stop, &stop);
+                                    &data_p, basic_block, type, !stop, &stop);
 #endif
 
     if (inst < THUMB_ADC32) {
