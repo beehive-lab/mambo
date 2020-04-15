@@ -33,6 +33,7 @@ struct code_ctx {
   mambo_cond cond;
 
   void *write_p;
+  void *data_p;
 
   uint32_t pushed_regs;
   uint32_t available_regs;
@@ -200,6 +201,7 @@ int mambo_get_ld_st_size(mambo_context *ctx);
 int mambo_add_identity_mapping(mambo_context *ctx);
 char *mambo_get_cb_function_name(mambo_context *ctx);
 int mambo_stop_scan(mambo_context *ctx);
+int mambo_reserve_cc_space(mambo_context *ctx, size_t size);
 
 mambo_branch_type mambo_get_branch_type(mambo_context *ctx);
 

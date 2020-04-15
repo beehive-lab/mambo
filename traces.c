@@ -112,9 +112,9 @@ uint32_t scan_trace(dbm_thread *thread_data, void *address, cc_type type, int *s
 #endif
   bool stop = true;
   mambo_deliver_callbacks_code(POST_BB_C, thread_data, type, trace_id, inst_type,
-                               -1, -1, address, write_p, &stop);
+                               -1, -1, address, write_p, NULL, &stop);
   mambo_deliver_callbacks_code(POST_FRAGMENT_C, thread_data, type, trace_id, inst_type,
-                               -1, -1, address, write_p, &stop);
+                               -1, -1, address, write_p, NULL, &stop);
   assert(stop == true);
 
   __clear_cache(write_p, write_p + fragment_len);

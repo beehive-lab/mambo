@@ -239,9 +239,9 @@ uintptr_t scan(dbm_thread *thread_data, uint16_t *address, int basic_block) {
 #endif
   bool stop = true;
   mambo_deliver_callbacks_code(POST_BB_C, thread_data, mambo_bb, basic_block, inst_type,
-                               -1, -1, address, (void *)(block_address & (~THUMB)), &stop);
+                               -1, -1, address, (void *)(block_address & (~THUMB)), NULL, &stop);
   mambo_deliver_callbacks_code(POST_FRAGMENT_C, thread_data, mambo_bb, basic_block, inst_type,
-                               -1, -1, address, (void *)(block_address & (~THUMB)), &stop);
+                               -1, -1, address, (void *)(block_address & (~THUMB)), NULL, &stop);
   assert(stop == true);
 
   // Flush modified instructions from caches

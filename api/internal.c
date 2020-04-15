@@ -33,7 +33,7 @@ void set_mambo_context(mambo_context *ctx, dbm_thread *thread_data, mambo_cb_idx
 
 void set_mambo_context_code(mambo_context *ctx, dbm_thread *thread_data, mambo_cb_idx event_type,
                             cc_type fragment_type, int fragment_id, inst_set inst_type, int inst,
-                            mambo_cond cond, void *read_address, void *write_p, bool *stop) {
+                            mambo_cond cond, void *read_address, void *write_p, void *data_p, bool *stop) {
   set_mambo_context(ctx, thread_data, event_type);
   ctx->code.inst_type = inst_type;
   ctx->code.fragment_type = fragment_type;
@@ -42,6 +42,7 @@ void set_mambo_context_code(mambo_context *ctx, dbm_thread *thread_data, mambo_c
   ctx->code.cond = cond;
   ctx->code.read_address = read_address;
   ctx->code.write_p = write_p;
+  ctx->code.data_p = data_p;
   ctx->code.replace = false;
   ctx->code.pushed_regs = 0;
   ctx->code.available_regs = 0;
@@ -85,13 +86,13 @@ void mambo_deliver_callbacks(unsigned cb_id, dbm_thread *thread_data) {
 
 void mambo_deliver_callbacks_code(unsigned cb_id, dbm_thread *thread_data, cc_type fragment_type,
                                   int fragment_id, inst_set inst_type, int inst, mambo_cond cond,
-                                  void *read_address, void *write_p, bool *stop) {
+                                  void *read_address, void *write_p, void *data_p, bool *stop) {
 #ifdef PLUGINS_NEW
   mambo_context ctx;
 
   if (global_data.free_plugin > 0) {
     set_mambo_context_code(&ctx, thread_data, cb_id, fragment_type, fragment_id,
-                           inst_type, inst, cond, read_address, write_p, stop);
+                           inst_type, inst, cond, read_address, write_p, data_p, stop);
     mambo_deliver_callbacks_for_ctx(&ctx);
   }
 #endif

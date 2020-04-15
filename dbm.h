@@ -365,7 +365,7 @@ extern __thread dbm_thread *current_thread;
 void set_mambo_context(mambo_context *ctx, dbm_thread *thread_data, mambo_cb_idx event_type);
 void set_mambo_context_code(mambo_context *ctx, dbm_thread *thread_data, mambo_cb_idx event_type,
                             cc_type fragment_type, int fragment_id, inst_set inst_type, int inst,
-                            mambo_cond cond, void *read_address, void *write_p, bool *stop);
+                            mambo_cond cond, void *read_address, void *write_p, void *data_p, bool *stop);
 void set_mambo_context_syscall(mambo_context *ctx, dbm_thread *thread_data, mambo_cb_idx event_type,
                                uintptr_t number, uintptr_t *regs);
 #endif
@@ -373,7 +373,7 @@ void mambo_deliver_callbacks_for_ctx(mambo_context *ctx);
 void mambo_deliver_callbacks(unsigned cb_id, dbm_thread *thread_data);
 void mambo_deliver_callbacks_code(unsigned cb_id, dbm_thread *thread_data, cc_type fragment_type,
                                   int fragment_id, inst_set inst_type, int inst, mambo_cond cond,
-                                  void *read_address, void *write_p, bool *stop);
+                                  void *read_address, void *write_p, void *data_p, bool *stop);
 void _function_callback_wrapper(mambo_context *ctx, watched_func_t *func);
 int function_watch_parse_elf(watched_functions_t *self, Elf *elf, void *base_addr);
 int function_watch_add(watched_functions_t *self, char *name, int plugin_id,

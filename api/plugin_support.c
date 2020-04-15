@@ -465,4 +465,28 @@ int mambo_stop_scan(mambo_context *ctx) {
 
   return 0;
 }
+
+void thumb_check_free_space(dbm_thread *thread_data, uint16_t **o_write_p, uint32_t **o_data_p,
+                            void *it_state, bool handle_it, size_t size, int cur_block);
+void arm_check_free_space(dbm_thread *thread_data, uint32_t **write_p,
+                          uint32_t **data_p, uint32_t size, int cur_block);
+void a64_check_free_space(dbm_thread *thread_data, uint32_t **write_p,
+                          uint32_t **data_p, uint32_t size, int cur_block);
+
+int mambo_reserve_cc_space(mambo_context *ctx, size_t size) {
+  if (ctx->code.write_p == NULL || ctx->code.data_p == NULL) return -1;
+#ifdef __arm__
+  if (mambo_get_inst_type(ctx) == THUMB_INST) {
+    thumb_check_free_space(ctx->thread_data, (uint16_t **)&ctx->code.write_p, (uint32_t **)&ctx->code.data_p,
+                           NULL, false, size, mambo_get_fragment_id(ctx));
+  } else { // ARM_INST
+    arm_check_free_space(ctx->thread_data, (uint32_t **)&ctx->code.write_p, (uint32_t **)&ctx->code.data_p,
+                         size, mambo_get_fragment_id(ctx));
+  }
+#elif __aarch64__
+  a64_check_free_space(ctx->thread_data, (uint32_t **)&ctx->code.write_p, (uint32_t **)&ctx->code.data_p,
+                       size, mambo_get_fragment_id(ctx));
+#endif
+  return 0;
+}
 #endif

@@ -394,11 +394,12 @@ bool a64_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id, 
     }
 
     mambo_context ctx;
-    set_mambo_context_code(&ctx, thread_data, cb_id, type, basic_block, A64_INST, inst, cond, read_address, write_p, stop);
+    set_mambo_context_code(&ctx, thread_data, cb_id, type, basic_block, A64_INST, inst, cond, read_address, write_p, data_p, stop);
 
     for (int i = 0; i < global_data.free_plugin; i++) {
       if (global_data.plugins[i].cbs[cb_id] != NULL) {
         ctx.code.write_p = write_p;
+        ctx.code.data_p = data_p;
         ctx.plugin_id = i;
         ctx.code.replace = false;
         ctx.code.available_regs = ctx.code.pushed_regs;
@@ -421,9 +422,11 @@ bool a64_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id, 
             emit_pop(&ctx, ctx.code.pushed_regs);
           }
           write_p = ctx.code.write_p;
+          data_p = ctx.code.data_p;
           a64_check_free_space(thread_data, &write_p, &data_p, MIN_FSPACE, basic_block);
         } else {
           assert(ctx.code.write_p == write_p);
+          assert(ctx.code.data_p == data_p);
         }
       }
     }
@@ -437,6 +440,7 @@ bool a64_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id, 
             read_address = ctx.code.read_address;
           }
           write_p = ctx.code.write_p;
+          data_p = ctx.code.data_p;
           a64_check_free_space(thread_data, &write_p, &data_p, MIN_FSPACE, basic_block);
         }
       }
@@ -445,6 +449,7 @@ bool a64_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id, 
     if (allow_write && ctx.code.pushed_regs) {
       emit_a64_pop(&ctx, ctx.code.pushed_regs);
       write_p = ctx.code.write_p;
+      data_p = ctx.code.data_p;
     }
 
     *o_write_p = write_p;

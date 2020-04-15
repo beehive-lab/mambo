@@ -914,7 +914,7 @@ bool thumb_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id
     }
 
     mambo_context ctx;
-    set_mambo_context_code(&ctx, thread_data, PRE_INST_C, type, basic_block, THUMB_INST, inst, cond, read_address, write_p, stop);
+    set_mambo_context_code(&ctx, thread_data, PRE_INST_C, type, basic_block, THUMB_INST, inst, cond, read_address, write_p, data_p, stop);
 
     for (int i = 0; i < global_data.free_plugin; i++) {
       if (global_data.plugins[i].cbs[cb_id] != NULL) {
@@ -942,10 +942,11 @@ bool thumb_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id
             thumb_pop_regs((uint16_t **)&ctx.code.write_p, ctx.code.pushed_regs);
           }
 
-          thumb_check_free_space(thread_data, (uint16_t **)&ctx.code.write_p, &data_p, state,
-                                 false, MIN_FSPACE, basic_block);
+          thumb_check_free_space(thread_data, (uint16_t **)&ctx.code.write_p, (uint32_t **)&ctx.code.data_p,
+                                 state, false, MIN_FSPACE, basic_block);
         } else {
           assert(ctx.code.write_p == write_p);
+          assert(ctx.code.data_p == data_p);
         }
       } // global_data.plugins[i].cbs[cb_id] != NULL
     } // plugin iterator
@@ -958,9 +959,8 @@ bool thumb_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id
           if (ctx.code.replace) {
             read_address = ctx.code.read_address;
           }
-          write_p = ctx.code.write_p;
-          thumb_check_free_space(thread_data, (uint16_t **)&ctx.code.write_p, &data_p, state,
-                                 false, MIN_FSPACE, basic_block);
+          thumb_check_free_space(thread_data, (uint16_t **)&ctx.code.write_p, (uint32_t **)&ctx.code.data_p,
+                                 state, false, MIN_FSPACE, basic_block);
         }
       }
     }
@@ -987,6 +987,7 @@ bool thumb_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id
     }
 
     write_p = ctx.code.write_p;
+    data_p = ctx.code.data_p;
 
     *o_write_p = write_p;
     *o_data_p = data_p;
