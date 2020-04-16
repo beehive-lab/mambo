@@ -193,8 +193,6 @@ struct dbm_thread_s {
   dbm_code_cache_meta code_cache_meta[CODE_CACHE_SIZE + TRACE_FRAGMENT_NO];
   hash_table entry_address;
 #ifdef DBM_TRACES
-  hash_table trace_entry_address;
-
   uint8_t   exec_count[CODE_CACHE_SIZE];
   uintptr_t trace_head_incr_addr;
   uint8_t  *trace_cache_next;

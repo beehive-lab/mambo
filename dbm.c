@@ -77,8 +77,6 @@ void flush_code_cache(dbm_thread *thread_data) {
   thread_data->trace_cache_next = thread_data->code_cache->traces;
   thread_data->trace_id = CODE_CACHE_SIZE;
   thread_data->active_trace.id = CODE_CACHE_SIZE;
-
-  hash_init(&thread_data->trace_entry_address, CODE_CACHE_HASH_SIZE + CODE_CACHE_HASH_OVERP);
 #endif
 
   for (int i = 0; i < CODE_CACHE_SIZE; i++) {

@@ -57,7 +57,10 @@ uintptr_t active_trace_lookup(dbm_thread *thread_data, uintptr_t target) {
   if (target == spc) {
     return adjust_cc_entry(thread_data->active_trace.entry_addr);
   }
-  return adjust_cc_entry(hash_lookup(&thread_data->trace_entry_address, target));
+  uintptr_t return_tpc = hash_lookup(&thread_data->entry_address, target);
+  if (return_tpc >= (uintptr_t)thread_data->code_cache->traces)
+    return adjust_cc_entry(return_tpc);
+  return UINT_MAX;
 }
 
 uintptr_t active_trace_lookup_or_scan(dbm_thread *thread_data, uintptr_t target) {
@@ -149,7 +152,6 @@ void install_trace(dbm_thread *thread_data) {
     __clear_cache((void *)orig_branch, (void *)orig_branch + 4);
   }
 
-  hash_add(&thread_data->trace_entry_address, spc, tpc);
   hash_add(&thread_data->entry_address, spc, tpc);
 
   thread_data->trace_id = thread_data->active_trace.id;
