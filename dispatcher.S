@@ -246,8 +246,8 @@ create_trace_trampoline:
 #ifdef __aarch64__
 trace_head_incr:
   /*
-   * X0 = Basic Block number
-   * X1 = Address to return on the code cache.
+   * X1 = Basic Block number
+   * X30 = Address to return on the code cache.
    * X2 = address of the counter
    */
   STP      X2,  X3, [SP, #-16]!
@@ -256,14 +256,17 @@ trace_head_incr:
   NOP  // MOVK X2, #address_second_half_word, lsl #16
   NOP  // MOVK X2, #address_third_half_word,  lsl #32
   NOP  // MOVK X2, #address_fourth_half_word, lsl #48
-  LDRB W3, [X2, X0]
+  LDRB W3, [X2, X1]
   SUB  W3,  W3, #1
-  STRB W3, [X2, X0]
+  STRB W3, [X2, X1]
   CBZ  W3,  create_trace_trampoline
   LDP  X2,  X3, [SP], #16
-  BR   X1
+  RET
 
 create_trace_trampoline:
+  LDP X2, X30, [SP, #16]
+  STP X0,  X2, [SP, #16]
+
   STP X29, X30, [SP, #-32]!
   BL push_x4_x21
 
@@ -277,7 +280,6 @@ create_trace_trampoline:
    *               uint32_t   *trace_addr)    X2
    */
   ADD X2, SP, #160
-  MOV X1, X0
   LDR X0, disp_thread_data
   LDR X3, =create_trace
   BL push_neon

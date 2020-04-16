@@ -489,17 +489,14 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
   pass1_a64(read_address, &bb_type);
 
   if (type == mambo_bb && bb_type != uncond_branch_reg && bb_type != unknown) {
-    a64_push_pair_reg(x0, x1);
+    a64_push_pair_reg(x1, x30);
 
-    a64_copy_to_reg_64bits(&write_p, x0, (int)basic_block);
+    a64_copy_to_reg_64bits(&write_p, x1, (int)basic_block);
 
-    a64_ADR(&write_p, 0, 0, 2, x1);
+    a64_bl_helper(write_p, thread_data->trace_head_incr_addr);
     write_p++;
 
-    a64_b_helper(write_p, thread_data->trace_head_incr_addr);
-    write_p++;
-
-    a64_pop_pair_reg(x0, x1);
+    a64_pop_pair_reg(x1, x30);
   }
 #endif
 
