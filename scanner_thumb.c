@@ -1753,10 +1753,11 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
 
         thumb_scanner_deliver_callbacks(thread_data, POST_BB_C, &it_state, &read_address, -1,
                                         &write_p, &data_p, basic_block, type, false, &stop);
-        uint16_t *ra = read_address + 1;
-        thumb_scanner_deliver_callbacks(thread_data, PRE_BB_C, &it_state, &ra, -1,
+        // set the correct address for the PRE_BB_C event
+        read_address++;
+        thumb_scanner_deliver_callbacks(thread_data, PRE_BB_C, &it_state, &read_address, -1,
                                         &write_p, &data_p, basic_block, type, true, &stop);
-
+        read_address--;
         break;
       
       case THUMB_B16:
@@ -1788,10 +1789,11 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
         if ((uint32_t)target >= 0x8000) {
           thumb_scanner_deliver_callbacks(thread_data, POST_BB_C, &it_state, &read_address, -1,
                                           &write_p, &data_p, basic_block, type, false, &stop);
-          uint16_t *ra = (uint16_t *)(target -1);
-          thumb_scanner_deliver_callbacks(thread_data, PRE_BB_C, &it_state, &ra, -1,
+          // set the correct address for the PRE_BB_C event
+          read_address = (uint16_t *)(target -1);
+          thumb_scanner_deliver_callbacks(thread_data, PRE_BB_C, &it_state, &read_address, -1,
                                           &write_p, &data_p, basic_block, type, true, &stop);
-          read_address = (uint16_t *)(target - 2 - 1);
+          read_address--;
           break;
         }
 #endif
@@ -2440,11 +2442,11 @@ size_t scan_thumb(dbm_thread *thread_data, uint16_t *read_address, int basic_blo
 
           thumb_scanner_deliver_callbacks(thread_data, POST_BB_C, &it_state, &read_address, -1,
                                           &write_p, &data_p, basic_block, type, false, &stop);
-          uint16_t *ra = (uint16_t *)(target -1);
-          thumb_scanner_deliver_callbacks(thread_data, PRE_BB_C, &it_state, &ra, -1,
+          // set the correct address for the PRE_BB_C event
+          read_address = (uint16_t *)(target - 1);
+          thumb_scanner_deliver_callbacks(thread_data, PRE_BB_C, &it_state, &read_address, -1,
                                           &write_p, &data_p, basic_block, type, true, &stop);
-
-          read_address = (uint16_t *)(target - 4 - 1);
+          read_address -= 2;
         } else {
 #endif
           thumb_check_free_space(thread_data, &write_p, &data_p, &it_state,

@@ -686,9 +686,11 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
 
         a64_scanner_deliver_callbacks(thread_data, POST_BB_C, &read_address, -1,
                                 &write_p, &data_p, basic_block, type, false, &stop);
-        uint32_t *ra = read_address + 1;
-        a64_scanner_deliver_callbacks(thread_data, PRE_BB_C, &ra, -1,
+        // set the correct address for the PRE_BB_C event
+        read_address++;
+        a64_scanner_deliver_callbacks(thread_data, PRE_BB_C, &read_address, -1,
                                 &write_p, &data_p, basic_block, type, true, &stop);
+        read_address--;
         break;
 
       case A64_MRS_MSR_REG:

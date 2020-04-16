@@ -325,12 +325,15 @@ bool inline_uncond_imm(dbm_thread *thread_data, bool insert_branch, uint32_t **w
   if (insert_branch) {
     arm_scanner_deliver_callbacks(thread_data, POST_BB_C, read_addr, -1,
                                   write_p, data_p, basic_block, type, false, stop);
-    arm_scanner_deliver_callbacks(thread_data, PRE_BB_C, (uint32_t **)&target, -1,
+  }
+  *read_addr = (uint32_t *)target;
+  if (insert_branch) {
+    arm_scanner_deliver_callbacks(thread_data, PRE_BB_C, read_addr, -1,
                                   write_p, data_p, basic_block, type, true, stop);
   }
 
   // Assummes the read pointer is incremented at the end of the current scanner iteration
-  *read_addr = (uint32_t *)(target - 4);
+  *read_addr -= 1;
 
   return true;
 }
@@ -1246,9 +1249,11 @@ size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block
 
         arm_scanner_deliver_callbacks(thread_data, POST_BB_C, &read_address, -1,
                                 &write_p, &data_p, basic_block, type, false, &stop);
-        uint32_t *ra = read_address + 1;
-        arm_scanner_deliver_callbacks(thread_data, PRE_BB_C, &ra, -1,
+        // set the correct address for the PRE_BB_C event
+        read_address++;
+        arm_scanner_deliver_callbacks(thread_data, PRE_BB_C, &read_address, -1,
                                 &write_p, &data_p, basic_block, type, true, &stop);
+        read_address--;
         break;
       }
 
