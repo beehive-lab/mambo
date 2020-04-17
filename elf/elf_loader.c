@@ -81,8 +81,9 @@ void load_segment(uintptr_t base_addr, ELF_PHDR *phdr, int fd, Elf32_Half type, 
   mem = mmap((void *)aligned_vaddr, aligned_fsize, prot,
              MAP_EL_FILE, fd, offset);
   assert(mem != MAP_FAILED);
+  int flags = MAP_EL_FILE|(is_interp ? MAP_INTERP : MAP_APP);
   notify_vm_op(VM_MAP, aligned_vaddr, aligned_fsize,
-               prot | ((phdr->p_flags & PF_X) ? PROT_EXEC : 0), MAP_EL_FILE, fd, offset);
+               prot | ((phdr->p_flags & PF_X) ? PROT_EXEC : 0), flags, fd, offset);
 
   // Zero the area from (vaddr + filesize) to the end of the page
   if (phdr->p_flags & PF_W) {

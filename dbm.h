@@ -305,6 +305,9 @@ void record_cc_link(dbm_thread *thread_data, uintptr_t linked_from, uintptr_t li
 bool is_bb(dbm_thread *thread_data, uintptr_t addr);
 void install_system_sig_handlers();
 
+
+#define MAP_INTERP (0x40000000)
+#define MAP_APP (0x20000000)
 void notify_vm_op(vm_op_t op, uintptr_t addr, size_t size, int prot, int flags, int fd, off_t off);
 
 inline static uintptr_t adjust_cc_entry(uintptr_t addr) {
