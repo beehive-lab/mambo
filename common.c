@@ -402,7 +402,7 @@ int count_bits(uint32_t n) {
 }
 
 // Used to avoid calling stdlib's memcpy implementation which overwrites NEON regs
-void mambo_memcpy(void *dst, void *src, ssize_t l) {
+void mambo_memcpy(void *dst, void *src, size_t l) {
   char *d = (char *)dst;
   char *s = (char *)src;
   for (int i = 0; i < l; i++) {

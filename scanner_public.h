@@ -284,7 +284,7 @@ void arm_add_sub_32_bit(uint32_t **write_p, enum reg rd, enum reg rn, int value)
 
 void init_plugin();
 
-void mambo_memcpy(void *dst, void *src, ssize_t l);
+void mambo_memcpy(void *dst, void *src, size_t l);
 
 static inline uint64_t sign_extend64(unsigned int bits, uint64_t value)
 {
