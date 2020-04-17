@@ -53,7 +53,7 @@ endif
 
 all:
 	$(info MAMBO: detected architecture "$(ARCH)")
-	@$(MAKE) --no-print-directory pie && $(MAKE) --no-print-directory dbm
+	@$(MAKE) --no-print-directory pie && $(MAKE) --no-print-directory $(or $(OUTPUT_FILE),dbm)
 
 pie:
 	@$(MAKE) --no-print-directory -C pie/ native
@@ -61,7 +61,7 @@ pie:
 %.o: %.c %.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-dbm: $(HEADERS) $(SOURCES) $(PLUGINS)
+$(or $(OUTPUT_FILE),dbm): $(HEADERS) $(SOURCES) $(PLUGINS)
 	$(CC) $(CFLAGS) $(LDFLAGS) $(OPTS) $(INCLUDES) -o $@ $(SOURCES) $(PLUGINS) $(PIE) $(LIBS) $(PLUGIN_ARGS)
 
 clean:
