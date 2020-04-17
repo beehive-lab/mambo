@@ -19,7 +19,7 @@ OPTS+=-DDBM_TRACES #-DTB_AS_TRACE_HEAD #-DBLXI_AS_TRACE_HEAD
 #OPTS+=-DCC_HUGETLB -DMETADATA_HUGETLB
 
 CFLAGS+=-D_GNU_SOURCE -g -std=gnu99 -O2
-#CFLAGS+=-mcpu=native
+CFLAGS+=-DGIT_VERSION=\"$(shell git describe --abbrev=8 --dirty --always)\"
 
 LDFLAGS+=-static -ldl -Wl,-Ttext-segment=$(or $(TEXT_SEGMENT),0xa8000000)
 LIBS=-lelf -lpthread
