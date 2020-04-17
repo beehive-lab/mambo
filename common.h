@@ -89,6 +89,7 @@ uint32_t last_reg_in_list(uint32_t reglist, uint32_t start);
 int get_lowest_n_regs(uint32_t reglist, uint32_t *regs, int n);
 int get_highest_n_regs(uint32_t reglist, uint32_t *regs, int n);
 int count_bits(uint32_t n);
+int try_memcpy(void *dst, void *src, size_t n);
 
 static inline uintptr_t align_lower(uintptr_t address, uintptr_t alignment) {
   uintptr_t aligned_address = address / alignment * alignment;

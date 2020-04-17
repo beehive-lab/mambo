@@ -370,3 +370,35 @@ safe_fcall_trampoline:
 #endif
 
 .endfunc
+
+.global __try_memcpy_error
+.type __try_memcpy_error, %function
+.global __try_memcpy
+.type __try_memcpy, %function
+
+__try_memcpy:
+#ifdef __arm__
+  LDRB R3, [R1], #1
+  STRB R3, [R0], #1
+  SUB R2, #1
+  CBZ R2, __try_memcpy_ret
+  B __try_memcpy
+__try_memcpy_ret:
+  MOV R0, #0
+  BX LR
+
+__try_memcpy_error:
+  MOV R0, #-1
+  BX LR
+#elif __aarch64__
+  LDRB W3, [X1], #1
+  STRB W3, [X0], #1
+  SUB X2, X2, #1
+  CBNZ X2, __try_memcpy
+  MOV X0, #0
+  RET
+
+__try_memcpy_error:
+  MOV X0, #-1
+  RET
+#endif

@@ -28,6 +28,7 @@
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
+#include <ucontext.h>
 
 #include "dbm.h"
 #include "common.h"
@@ -410,3 +411,32 @@ void mambo_memcpy(void *dst, void *src, size_t l) {
   }
 }
 
+extern int __try_memcpy(void *dst, const void *src, size_t n);
+extern void __try_memcpy_error();
+
+#ifdef __arm__
+  #define pc_reg uc_mcontext.arm_pc
+#elif __aarch64__
+  #define pc_reg uc_mcontext.pc
+#endif
+void memcpy_fault(int i, siginfo_t *info, void *ctx_ptr) {
+  ucontext_t *ctx = (ucontext_t *)ctx_ptr;
+  ctx->pc_reg = (uintptr_t)__try_memcpy_error;
+}
+#undef pc_reg
+
+int try_memcpy(void *dst, void *src, size_t n) {
+  struct sigaction act, oldact;
+  act.sa_sigaction = memcpy_fault;
+  sigemptyset(&act.sa_mask);
+  act.sa_flags = SA_SIGINFO;
+  int ret = sigaction(SIGSEGV, &act, &oldact);
+  assert(ret == 0);
+
+  int status = __try_memcpy(dst, src, n);
+
+  ret = sigaction(SIGSEGV, &oldact, NULL);
+  assert(ret == 0);
+
+  return status;
+}
