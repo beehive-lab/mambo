@@ -289,6 +289,7 @@ int cachesim_post_thread_handler(mambo_context *ctx) {
 }
 
 int cachesim_exit_handler(mambo_context *ctx) {
+  printf("\n-- MAMBO cachesim " GIT_VERSION " --\n\n");
   cachesim_print_stats(&global_l1i);
   cachesim_print_stats(&global_l1d);
   cachesim_print_stats(&l2_model);
