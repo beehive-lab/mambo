@@ -73,7 +73,7 @@ Plugin API
 
 The plugin API is event-driven. Plugins should use a init function with `__attribute__((constructor))` to register themselves using `mambo_register_plugin()`. Once a plugin is registered, it can install callbacks for various events using the `mambo_register_*_cb()` functions. Callback-related functions are listed in `api/plugin_support.h`. Code generation functions are listed in `api/emit_<INST SET>.h` and code generation helpers are listed in `api/helpers.h`. You can also inspect the sample plugin in the `plugins/` directory.
 
-To build MAMBO with plugin support, uncomment the `-DPLUGINS_NEW` CFLAG in the `makefile`. Then, the source code or object file(s) of the plugin you're trying to build must be added to the `PLUGINS=` line in the `makefile`. Note that multiple plugins can be enabled at the same time (and will work correctly if properly designed). For performance reasons, it is recommended to remove unused plugins from the `PLUGINS=` list.
+To build MAMBO with plugin support, the source code or object file(s) of the plugin you're trying to build must be added to the `PLUGINS=` line in the `makefile`, or provided as an argument/envvar. Note that multiple plugins can be enabled at the same time (and will work correctly if properly designed). For performance reasons, it is recommended to remove unused plugins from the `PLUGINS=` list.
 
 
 Known issues
