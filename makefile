@@ -7,6 +7,7 @@
 #PLUGINS+=plugins/instruction_mix.c
 #PLUGINS+=plugins/strace.c
 #PLUGINS+=plugins/symbol_example.c
+#PLUGINS+=plugins/function_replacement.c
 #PLUGINS+=plugins/memcheck/memcheck.S plugins/memcheck/memcheck.c plugins/memcheck/naive_stdlib.c
 #PLUGINS+=plugins/follow_exec.c
 
