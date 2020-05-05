@@ -34,8 +34,8 @@ void se_print(size_t size, uintptr_t at, uintptr_t caller) {
   get_symbol_info_by_addr(at, &at_name, NULL, NULL);
   get_symbol_info_by_addr(caller, &caller_name, NULL, NULL);
 
-  printf("malloc(%d) at %p (%s)\n", size, at, at_name);
-  printf("  called from %p (%s)\n", caller, caller_name);
+  printf("malloc(%zu) at %p (%s)\n", size, (void*)at, at_name);
+  printf("  called from %p (%s)\n", (void*)caller, caller_name);
 }
 
 int se_hook(mambo_context *ctx) {
