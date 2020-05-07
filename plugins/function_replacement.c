@@ -54,7 +54,7 @@ __attribute__((constructor)) void function_replacement_plugin() {
   mambo_context *ctx = mambo_register_plugin();
   assert(ctx != NULL);
 
-  // FIXME: do NOT register a post-hook, it will segfault.
+  // note: do NOT register a post-hook; any post-function code goes in func_handler
   int ret = mambo_register_function_cb(ctx, orig_name, &func_handler, NULL, 1);
   assert(ret == MAMBO_SUCCESS);
 
