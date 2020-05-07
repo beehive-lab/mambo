@@ -9,6 +9,8 @@ make all
 
 cd test
 
+set +e
+
 printf "\n> Build load_store\n"
 make load_store
 
@@ -26,8 +28,6 @@ make signals
 
 printf "\n> Build symbols\n"
 make symbols
-
-set +e
 
 printf "\n> Execute load_store\n"
 ./load_store
@@ -85,5 +85,9 @@ printf "\n> Execute symbols on mambo_funcrepl\n"
 ../mambo_funcrepl symbols
 
 set -e
+
+make clean
+cd ..
+make clean
 
 printf "\n> CI done\n"
