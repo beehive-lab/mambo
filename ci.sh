@@ -68,15 +68,21 @@ cd ..
 
 rm dbm
 
-printf "\n> Build MAMBO (with symbols plugins)\n"
-PLUGINS="plugins/symbol_example.c plugins/function_replacement.c" PLUGIN_ARGS="test/symbols_rand.c" make all
+printf "\n> Build MAMBO (with symbols plugin)\n"
+make symbols
+
+printf "\n> Build MAMBO (with funcrepl plugin)\n"
+make funcrepl
 
 cd test
 
 set +e
 
-printf "\n> Execute symbols on MAMBO\n"
-../dbm symbols
+printf "\n> Execute symbols on mambo_symbols\n"
+../mambo_symbols symbols
+
+printf "\n> Execute symbols on mambo_funcrepl\n"
+../mambo_funcrepl symbols
 
 set -e
 

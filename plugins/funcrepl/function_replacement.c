@@ -25,22 +25,18 @@
 #include <stdio.h>
 #include <assert.h>
 #include <locale.h>
-#include "../plugins.h"
+#include "../../plugins.h"
 
-#define orig_name "rand"
-#define func_name rand_replacement
-#define func_argd void
-#define func_handler rand_handler
+// The prototype of FR_REPLACEMENT must be provided; here a header file is used
+#include <replacement.h>
 
-extern void func_name(func_argd);
-
-int func_handler(mambo_context *ctx) {
+int FR_HANDLER(mambo_context *ctx) {
 
   /* specifying MAX_FCALL_ARGS so that only the LR is saved on the stack,
      without the other caller-saved registers
      safe because the application was compiled already expecting a function entry here
      */
-  emit_safe_fcall(ctx, func_name, MAX_FCALL_ARGS);
+  emit_safe_fcall(ctx, FR_REPLACEMENT, MAX_FCALL_ARGS);
   // edit: any post-function code goes here instead of the post-function callback
   emit_indirect_branch_by_spc(ctx, lr);
   mambo_stop_scan(ctx);
@@ -49,13 +45,13 @@ int func_handler(mambo_context *ctx) {
 
 }
 
-__attribute__((constructor)) void function_replacement_plugin() {
+__attribute__((constructor)) void FR_PLUGIN() {
 
   mambo_context *ctx = mambo_register_plugin();
   assert(ctx != NULL);
 
-  // note: do NOT register a post-hook; any post-function code goes in func_handler
-  int ret = mambo_register_function_cb(ctx, orig_name, &func_handler, NULL, 1);
+  // note: do NOT register a post-hook; any post-function code goes in FR_HANDLER
+  int ret = mambo_register_function_cb(ctx, FR_ORIGINAL, &FR_HANDLER, NULL, 1);
   assert(ret == MAMBO_SUCCESS);
 
   setlocale(LC_NUMERIC, "");
