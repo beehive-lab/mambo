@@ -2,3 +2,4 @@ mmap_munmap
 mprotect_exec
 self_modifying
 signals
+load_store
