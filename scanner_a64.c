@@ -33,8 +33,8 @@
 
 #include "api/helpers.h"
 
-#define NOP 0xD503201F /* NOP Instruction (A64) */
-#define MIN_FSPACE 60
+#define NOP_INSTRUCTION 0xD503201F
+#define MIN_FSPACE      60
 
 //#define DEBUG
 #ifdef DEBUG
@@ -221,9 +221,9 @@ void a64_branch_jump_cond(dbm_thread *thread_data, uint32_t **o_write_p, int bas
 
   debug("A64 branch: read_addr: %p, target: 0x%lx\n", read_address, target);
 
-  *write_p = NOP;
+  *write_p = NOP_INSTRUCTION;
   write_p++;
-  *write_p = NOP;
+  *write_p = NOP_INSTRUCTION;
   write_p++;
 
   a64_branch_save_context(&write_p);
@@ -298,9 +298,9 @@ void a64_branch_imm_reg(dbm_thread *thread_data, uint32_t **o_write_p,
   thread_data->code_cache_meta[basic_block].branch_taken_addr = target;
   thread_data->code_cache_meta[basic_block].branch_skipped_addr = (uint64_t)read_address + 4;
 
-  *write_p = NOP;
+  *write_p = NOP_INSTRUCTION;
   write_p++;
-  *write_p = NOP;
+  *write_p = NOP_INSTRUCTION;
   write_p++;
 
   a64_branch_save_context(&write_p);
@@ -604,6 +604,7 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
     data_p = write_p + BASIC_BLOCK_SIZE;
   } else { // mambo_trace
     data_p = (uint32_t *)&thread_data->code_cache->traces + (TRACE_CACHE_SIZE / 4);
+    thread_data->code_cache_meta[basic_block].free_b = 0;
   }
 
   /*
@@ -765,7 +766,7 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
         thread_data->code_cache_meta[basic_block].exit_branch_type = uncond_imm_a64;
         thread_data->code_cache_meta[basic_block].exit_branch_addr = write_p;
         thread_data->code_cache_meta[basic_block].branch_taken_addr = target;
-        *write_p = NOP; // Reserves space for linking branch.
+        *write_p = NOP_INSTRUCTION; // Reserves space for linking branch.
         write_p++;
 #endif
         a64_branch_save_context(&write_p);

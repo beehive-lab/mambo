@@ -114,6 +114,7 @@ typedef enum {
   cond_imm_a64,
   cbz_a64,
   tbz_a64,
+  trace_exit
 #endif // __aarch64__
 } branch_type;
 
@@ -163,6 +164,9 @@ typedef struct {
 struct trace_exits {
   uintptr_t from;
   uintptr_t to;
+#ifdef __aarch64__
+  int fragment_id;
+#endif
 };
 
 #define MAX_TRACE_REC_EXITS (MAX_TRACE_FRAGMENTS+1)
@@ -321,9 +325,6 @@ size_t   scan_a64(dbm_thread *thread_data, uint32_t *read_address, int basic_blo
 int allocate_bb(dbm_thread *thread_data);
 void trace_dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_index, dbm_thread *thread_data);
 void flush_code_cache(dbm_thread *thread_data);
-#ifdef __aarch64__
-void generate_trace_exit(dbm_thread *thread_data, uint32_t **o_write_p, int fragment_id, bool is_taken);
-#endif
 void insert_cond_exit_branch(dbm_code_cache_meta *bb_meta, void **o_write_p, int cond);
 void sigret_dispatcher_call(dbm_thread *thread_data, ucontext_t *cont, uintptr_t target);
 
@@ -335,7 +336,6 @@ int addr_to_fragment_id(dbm_thread *thread_data, uintptr_t addr);
 void record_cc_link(dbm_thread *thread_data, uintptr_t linked_from, uintptr_t linked_to_addr);
 bool is_bb(dbm_thread *thread_data, uintptr_t addr);
 void install_system_sig_handlers();
-
 
 #define MAP_INTERP (0x40000000)
 #define MAP_APP (0x20000000)

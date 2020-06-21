@@ -105,5 +105,8 @@ static inline uintptr_t align_higher(uintptr_t address, uintptr_t alignment) {
 
   return aligned_address;
 }
-#endif
 
+inline bool is_offset_within_range(intptr_t const offset, intptr_t const range) {
+  return ((offset <= (range - 4)) && (offset >= (- range)));
+}
+#endif

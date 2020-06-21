@@ -250,6 +250,15 @@ void unlink_fragment(int fragment_id, uintptr_t pc) {
   bb_meta = &current_thread->code_cache_meta[fragment_id];
 #endif
 
+#ifdef __aarch64__
+  // we don't try to unlink trace exits, we unlink the fragment they jump to
+  if (bb_meta->exit_branch_type == trace_exit) {
+    fragment_id = addr_to_fragment_id(current_thread, bb_meta->branch_taken_addr);
+    bb_meta = &current_thread->code_cache_meta[fragment_id];
+    pc = bb_meta->tpc;
+  }
+#endif
+
   void *write_p = bb_meta->exit_branch_addr;
   void *start_addr = write_p;
 

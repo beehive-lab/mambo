@@ -35,6 +35,13 @@
 #include "pie/pie-arm-encoder.h"
 #elif __aarch64__
 #include "pie/pie-a64-encoder.h"
+#include "pie/pie-a64-decoder.h"
+#include "pie/pie-a64-field-decoder.h"
+#define NINETEEN_BITS        0x7FFFF
+#define FOURTEEN_BITS        0x3FFF
+#define NOP_INSTRUCTION      0xD503201F
+#define THIRTY_TWO_KB        32 * 1024
+#define ONE_MEGABYTE         1024 * 1024
 #endif
 
 #ifdef DEBUG
@@ -124,6 +131,118 @@ uint32_t scan_trace(dbm_thread *thread_data, void *address, cc_type type, int *s
   return fragment_len;
 }
 
+#ifdef __aarch64__
+bool is_instruction_position_independent(uint32_t * address) {
+  int instruction = a64_decode(address);
+  switch(instruction) {
+    case A64_B_BL:
+    case A64_CBZ_CBNZ:
+    case A64_B_COND:
+    case A64_TBZ_TBNZ:
+    case A64_BR:
+    case A64_BLR:
+    case A64_RET:
+    case A64_LDR_LIT:
+    case A64_ADR: // Includes ADRP
+      return false;
+    default:
+      return true;
+  }
+}
+
+void get_cond_branch_attributes(uintptr_t inst_addr, uint32_t *mask, int64_t *max) {
+  int instruction = a64_decode((uint32_t *)inst_addr);
+  switch(instruction) {
+    case A64_CBZ_CBNZ:
+    case A64_B_COND:
+      *mask = NINETEEN_BITS;
+      *max = ONE_MEGABYTE;
+      break;
+    case A64_TBZ_TBNZ:
+      *mask = FOURTEEN_BITS;
+      *max = THIRTY_TWO_KB;
+      break;
+    case A64_B_BL:
+      printf("Direct branch (B or BL). (Not allowed)\n");
+      while(1);
+    default:
+      fprintf(stderr, "Linking instruction unknown at %p instruction %d\n",
+      (void *)inst_addr, instruction);
+      while(1);
+  }
+}
+
+void patch_trace_branches(dbm_thread *thread_data, uint32_t *orig_branch, uintptr_t tpc) {
+  uint32_t *exit_address;
+  uint32_t sf, op, b5, b40, imm, rt, bit, cond;
+
+  int64_t new_offset = (int64_t)tpc - (int64_t)orig_branch;
+
+  int instruction = a64_decode(orig_branch);
+  switch(instruction) {
+    case A64_CBZ_CBNZ:
+      a64_CBZ_CBNZ_decode_fields(orig_branch, &sf, &op, &imm, &rt);
+      // Check if new_offset fits
+      if (is_offset_within_range(new_offset, ONE_MEGABYTE)) {
+        a64_cbz_cbnz_helper(orig_branch, op, (uint64_t)tpc, sf, rt);
+        return;
+      } else {
+        exit_address = (uint32_t *)(sign_extend64(21, (imm << 2)) + (uint64_t) orig_branch);
+      }
+      break;
+    case A64_B_COND:
+      a64_B_cond_decode_fields(orig_branch, &imm, &cond);
+      // Check if new_offset fits
+      if (is_offset_within_range(new_offset, ONE_MEGABYTE)) {
+        a64_b_cond_helper(orig_branch, (uint64_t)tpc, cond);
+        return;
+      } else {
+        exit_address = (uint32_t *)(sign_extend64(21, (imm << 2)) + (uint64_t) orig_branch);
+      }
+      break;
+    case A64_TBZ_TBNZ:
+      a64_TBZ_TBNZ_decode_fields(orig_branch, &b5, &op, &b40, &imm, &rt);
+      // Check if new_offset fits
+      if (is_offset_within_range(new_offset, THIRTY_TWO_KB)) {
+        bit = (b5 << 5) | b40;
+        a64_tbz_tbnz_helper(orig_branch, op, (uint64_t)tpc, rt, bit);
+        return;
+      } else {
+        exit_address = (uint32_t *)(sign_extend64(16, imm << 2) + (uint64_t) orig_branch);
+      }
+      break;
+    case A64_B_BL:
+      // Patch the branch
+      a64_b_helper((uint32_t *)orig_branch, tpc);
+      return;
+      break;
+    default:
+        fprintf(stderr, "[install_trace] Linking instruction unknown at %p instruction %d\n",
+                        orig_branch, instruction);
+        while(1);
+  }
+  /*
+   * +----------------+ Exit
+   * | NOP            | These NOPs are here to avoid the core fetching more
+   * | NOP            | than one branch in the same cycle
+   * | branch to trace| Also, to maintain the branch address location in all
+   * | NOP            | the exits stubs
+   * +----------------+
+   */
+  *exit_address = NOP_INSTRUCTION;
+  exit_address++;
+  *exit_address = NOP_INSTRUCTION;
+  exit_address++;
+
+  // Update metadata of the exit
+  int const fragment_id = addr_to_fragment_id(thread_data, (uintptr_t)exit_address);
+  thread_data->code_cache_meta[fragment_id].branch_taken_addr = tpc;
+
+  a64_b_helper((uint32_t *)exit_address, tpc);
+  __clear_cache((void *)(exit_address - 3), (void *)(exit_address + 1));
+}
+#endif
+
 void install_trace(dbm_thread *thread_data) {
   ll_entry *cc_link;
   uintptr_t orig_branch;
@@ -148,7 +267,11 @@ void install_trace(dbm_thread *thread_data) {
       arm_adjust_b_bl_target((uintptr_t *)orig_branch, tpc_direct);
     }
 #elif __aarch64__
-    a64_b_helper((uint32_t *)orig_branch, tpc + 4);
+    if (orig_branch >= (uintptr_t)thread_data->code_cache->traces) {
+      patch_trace_branches(thread_data, (uint32_t *)orig_branch, tpc + 4);
+    } else {
+      a64_b_helper((uint32_t *)orig_branch, tpc + 4);
+    }
 #endif
     cc_link = cc_link->next;
     __clear_cache((void *)orig_branch, (void *)orig_branch + 4);
@@ -156,6 +279,7 @@ void install_trace(dbm_thread *thread_data) {
 
   hash_add(&thread_data->entry_address, spc, tpc);
 
+#ifdef __arm__
   thread_data->trace_id = thread_data->active_trace.id;
   thread_data->trace_cache_next = thread_data->active_trace.write_p;
 
@@ -166,7 +290,6 @@ void install_trace(dbm_thread *thread_data) {
   }
 
   /* Add traps to the source basic block to detect if it remains reachable */
-#ifdef __arm__
   void *write_p = (void *)adjust_cc_entry(thread_data->code_cache_meta[bb_source].tpc);
   if (spc & THUMB) {
     thumb_bkpt16((uint16_t **)&write_p, 0);
@@ -175,14 +298,113 @@ void install_trace(dbm_thread *thread_data) {
   }
   __clear_cache(write_p, write_p + 4);
 #elif __aarch64__
-  uint32_t *write_p = (uint32_t*)thread_data->code_cache_meta[bb_source].tpc;
-  write_p++; // Jumps the first instruction (POP X0, X1)
+  /*
+   *          Trace
+   *    +----------------+
+   *    | inst           |
+   *    | inst           |
+   *    | cond branch 1  |
+   *    | inst           |
+   *    | inst           |
+   *    | cond branch 2  |
+   *    | inst           |
+   *    | cond branch 3  |
+   *    | branch         |
+   *    |                | / Aligned to 16 bytes
+   *    +----------------+ Exit 1
+   *  1:| BB first inst  | <- exit_stub_addr
+   *    | BB second inst | <- exit_stub_addr + 4
+   *    | branch         | <- exit_stub_addr + 8
+   *    | NOP            |
+   *    +----------------+ Exit 2 (Second instruction not position-independent)
+   *  2:| BB first inst  | <- exit_stub_addr
+   *    | NOP            | <- exit_stub_addr + 4
+   *    | branch         | <- exit_stub_addr + 8
+   *    | NOP            |
+   *    +----------------+ Exit 3 (Both instructions are not position-independent)
+   *  3:| NOP            | <- exit_stub_addr
+   *    | NOP            | <- exit_stub_addr + 4
+   *    | branch         | <- exit_stub_addr + 8
+   *    | NOP            |
+   *    +----------------+
+   */
+
+  uint32_t *exit_stub_addr = thread_data->active_trace.write_p;
+  for (int i = 0; i < thread_data->active_trace.free_exit_rec; i++) {
+    uint32_t *from  = (uint32_t *)thread_data->active_trace.exits[i].from;
+    uintptr_t const to = thread_data->active_trace.exits[i].to;
+    // Align to (next) 16 bytes
+    exit_stub_addr = (uint32_t *)((((uintptr_t)exit_stub_addr) + 0xF) & ~0xF);
+    uint32_t *exit_start = exit_stub_addr;
+
+    int64_t max;
+    uint32_t mask;
+    get_cond_branch_attributes(thread_data->active_trace.exits[i].from, &mask, &max);
+
+    bool const is_basic_block = (to < (uintptr_t)thread_data->code_cache->traces);
+    if (is_basic_block) {
+      record_cc_link(thread_data, (uintptr_t)from, to);
+    }
+
+    int64_t offset = (to - (uintptr_t)from);
+    if (is_basic_block || !is_offset_within_range(offset, max)) {
+      // Give the exit a number and set metadata
+      int const exit_id = thread_data->active_trace.id++;
+      thread_data->code_cache_meta[exit_id].tpc = (uintptr_t)exit_start;
+      thread_data->code_cache_meta[exit_id].exit_branch_type = trace_exit;
+      thread_data->code_cache_meta[exit_id].branch_cache_status = BRANCH_LINKED;
+
+      // Record the exit id used in the trace fragment
+      int const fragment_id = thread_data->active_trace.exits[i].fragment_id;
+      thread_data->code_cache_meta[fragment_id].free_b = exit_id;
+
+      uintptr_t target_offset = 0;
+      for (size_t j = 0; j < 2; j++) {
+        if (is_instruction_position_independent((uint32_t *)(to + j * 4))) {
+          *exit_stub_addr = *(uint32_t *) (to + j * 4);
+          exit_stub_addr++;
+          target_offset += 4;
+        } else {
+          for (size_t k = 2; k == j; k--) {
+            *exit_stub_addr = NOP_INSTRUCTION;
+            exit_stub_addr++;
+          }
+          break;
+        }
+      }
+
+      uint64_t const target = (to + target_offset);
+      thread_data->code_cache_meta[exit_id].exit_branch_addr = exit_stub_addr;
+      thread_data->code_cache_meta[exit_id].branch_taken_addr = target; // Code Cache target
+
+      a64_b_helper(exit_stub_addr, target);
+      exit_stub_addr++;
+      *exit_stub_addr = NOP_INSTRUCTION;
+      exit_stub_addr++;
+
+      __clear_cache((void *)(exit_start), (void *)(exit_stub_addr + 1));
+      offset = ((uint64_t)exit_start - (uint64_t)from);
+    }
+
+    assert(is_offset_within_range(offset, max));
+    *from |= (((offset >> 2) & mask) << 5);
+    __clear_cache((void *)from, (void *)(from + 1));
+  }
+  thread_data->trace_id = thread_data->active_trace.id;
+  thread_data->active_trace.write_p = exit_stub_addr;
+  thread_data->trace_cache_next = (uint8_t  *)exit_stub_addr;
+  uint32_t *write_p = (uint32_t*)(thread_data->code_cache_meta[bb_source].tpc + 4);
   a64_BRK(&write_p, 0); // BRK trap
   __clear_cache(write_p, write_p + 1);
 #endif
 }
 
+#ifdef __arm__
 int trace_record_exit(dbm_thread *thread_data, uintptr_t from, uintptr_t to) {
+#endif // __arm__
+#ifdef __aarch64__
+int trace_record_exit(dbm_thread *thread_data, uintptr_t from, uintptr_t to, int fragment_id) {
+#endif // __arch64__
   int record = thread_data->active_trace.free_exit_rec++;
   if (record >= MAX_TRACE_REC_EXITS) {
     return -1;
@@ -190,6 +412,9 @@ int trace_record_exit(dbm_thread *thread_data, uintptr_t from, uintptr_t to) {
 
   thread_data->active_trace.exits[record].from = from;
   thread_data->active_trace.exits[record].to = to;
+#ifdef __aarch64__
+  thread_data->active_trace.exits[record].fragment_id = fragment_id;
+#endif
 
   return 0;
 }
@@ -209,35 +434,32 @@ void arm_trace_exit_branch(dbm_thread *thread_data, uint32_t *write_p, uint32_t 
 #endif
 
 #ifdef __aarch64__
-void generate_trace_exit(dbm_thread *thread_data, uint32_t **o_write_p, int fragment_id, bool is_taken) {
+void set_up_trace_exit(dbm_thread *thread_data, uint32_t **o_write_p, int fragment_id, bool is_taken) {
   dbm_code_cache_meta *bb_meta = &thread_data->code_cache_meta[fragment_id];
   uint32_t *write_p = *o_write_p;
+  uint32_t condition = bb_meta->branch_condition;
+  uint32_t new_condition = is_taken ? (condition ^ 1) : condition;
 
   switch (bb_meta->exit_branch_type) {
     case cbz_a64:
-      a64_CBZ_CBNZ(&write_p, bb_meta->rn >> 5,
-                   is_taken ? (bb_meta->branch_condition) : (bb_meta->branch_condition ^ 1),
-                   2, bb_meta->rn);
+      a64_CBZ_CBNZ(&write_p, bb_meta->rn >> 5, new_condition, 0, bb_meta->rn);
       break;
     case cond_imm_a64:
-      a64_B_cond(&write_p, 2, is_taken ? bb_meta->branch_condition : (bb_meta->branch_condition ^ 1));
+      a64_B_cond(&write_p, 0, new_condition);
       break;
     case tbz_a64:
-      a64_TBZ_TBNZ(&write_p, bb_meta->rn >> 10,
-                   is_taken ? (bb_meta->branch_condition) : (bb_meta->branch_condition ^ 1),
-                   bb_meta->rn >> 5, 2, bb_meta->rn);
+      a64_TBZ_TBNZ(&write_p, bb_meta->rn >> 10, new_condition, bb_meta->rn >> 5, 0, bb_meta->rn);
       break;
     default:
       fprintf(stderr, "Unknown branch type\n");
       while(1);
   }
-  write_p++;
 
   uintptr_t addr = is_taken ? bb_meta->branch_skipped_addr : bb_meta->branch_taken_addr;
   uintptr_t tpc = active_trace_lookup_or_scan(thread_data, addr) + 4;
-  int ret = trace_record_exit(thread_data, (uintptr_t)write_p, tpc);
+  int ret = trace_record_exit(thread_data, (uintptr_t)write_p, tpc, fragment_id);
   assert(ret == 0);
-  a64_b_helper(write_p, tpc);
+  __clear_cache(write_p, (write_p + 4));
   write_p++;
 
   *o_write_p = write_p;
@@ -491,9 +713,8 @@ void trace_dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_in
     case cbz_a64:
     case cond_imm_a64:
     case tbz_a64:
-      generate_trace_exit(thread_data, &write_p, source_index, is_taken);
-      __clear_cache(write_p - 2, write_p);
-      bb_meta->branch_cache_status = is_taken ? FALLTHROUGH_LINKED : BRANCH_LINKED;
+      set_up_trace_exit(thread_data, &write_p, source_index, is_taken);
+      bb_meta->branch_cache_status = is_taken ? BRANCH_LINKED : FALLTHROUGH_LINKED;
       break;
     case uncond_imm_a64:
       bb_meta->branch_cache_status = BRANCH_LINKED;
