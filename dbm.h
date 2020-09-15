@@ -130,6 +130,7 @@ typedef struct {
 #define BRANCH_LINKED (1 << 1)
 #define BOTH_LINKED (1 << 2)
 
+#define MAX_SAVED_EXIT_SZ 12
 typedef struct {
   uint16_t *source_addr;
   uintptr_t tpc;
@@ -148,6 +149,7 @@ typedef struct {
   uint32_t rn;
   uint32_t free_b;
   ll_entry *linked_from;
+  uint8_t saved_exit[MAX_SAVED_EXIT_SZ];
 } dbm_code_cache_meta;
 
 typedef struct {
