@@ -26,8 +26,8 @@ CFLAGS+=-DGIT_VERSION=\"$(shell git describe --abbrev=8 --dirty --always)\"
 LDFLAGS+=-static -ldl
 LIBS=-lelf -lpthread -lz
 HEADERS=*.h makefile
-INCLUDES=-I/usr/include/libelf
-SOURCES= dispatcher.S common.c dbm.c traces.c syscalls.c dispatcher.c signals.c util.S
+INCLUDES=-I/usr/include/libelf -I.
+SOURCES= common.c dbm.c traces.c syscalls.c dispatcher.c signals.c util.S
 SOURCES+=api/helpers.c api/plugin_support.c api/branch_decoder_support.c api/load_store.c api/internal.c api/hash_table.c
 SOURCES+=elf/elf_loader.o elf/symbol_parser.o
 
@@ -38,14 +38,16 @@ ifeq ($(findstring arm, $(ARCH)), arm)
 	HEADERS += api/emit_arm.h api/emit_thumb.h
 	PIE = pie/pie-arm-encoder.o pie/pie-arm-decoder.o pie/pie-arm-field-decoder.o
 	PIE += pie/pie-thumb-encoder.o pie/pie-thumb-decoder.o pie/pie-thumb-field-decoder.o
-	SOURCES += scanner_thumb.c scanner_arm.c
+	SOURCES += arch/aarch32/dispatcher_aarch32.S arch/aarch32/dispatcher_aarch32.c
+	SOURCES += arch/aarch32/scanner_t32.c arch/aarch32/scanner_a32.c
 	SOURCES += api/emit_arm.c api/emit_thumb.c
 endif
 ifeq ($(ARCH),aarch64)
 	HEADERS += api/emit_a64.h
 	LDFLAGS += -Wl,-Ttext-segment=$(or $(TEXT_SEGMENT),0x7000000000)
 	PIE += pie/pie-a64-field-decoder.o pie/pie-a64-encoder.o pie/pie-a64-decoder.o
-	SOURCES += scanner_a64.c
+	SOURCES += arch/aarch64/dispatcher_aarch64.S arch/aarch64/dispatcher_aarch64.c
+	SOURCES += arch/aarch64/scanner_a64.c
 	SOURCES += api/emit_a64.c
 endif
 

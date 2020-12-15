@@ -538,7 +538,7 @@ void arm_ihl_tr_rn_rm(uint32_t **o_write_p, uint32_t *read_address, uint32_t ava
   *o_write_p = write_p;
 }
 
-size_t scan_arm(dbm_thread *thread_data, uint32_t *read_address, int basic_block, cc_type type, uint32_t *write_p) {
+size_t scan_a32(dbm_thread *thread_data, uint32_t *read_address, int basic_block, cc_type type, uint32_t *write_p) {
   bool stop = false;
 
   uint32_t *scratch_data;

@@ -103,9 +103,9 @@ uint32_t scan_trace(dbm_thread *thread_data, void *address, cc_type type, int *s
 
 #ifdef __arm__
   if (thumb) {
-    fragment_len = scan_thumb(thread_data, (uint16_t *)(((uint32_t)address)-1), trace_id, type, (uint16_t*)write_p);
+    fragment_len = scan_t32(thread_data, (uint16_t *)(((uint32_t)address)-1), trace_id, type, (uint16_t*)write_p);
   } else {
-    fragment_len = scan_arm(thread_data, (uint32_t *)address, trace_id, type, (uint32_t*)write_p);
+    fragment_len = scan_a32(thread_data, (uint32_t *)address, trace_id, type, (uint32_t*)write_p);
   }
 #endif // __arm__
 #ifdef __aarch64__

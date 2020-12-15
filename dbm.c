@@ -223,9 +223,9 @@ uintptr_t scan(dbm_thread *thread_data, uint16_t *address, int basic_block) {
 #ifdef __arm__
   if (thumb) {
     debug("scan address: %p\n", address);
-    block_size = scan_thumb(thread_data, (uint16_t *)((uint32_t)address & 0xFFFFFFFE), basic_block, mambo_bb, NULL);
+    block_size = scan_t32(thread_data, (uint16_t *)((uint32_t)address & 0xFFFFFFFE), basic_block, mambo_bb, NULL);
   } else {
-    block_size = scan_arm(thread_data, (uint32_t *)address, basic_block, mambo_bb, NULL);
+    block_size = scan_a32(thread_data, (uint32_t *)address, basic_block, mambo_bb, NULL);
   }
 #endif
 #ifdef __aarch64__
