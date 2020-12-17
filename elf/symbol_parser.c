@@ -223,7 +223,7 @@ int function_watch_addp(watched_functions_t *self, watched_func_t *func, void *a
 
   self->funcps[idx].func = func;
   self->funcps[idx].addr = addr;
-  asm volatile("DMB SY" ::: "memory");
+  __sync_synchronize();
   self->funcp_count++;
 
 ret:
@@ -252,17 +252,17 @@ int function_watch_delete_addp(watched_functions_t *self, int i) {
 
   if (i < last) {
     self->funcps[i].addr = NULL;
-    asm volatile("DMB SY" ::: "memory");
+    __sync_synchronize();
 
     self->funcps[i].func = self->funcps[last].func;
-    asm volatile("DMB SY" ::: "memory");
+    __sync_synchronize();
 
     self->funcps[i].addr = self->funcps[last].addr;
-    asm volatile("DMB SY" ::: "memory");
+    __sync_synchronize();
   }
 
   self->funcp_count = last;
-  asm volatile("DMB SY" ::: "memory");
+  __sync_synchronize();
 
   return 0;
 }

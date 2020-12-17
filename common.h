@@ -3,7 +3,7 @@
       https://github.com/beehive-lab/mambo
 
   Copyright 2013-2016 Cosmin Gorgovan <cosmin at linux-geek dot org>
-  Copyright 2017 The University of Manchester
+  Copyright 2017-2020 The University of Manchester
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -27,12 +27,16 @@
 #define CODE_CACHE_HASH_OVERP 10
 
 /* Warning, size MUST be (a power of 2) */
-#ifdef __arm__
-#define GET_INDEX(key) ((key) & (table->size - CODE_CACHE_HASH_OVERP))
+#if __arm__
+  #define HT_SHIFT 0
+#elif __aarch64__
+  #define HT_SHIFT 2
+#elif __riscv_compressed
+  #define HT_SHIFT 1
+#elif __riscv
+  #define HT_SHIFT 2
 #endif
-#ifdef __aarch64__
-#define GET_INDEX(key) ((key >> 2) & (table->size - CODE_CACHE_HASH_OVERP))
-#endif
+#define GET_INDEX(key) ((key >> HT_SHIFT) & (table->size - CODE_CACHE_HASH_OVERP))
 typedef struct {
   uintptr_t key;
   uintptr_t value;

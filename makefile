@@ -50,6 +50,16 @@ ifeq ($(ARCH),aarch64)
 	SOURCES += arch/aarch64/scanner_a64.c
 	SOURCES += api/emit_a64.c
 endif
+ifeq ($(ARCH), riscv64)
+  # HEADERS += api/emit_riscv.h
+	LDFLAGS += -Wl,-Ttext-segment=$(or $(TEXT_SEGMENT),0x7f000000)
+	PIE += pie/pie-riscv-field-decoder.o
+	PIE += pie/pie-riscv-encoder.o
+	PIE += pie/pie-riscv-decoder.o
+	SOURCES += arch/riscv/dispatcher_riscv.S arch/riscv/dispatcher_riscv.c
+	SOURCES += arch/riscv/scanner_riscv.c
+	SOURCES += api/emit_riscv.c
+endif
 
 ifdef PLUGINS
 	CFLAGS += -DPLUGINS_NEW

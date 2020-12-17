@@ -2,7 +2,7 @@
   This file is part of MAMBO, a low-overhead dynamic binary modification tool:
       https://github.com/beehive-lab/mambo
 
-  Copyright 2017 The University of Manchester
+  Copyright 2017-2020 The University of Manchester
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -34,4 +34,8 @@
   */
   #define SYSCALL_WRAPPER_STACK_OFFSET (2 + 2 + 22)
   #define SYSCALL_WRAPPER_FRAME_SIZE   (SYSCALL_WRAPPER_STACK_OFFSET + 2*32)
+#elif __riscv
+  #warning SYSCALL_WRAPPER_* not defined for RISCV
+  #define SYSCALL_WRAPPER_STACK_OFFSET (0)
+  #define SYSCALL_WRAPPER_FRAME_SIZE   (SYSCALL_WRAPPER_STACK_OFFSET)
 #endif

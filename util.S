@@ -3,7 +3,7 @@
       https://github.com/beehive-lab/mambo
 
   Copyright 2013-2016 Cosmin Gorgovan <cosmin at linux-geek dot org>
-  Copyright 2017 The University of Manchester
+  Copyright 2017-2020 The University of Manchester
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -46,6 +46,17 @@ dbm_client_entry:
   MOV SP, X1
   STP XZR, XZR, [SP, #-16]!
   BR X0
+#endif
+
+#ifdef __riscv
+dbm_client_entry:
+  /*
+   * Called from elf_loader.c (elf_run function)
+   * dbm_client_entry(entry_address,  a0
+   *                 &stack->e[0]);   a1
+   */
+  addi sp, a1, -16
+  jr a0
 #endif
 .endfunc
 
@@ -102,7 +113,9 @@ new_thread_trampoline:
   STP X29, X30, [SP, #80]
   MOV X1, SP
 #endif
+#if defined(__arm__) || defined(__aarch64__)
   B dbm_start_thread_pth
+#endif
 .endfunc
 
 .global return_with_sp
@@ -152,6 +165,18 @@ raw_syscall:
   MOV X6, X7
   SVC 0
   RET
+#endif
+#ifdef __riscv
+  mv a7, a0
+  mv a0, a1
+  mv a1, a2
+  mv a2, a3
+  mv a3, a4
+  mv a4, a5
+  mv a5, a6
+  mv a6, a7
+  ecall
+  ret
 #endif
 .endfunc
 

@@ -3,7 +3,7 @@
       https://github.com/beehive-lab/mambo
 
   Copyright 2013-2016 Cosmin Gorgovan <cosmin at linux-geek dot org>
-  Copyright 2017 The University of Manchester
+  Copyright 2017-2020 The University of Manchester
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -49,6 +49,11 @@
 #endif
 
 void *dbm_start_thread_pth(void *ptr, void *mambo_sp) {
+#ifdef __riscv
+  #warning dbm_start_thread_pth() not implemented for RISCV
+  fprintf(stderr, "dbm_start_thread_pth() not implementd for RISCV\n");
+  while(1);
+#else
   dbm_thread *thread_data = (dbm_thread *)ptr;
   assert(thread_data->clone_args->child_stack);
   current_thread = thread_data;
@@ -94,6 +99,7 @@ void *dbm_start_thread_pth(void *ptr, void *mambo_sp) {
   th_enter(child_stack, addr);
 
   return NULL;
+#endif
 }
 
 dbm_thread *dbm_create_thread(dbm_thread *thread_data, void *next_inst, sys_clone_args *args, volatile pid_t *set_tid) {
@@ -221,7 +227,7 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
         volatile pid_t child_tid = 0;
         dbm_create_thread(thread_data, next_inst, clone_args, &child_tid);
         while(child_tid == 0);
-        asm volatile("DMB SY" ::: "memory");
+        __sync_synchronize();
         args[0] = child_tid;
 
         do_syscall = 0;
@@ -320,10 +326,10 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
     /* Remove the execute permission from application mappings. At this point, this mostly acts
        as a safeguard in case a translation bug causes a branch to unmodified application code.
        Page permissions happen to be passed in the third argument both for mmap and mprotect. */
-#ifdef __arm__
+#if defined(__arm__) || __riscv_xlen == 32
     case __NR_mmap2: {
 #endif
-#ifdef __aarch64__
+#if defined(__aarch64__) || __riscv_xlen == 64
     case __NR_mmap: {
 #endif
       uintptr_t syscall_ret, prot = args[2];
@@ -429,8 +435,14 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
 #elif __aarch64__
       app_sp += 64 + 144;
 #endif
+#if defined(__arm__) || defined(__aarch64__)
       ucontext_t *cont = (ucontext_t *)(app_sp + sizeof(siginfo_t));
       sigret_dispatcher_call(thread_data, cont, cont->context_pc);
+#endif
+#if defined(__riscv)
+      #warning sigreturn handling not implemented for RISCV
+      fprintf(stderr, "sigreturn handling not implemented for RISCV\n");
+#endif
 
       // Don't mark the thread as executing a syscall
       return 1;

@@ -38,6 +38,30 @@
   #define ELF_GETPHDR(...) elf64_getphdr(__VA_ARGS__)
   #define ELF_AUXV_T Elf64_auxv_t
 #endif
+#ifdef __riscv
+  #if __riscv_xlen == 32
+    #define ELF_CLASS  ELFCLASS32
+    #define EM_MACHINE EM_RISCV
+    #define ELF_EHDR   Elf32_Ehdr
+    #define ELF_PHDR   Elf32_Phdr
+    #define ELF_GETEHDR(...) elf32_getehdr(__VA_ARGS__)
+    #define ELF_GETPHDR(...) elf32_getphdr(__VA_ARGS__)
+    #define ELF_AUXV_T Elf32_auxv_t
+  #endif
+  #if __riscv_xlen == 64
+    #define ELF_CLASS  ELFCLASS64
+    #define EM_MACHINE EM_RISCV
+    #define ELF_EHDR   Elf64_Ehdr
+    #define ELF_PHDR   Elf64_Phdr
+    #define ELF_GETEHDR(...) elf64_getehdr(__VA_ARGS__)
+    #define ELF_GETPHDR(...) elf64_getphdr(__VA_ARGS__)
+    #define ELF_AUXV_T Elf64_auxv_t
+  #endif
+  #if __riscv_xlen == 128
+    #error "Risc-V 128-bit no implemented"
+  #endif
+#endif
+
 
 struct elf_loader_auxv {
   uintptr_t at_base;

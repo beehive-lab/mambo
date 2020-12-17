@@ -41,6 +41,8 @@ void dispatcher_aarch32(dbm_thread *thread_data, uint32_t source_index, branch_t
                         uintptr_t target, uintptr_t block_address);
 void dispatcher_aarch64(dbm_thread *thread_data, uint32_t source_index, branch_type exit_type,
                         uintptr_t target, uintptr_t block_address);
+void dispatcher_riscv(dbm_thread *thread_data, uint32_t source_index, branch_type exit_type,
+                      uintptr_t target, uintptr_t block_address);
 
 void dispatcher(uintptr_t target, uint32_t source_index, uintptr_t *next_addr, dbm_thread *thread_data) {
   uintptr_t   block_address;
@@ -88,5 +90,8 @@ void dispatcher(uintptr_t target, uint32_t source_index, uintptr_t *next_addr, d
 #endif
 #ifdef __aarch64__
   dispatcher_aarch64(thread_data, source_index, source_branch_type, target, block_address);
+#endif
+#ifdef __riscv
+  dispatcher_riscv(thread_data, source_index, source_branch_type, target, block_address);
 #endif
 }

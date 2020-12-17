@@ -3,6 +3,7 @@
       https://github.com/beehive-lab/mambo
 
   Copyright 2013-2016 Cosmin Gorgovan <cosmin at linux-geek dot org>
+  Copyright 2017-2020 The University of Manchester
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -86,6 +87,15 @@ void a64_tbnz_helper(uint32_t *write_p, uint64_t target, enum reg reg, uint32_t 
 void a64_cc_branch(dbm_thread *thread_data, uint32_t *write_p, uint64_t target);
 void a64_inline_hash_lookup(dbm_thread *thread_data, int basic_block, uint32_t **o_write_p,
                             uint32_t *read_address, enum reg rn, bool link, bool set_meta);
+#endif
+
+#ifdef __riscv
+int riscv_c_beqz_helper(uint16_t **o_write_p, uintptr_t const target, int const rs1);
+int riscv_c_bnez_helper(uint16_t **o_write_p, uintptr_t const target, int const rs1);
+int riscv_branch_helper(uint16_t **o_write_p, uintptr_t target, int const rs1,
+                        int const rs2, enum branch_condition const condition);
+int riscv_jalr_helper(uint16_t **o_write_p, uintptr_t target, enum reg rd, enum reg rs1);
+int riscv_jal_helper(uint16_t **o_write_p, uintptr_t target, enum reg rd);
 #endif
 
 extern void inline_hash_lookup();
