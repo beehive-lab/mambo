@@ -21,10 +21,10 @@
 
 #include <stdio.h>
 
-#include "dbm.h"
-#include "scanner_common.h"
+#include "../../dbm.h"
+#include "../../scanner_common.h"
 
-#include "pie/pie-a64-encoder.h"
+#include "../../pie/pie-a64-encoder.h"
 
 #ifdef DEBUG
   #define debug(...) fprintf(stderr, __VA_ARGS__)

@@ -24,14 +24,14 @@
 #include <assert.h>
 #include <stdio.h>
 
-#include "dbm.h"
-#include "scanner_common.h"
+#include "../../dbm.h"
+#include "../../scanner_common.h"
 
-#include "pie/pie-a64-decoder.h"
-#include "pie/pie-a64-encoder.h"
-#include "pie/pie-a64-field-decoder.h"
+#include "../../pie/pie-a64-decoder.h"
+#include "../../pie/pie-a64-encoder.h"
+#include "../../pie/pie-a64-field-decoder.h"
 
-#include "api/helpers.h"
+#include "../../api/helpers.h"
 
 #define NOP_INSTRUCTION 0xD503201F
 #define MIN_FSPACE      60

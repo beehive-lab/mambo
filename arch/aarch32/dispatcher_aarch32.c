@@ -21,11 +21,11 @@
 
 #include <stdio.h>
 
-#include "dbm.h"
-#include "scanner_common.h"
+#include "../../dbm.h"
+#include "../../scanner_common.h"
 
-#include "pie/pie-thumb-encoder.h"
-#include "pie/pie-arm-encoder.h"
+#include "../../pie/pie-thumb-encoder.h"
+#include "../../pie/pie-arm-encoder.h"
 
 #ifdef DEBUG
   #define debug(...) fprintf(stderr, __VA_ARGS__)

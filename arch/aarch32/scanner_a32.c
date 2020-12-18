@@ -27,13 +27,13 @@
 #include <string.h>
 #include <limits.h>
 
-#include "dbm.h"
-#include "common.h"
-#include "scanner_common.h"
+#include "../../dbm.h"
+#include "../../common.h"
+#include "../../scanner_common.h"
 
-#include "pie/pie-arm-decoder.h"
-#include "pie/pie-arm-encoder.h"
-#include "pie/pie-arm-field-decoder.h"
+#include "../../pie/pie-arm-decoder.h"
+#include "../../pie/pie-arm-encoder.h"
+#include "../../pie/pie-arm-field-decoder.h"
 
 #ifdef DEBUG
   #define debug(...) fprintf(stderr, __VA_ARGS__)
