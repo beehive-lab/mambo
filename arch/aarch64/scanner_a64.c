@@ -66,6 +66,8 @@
 
 #define a64_brk() *(write_p++) = 0xD4200000;
 
+#define INST_SIZE  4
+
 void a64_branch_helper(uint32_t *write_p, uint64_t target, bool link) {
   int64_t difference = target - (uint64_t)write_p;
   assert(((difference & 3) == 0)
@@ -237,7 +239,7 @@ void a64_branch_jump_cond(dbm_thread *thread_data, uint32_t **o_write_p, int bas
 
   a64_b_cond_helper(cond_branch, (uint64_t)write_p, invert_cond(cond));
 
-  a64_copy_to_reg_64bits(&write_p, x0, (uint64_t)read_address + 4);
+  a64_copy_to_reg_64bits(&write_p, x0, (uint64_t)read_address + INST_SIZE);
   a64_b_helper(write_p, thread_data->dispatcher_addr);
   write_p++;
 
@@ -296,7 +298,7 @@ void a64_branch_imm_reg(dbm_thread *thread_data, uint32_t **o_write_p,
 
   thread_data->code_cache_meta[basic_block].exit_branch_addr = write_p;
   thread_data->code_cache_meta[basic_block].branch_taken_addr = target;
-  thread_data->code_cache_meta[basic_block].branch_skipped_addr = (uint64_t)read_address + 4;
+  thread_data->code_cache_meta[basic_block].branch_skipped_addr = (uint64_t)read_address + INST_SIZE;
 
   *write_p = NOP_INSTRUCTION;
   write_p++;
@@ -323,7 +325,7 @@ void a64_branch_imm_reg(dbm_thread *thread_data, uint32_t **o_write_p,
   }
 
   // SKIPPED
-  a64_branch_jump(thread_data, &write_p, basic_block, (uint64_t)read_address + 4,
+  a64_branch_jump(thread_data, &write_p, basic_block, (uint64_t)read_address + INST_SIZE,
                   REPLACE_TARGET | INSERT_BRANCH);
 
   *o_write_p = write_p;
@@ -521,8 +523,8 @@ void a64_inline_hash_lookup(dbm_thread *thread_data, int basic_block, uint32_t *
   }
 
   if (link) {
-    // MOV LR, read_address+4
-    a64_copy_to_reg_64bits(&write_p, lr, (uint64_t)read_address + 4);
+    // MOV LR, read_address + INST_SIZE
+    a64_copy_to_reg_64bits(&write_p, lr, (uint64_t)read_address + INST_SIZE);
   }
 
   a64_copy_to_reg_64bits(&write_p, x0,
@@ -603,7 +605,7 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
   if (type == mambo_bb) {
     data_p = write_p + BASIC_BLOCK_SIZE;
   } else { // mambo_trace
-    data_p = (uint32_t *)&thread_data->code_cache->traces + (TRACE_CACHE_SIZE / 4);
+    data_p = (uint32_t *)&thread_data->code_cache->traces + (TRACE_CACHE_SIZE / INST_SIZE);
     thread_data->code_cache_meta[basic_block].free_b = 0;
   }
 
@@ -670,7 +672,7 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
         thread_data->code_cache_meta[basic_block].exit_branch_type = cond_imm_a64;
         thread_data->code_cache_meta[basic_block].exit_branch_addr = write_p;
         thread_data->code_cache_meta[basic_block].branch_taken_addr = target;
-        thread_data->code_cache_meta[basic_block].branch_skipped_addr = (uint64_t)read_address + 4;
+        thread_data->code_cache_meta[basic_block].branch_skipped_addr = (uint64_t)read_address + INST_SIZE;
         thread_data->code_cache_meta[basic_block].branch_condition = cond;
         thread_data->code_cache_meta[basic_block].branch_cache_status = 0;
 #endif
@@ -680,7 +682,7 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
 
       case A64_SVC:
         a64_push_pair_reg(x29, x30);
-        a64_copy_to_reg_64bits(&write_p, x29, (uint64_t)read_address + 4);
+        a64_copy_to_reg_64bits(&write_p, x29, (uint64_t)read_address + INST_SIZE);
         a64_bl_helper(write_p, thread_data->syscall_wrapper_addr);
         write_p++;
         a64_pop_pair_reg(x0, x1);
@@ -756,7 +758,7 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
         a64_B_BL_decode_fields(read_address, &op, &imm26);
 
         if (op == 1) { // Branch Link
-          a64_copy_to_reg_64bits(&write_p, lr, (uint64_t)read_address + 4);
+          a64_copy_to_reg_64bits(&write_p, lr, (uint64_t)read_address + INST_SIZE);
         }
 
         branch_offset = sign_extend64(26, imm26) << 2;
@@ -782,7 +784,7 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
         a64_BR_decode_fields(read_address, &Rn);
 
 #ifdef DBM_INLINE_HASH
-        a64_check_free_space(thread_data, &write_p, &data_p, 88, basic_block);
+        a64_check_free_space(thread_data, &write_p, &data_p, 22 * INST_SIZE, basic_block);
 #endif
 
         thread_data->code_cache_meta[basic_block].exit_branch_type = uncond_branch_reg;
@@ -798,7 +800,7 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
 
         if (inst == A64_BLR) {
           // MOV LR, read_address+4
-          a64_copy_to_reg_64bits(&write_p, lr, (uint64_t)read_address + 4);
+          a64_copy_to_reg_64bits(&write_p, lr, (uint64_t)read_address + INST_SIZE);
         }
 
         a64_branch_jump(thread_data, &write_p, basic_block, 0, INSERT_BRANCH);
