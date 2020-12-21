@@ -273,6 +273,7 @@ extern enum arm_cond_codes arm_inverse_cond_code[];
 void copy_to_reg_16bit(uint16_t **write_p, enum reg reg, uint32_t value);
 void copy_to_reg_32bit(uint16_t **write_p, enum reg reg, uint32_t value);
 void a64_copy_to_reg_64bits(uint32_t **write_p, enum reg reg, uint64_t value);
+void generate_address(uint32_t **o_write_p, enum reg const reg, uint64_t const label);
 
 void thumb_push_regs(uint16_t **write_p, uint32_t regs);
 void thumb_pop_regs(uint16_t **write_p, uint32_t regs);

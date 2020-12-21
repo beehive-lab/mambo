@@ -68,6 +68,43 @@
 
 #define INST_SIZE  4
 
+void generate_address(uint32_t **o_write_p, enum reg const reg, uint64_t const label) {
+  int64_t const four_GB = 4UL * 1024UL * 1024UL * 1024UL;
+  int64_t const one_MB = 1024UL * 1024UL;
+
+  uint32_t *write_p = *o_write_p;
+
+  int64_t const PC = (int64_t)write_p;
+  int64_t const imm = (int64_t)label - PC;
+
+  if ((imm < one_MB) && (imm >= -one_MB)) {
+    // within 1MB use ADR
+    unsigned int const immhi = imm >> 2;
+    unsigned int const immlo = imm & 3;
+
+    a64_ADR(&write_p, 0, immlo, immhi, reg);
+    write_p++;
+  } else if ((imm < four_GB) && (imm >= -four_GB)) {
+    // within 4GB use ADRP
+    unsigned int const imm12 = (unsigned int)label & 0xFFF;
+    int64_t const page_aligned_PC = label - (PC & ~0xFFF);
+    unsigned int const immhi = page_aligned_PC >> 14;
+    unsigned int const immlo = (page_aligned_PC >> 12) & 3;
+
+    a64_ADR(&write_p, 1, immlo, immhi, reg);
+    write_p++;
+
+    if (imm12) { // ADD reg, reg, imm12
+      a64_ADD_SUB_immed(&write_p, 1, 0, 0, 0, imm12, reg, reg);
+      write_p++;
+    }
+
+  } else { // use MOVs
+    a64_copy_to_reg_64bits(&write_p, reg, label);
+  }
+  *o_write_p = write_p;
+}
+
 void a64_branch_helper(uint32_t *write_p, uint64_t target, bool link) {
   int64_t difference = target - (uint64_t)write_p;
   assert(((difference & 3) == 0)
@@ -188,7 +225,7 @@ void a64_branch_jump(dbm_thread *thread_data, uint32_t **o_write_p,
   debug("A64 branch target: 0x%lx\n", target);
 
   if (flags & REPLACE_TARGET) {
-    a64_copy_to_reg_64bits(&write_p, x0, target);
+    generate_address(&write_p, x0, target);
   }
 
   if (flags & INSERT_BRANCH) {
@@ -233,13 +270,13 @@ void a64_branch_jump_cond(dbm_thread *thread_data, uint32_t **o_write_p, int bas
 
   cond_branch = write_p++;
 
-  a64_copy_to_reg_64bits(&write_p, x0, target);
+  generate_address(&write_p, x0, target);
   a64_b_helper(write_p, thread_data->dispatcher_addr);
   write_p++;
 
   a64_b_cond_helper(cond_branch, (uint64_t)write_p, invert_cond(cond));
 
-  a64_copy_to_reg_64bits(&write_p, x0, (uint64_t)read_address + INST_SIZE);
+  generate_address(&write_p, x0, (uint64_t)read_address + INST_SIZE);
   a64_b_helper(write_p, thread_data->dispatcher_addr);
   write_p++;
 
@@ -524,11 +561,10 @@ void a64_inline_hash_lookup(dbm_thread *thread_data, int basic_block, uint32_t *
 
   if (link) {
     // MOV LR, read_address + INST_SIZE
-    a64_copy_to_reg_64bits(&write_p, lr, (uint64_t)read_address + INST_SIZE);
+    generate_address(&write_p, lr, (uint64_t)read_address + INST_SIZE);
   }
 
-  a64_copy_to_reg_64bits(&write_p, x0,
-                         (uint64_t)&thread_data->entry_address.entries);
+  generate_address(&write_p, x0, (uint64_t)&thread_data->entry_address.entries);
 
   a64_logical_immed(&write_p, 1, 0, 1, 62, 18, reg_spc, reg_tmp);
   write_p++;
@@ -682,7 +718,7 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
 
       case A64_SVC:
         a64_push_pair_reg(x29, x30);
-        a64_copy_to_reg_64bits(&write_p, x29, (uint64_t)read_address + INST_SIZE);
+        generate_address(&write_p, x29, (uint64_t)read_address + INST_SIZE);
         a64_bl_helper(write_p, thread_data->syscall_wrapper_addr);
         write_p++;
         a64_pop_pair_reg(x0, x1);
@@ -732,7 +768,7 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
           }
 
           a64_push_reg(spilled_reg);
-          a64_copy_to_reg_64bits(&write_p, spilled_reg, (uint64_t)&thread_data->tls);
+          generate_address(&write_p, spilled_reg, (uint64_t)&thread_data->tls);
 
           if (R == 0) { // MSR
             a64_LDR_STR_immed(&write_p, 3, 0, 0, 0, 0, spilled_reg, Rt);
@@ -758,7 +794,7 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
         a64_B_BL_decode_fields(read_address, &op, &imm26);
 
         if (op == 1) { // Branch Link
-          a64_copy_to_reg_64bits(&write_p, lr, (uint64_t)read_address + INST_SIZE);
+          generate_address(&write_p, lr, (uint64_t)read_address + INST_SIZE);
         }
 
         branch_offset = sign_extend64(26, imm26) << 2;
@@ -800,7 +836,7 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
 
         if (inst == A64_BLR) {
           // MOV LR, read_address+4
-          a64_copy_to_reg_64bits(&write_p, lr, (uint64_t)read_address + INST_SIZE);
+          generate_address(&write_p, lr, (uint64_t)read_address + INST_SIZE);
         }
 
         a64_branch_jump(thread_data, &write_p, basic_block, 0, INSERT_BRANCH);
@@ -837,23 +873,23 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
         if (V== 0) {
           switch(opc) {
             case 0: // LDR literal 32-bit variant
-              a64_copy_to_reg_64bits(&write_p, Rt, PC_relative_address);
+              generate_address(&write_p, Rt, PC_relative_address);
               a64_LDR_STR_unsigned_immed(&write_p, 2, V, 1, 0, Rt, Rt);
               write_p++;
               break;
             case 1: // LDR literal 64-bit variant
-              a64_copy_to_reg_64bits(&write_p, Rt, PC_relative_address);
+              generate_address(&write_p, Rt, PC_relative_address);
               a64_LDR_STR_unsigned_immed(&write_p, 3, V, 1, 0, Rt, Rt);
               write_p++;
               break;
             case 2: // LDR Signed Word (literal)
-              a64_copy_to_reg_64bits(&write_p, Rt, PC_relative_address);
+              generate_address(&write_p, Rt, PC_relative_address);
               a64_LDR_STR_unsigned_immed(&write_p, 2, V, 2, 0, Rt, Rt);
               write_p++;
               break;
             case 3: // PRFM Prefetch
               a64_push_reg(x0);
-              a64_copy_to_reg_64bits(&write_p, x0, PC_relative_address);
+              generate_address(&write_p, x0, PC_relative_address);
               a64_LDR_STR_unsigned_immed(&write_p, 3, V, 2, 0, x0, Rt);
               write_p++;
               a64_pop_reg(x0);
@@ -878,7 +914,7 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
               while(1);
           }
           a64_push_reg(x0);
-          a64_copy_to_reg_64bits(&write_p, x0, PC_relative_address);
+          generate_address(&write_p, x0, PC_relative_address);
           a64_LDR_STR_unsigned_immed(&write_p, size, V, opc, 0, x0, Rt);
           write_p++;
           a64_pop_reg(x0);
@@ -903,7 +939,7 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
         }
 
         PC_relative_address += imm;
-        a64_copy_to_reg_64bits(&write_p, Rd, PC_relative_address);
+        generate_address(&write_p, Rd, PC_relative_address);
         break;
 
       case A64_HVC:
