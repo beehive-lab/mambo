@@ -42,6 +42,7 @@
 #define NOP_INSTRUCTION      0xD503201F
 #define THIRTY_TWO_KB        32 * 1024
 #define ONE_MEGABYTE         1024 * 1024
+extern inline bool is_offset_within_range(intptr_t const offset, intptr_t const range);
 #endif
 
 #ifdef DEBUG
