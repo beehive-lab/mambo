@@ -90,6 +90,9 @@ void flush_code_cache(dbm_thread *thread_data) {
   }
 
   linked_list_init(thread_data->cc_links, MAX_CC_LINKS);
+#ifdef DBM_RAIBI
+  thread_data->aibi_cache = NULL;
+#endif
 }
 
 uintptr_t cc_lookup(dbm_thread *thread_data, uintptr_t target) {

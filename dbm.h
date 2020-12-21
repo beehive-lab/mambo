@@ -207,6 +207,9 @@ struct dbm_thread_s {
   int       trace_id;
   int       trace_fragment_count;
   trace_in_prog active_trace;
+#ifdef DBM_RAIBI
+  uint64_t * aibi_cache;
+#endif
 #endif
 
   ll *cc_links;
