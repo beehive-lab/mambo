@@ -39,10 +39,10 @@ typedef struct {
 } hash_entry;
 
 typedef struct {
+  hash_entry entries[CODE_CACHE_HASH_SIZE + CODE_CACHE_HASH_OVERP] __attribute__ ((aligned (4096)));
   int size;
   int collisions;
   int count;
-  hash_entry entries[CODE_CACHE_HASH_SIZE + CODE_CACHE_HASH_OVERP];
 } hash_table;
 
 struct ll_entry_s {
