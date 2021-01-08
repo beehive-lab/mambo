@@ -86,11 +86,17 @@ uintptr_t active_trace_lookup_or_stub(dbm_thread *thread_data, uintptr_t target)
   return lookup_or_stub(thread_data, target);
 }
 
+int allocate_trace_fragment(dbm_thread *thread_data) {
+  int id = thread_data->active_trace.id++;
+  assert(id < (CODE_CACHE_SIZE + TRACE_FRAGMENT_NO));
+  return id;
+}
+
 uint32_t scan_trace(dbm_thread *thread_data, void *address, cc_type type, int *set_trace_id) {
   size_t fragment_len;
   uint8_t *write_p = thread_data->active_trace.write_p;
   unsigned long thumb = (unsigned long)address & THUMB;
-  int trace_id = thread_data->active_trace.id++;
+  int trace_id = allocate_trace_fragment(thread_data);
   if (set_trace_id != NULL) {
     *set_trace_id = trace_id;
   }
@@ -349,7 +355,7 @@ void install_trace(dbm_thread *thread_data) {
     int64_t offset = (to - (uintptr_t)from);
     if (is_basic_block || !is_offset_within_range(offset, max)) {
       // Give the exit a number and set metadata
-      int const exit_id = thread_data->active_trace.id++;
+      int const exit_id = allocate_trace_fragment(thread_data);
       thread_data->code_cache_meta[exit_id].tpc = (uintptr_t)exit_start;
       thread_data->code_cache_meta[exit_id].exit_branch_type = trace_exit;
       thread_data->code_cache_meta[exit_id].branch_cache_status = BRANCH_LINKED;
@@ -515,7 +521,8 @@ void create_trace(dbm_thread *thread_data, uint32_t bb_source, cc_addr_pair *ret
     thread_data->trace_cache_next += (TRACE_ALIGN -
                                      ((uintptr_t)thread_data->trace_cache_next & TRACE_ALIGN_MASK))
                                      & TRACE_ALIGN_MASK;
-    if ((uintptr_t)thread_data->trace_cache_next >= (uintptr_t)thread_data->code_cache + MAX_BRANCH_RANGE - TRACE_LIMIT_OFFSET) {
+    if ((uintptr_t)thread_data->trace_cache_next >= (uintptr_t)thread_data->code_cache + MAX_BRANCH_RANGE - TRACE_LIMIT_OFFSET
+        || thread_data->trace_id >= (CODE_CACHE_SIZE + TRACE_FRAGMENT_NO - TRACE_FRAGMENT_OVERP)) {
       fprintf(stderr, "trace cache full, flushing the CC\n");
       flush_code_cache(thread_data);
       ret_addr->tpc = lookup_or_scan(thread_data, (uintptr_t)source_addr, NULL);
