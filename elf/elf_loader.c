@@ -314,7 +314,7 @@ char *copy_string_to_stack(char *string, char **stack_strings) {
   return *stack_strings;
 }
 
-#define INITIAL_STACK_SIZE (2*1024*1024)
+#define INITIAL_STACK_SIZE (4*1024*1024)
 #define STACK_PROT  (PROT_READ | PROT_WRITE)
 #define STACK_FLAGS (MAP_PRIVATE|MAP_ANONYMOUS|MAP_GROWSDOWN|MAP_STACK)
 #define stack_push(val) stack[stack_i++] = (val);
