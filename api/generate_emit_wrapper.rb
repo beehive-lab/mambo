@@ -81,12 +81,12 @@ def process_file(filename)
       print ",\n#{line}" 
       line = line.split(' ')
       fields.push(line[line.size-1])
-    elsif (line.include?("**address = "))
+    elsif (line.include?("**address = ") or line.include?("*(*address) ="))
       puts if (fields.size == 0)
       if (@header_only)
         puts ");"
       else
-        size *= 2 if (line.include?(">>"))
+        size *= 2 if (line.include?("*(*address"))
         generate_body(name, fields, size)
       end
     end
