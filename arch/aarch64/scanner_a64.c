@@ -446,12 +446,6 @@ bool a64_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id, 
       }
     }
 
-    if (allow_write && ctx.code.pushed_regs) {
-      emit_a64_pop(&ctx, ctx.code.pushed_regs);
-      write_p = ctx.code.write_p;
-      data_p = ctx.code.data_p;
-    }
-
     *o_write_p = write_p;
     *o_data_p = data_p;
     *o_read_address = read_address;
