@@ -972,9 +972,11 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
           stop = true;
           debug("WARN: deferred scanning because of unknown instruction at: %p\n", read_address);
         } else {
-          fprintf(stderr, "Unknown A64 instruction: %d at %p\n", inst, read_address);
-          while(1);
-          exit(EXIT_FAILURE);
+          fprintf(stderr, "\nMAMBO: Unknown A64 instruction: %d (0x%x) at %p\n"
+                          "Copying it unmodified, but future problems are possible\n"
+                          "Report crashes at https://github.com/beehive-lab/mambo\n\n",
+                          inst, *read_address, read_address);
+          a64_copy();
         }
         break;
 
