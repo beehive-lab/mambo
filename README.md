@@ -4,6 +4,7 @@ MAMBO: A Low-Overhead Dynamic Binary Modification Tool for ARM
 News
 ----
 
+* 2021-02-24 PhD opportunities related to MAMBO and security available. If interested, contact mikel.lujan at manchester.ac.uk with the subject *APT MAMBO PhD \[your surname\]*
 * 2020-02-22: We've presented our CC paper about MAMBO's API (see *Publications* and *Plugin API* below) and the [`cachesim` (an online cache simulator)](/plugins/cachesim) and [`memcheck` (a memory error checker)](/plugins/memcheck) plugins. The slides are available [here](https://github.com/beehive-lab/mambo/releases/download/2/slides_mambo_cc20.pdf).
 * 2018-04-11: We've presented our ICPE paper. The slides are available [here](https://github.com/beehive-lab/mambo/releases/download/1/slides_icpe_2018.pdf).
 * 2018-01-23: We've ran a tutorial on using MAMBO's API at HiPEAC 2018. The slides are available [here](https://github.com/beehive-lab/mambo/releases/download/1/mambo_tutorial_hipeac_2018.pdf).
