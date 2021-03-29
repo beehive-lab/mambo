@@ -5,6 +5,7 @@ News
 ----
 
 * 2021-02-24 PhD opportunities related to MAMBO and security available. If interested, contact mikel.lujan at manchester.ac.uk with the subject *APT MAMBO PhD \[your surname\]*
+* 2020-03-16: We've presented (virtually) our VEE paper about AArch64 optimizations in MAMBO. The talk is [available on youtube](https://www.youtube.com/watch?v=3jxLu1zGpV0).
 * 2020-02-22: We've presented our CC paper about MAMBO's API (see *Publications* and *Plugin API* below) and the [`cachesim` (an online cache simulator)](/plugins/cachesim) and [`memcheck` (a memory error checker)](/plugins/memcheck) plugins. The slides are available [here](https://github.com/beehive-lab/mambo/releases/download/2/slides_mambo_cc20.pdf).
 * 2018-04-11: We've presented our ICPE paper. The slides are available [here](https://github.com/beehive-lab/mambo/releases/download/1/slides_icpe_2018.pdf).
 * 2018-01-23: We've ran a tutorial on using MAMBO's API at HiPEAC 2018. The slides are available [here](https://github.com/beehive-lab/mambo/releases/download/1/mambo_tutorial_hipeac_2018.pdf).
@@ -13,14 +14,16 @@ News
 * 2017-04-03: The AArch64 port of MAMBO is officially released. The initial AArch64 porting was done by Guillermo Callaghan <guillermocallaghan at hotmail dot com>.
 * We have presented the TACO paper at [HiPEAC](https://www.hipeac.net/events/activities/7477/session-9-binary-translation/) 2017, on 25th of January. The slides are available [here](https://github.com/beehive-lab/mambo/releases/download/1/slides_hipeac_2017.pdf).
 
-
 Publications
 ------------
 * [Cosmin Gorgovan, Amanieu d’Antras, and Mikel Luján. 2016. MAMBO: A low-overhead dynamic binary modification tool for ARM. ACM Trans. Archit. Code Optim. 13, 1, Article 14 (April 2016)](http://dl.acm.org/citation.cfm?id=2896451). **Open access**. If you use MAMBO for your research, please cite this paper.
 
 * [Cosmin Gorgovan, Amanieu d’Antras, and Mikel Luján. 2018. Optimising Dynamic Binary Modification Across ARM Microarchitectures. In Proceedings of the 2018 ACM/SPEC International Conference on Performance Engineering (ICPE '18)](https://dl.acm.org/citation.cfm?id=3184425). **Free download** [via research.manchester.ac.uk](https://www.research.manchester.ac.uk/portal/en/publications/optimising-dynamic-binary-modification-across-arm-microarchitectures(6eedcdc7-d5af-488a-815e-6e4968f96fc5).html).
 
-* [Cosmin Gorgovan, Guillermo Callaghan, and Mikel Luján. Balancing Performance and Productivity for the Development of Dynamic Binary Instrumentation Tools - A Case Study on Arm Systems. In Proceedings of the 29th International Conference on Compiler Construction (CC ’20)](https://dl.acm.org/doi/abs/10.1145/3377555.3377895) **Free download** [via research.manchester.ac.uk](https://www.research.manchester.ac.uk/portal/en/publications/balancing-performance-and-productivity-for-the-development-of-dynamic-binary-instrumentation-tools--a-case-study-on-arm-systems(80e57c1b-9e38-4a15-942d-eb240888b12b).html).
+* [Cosmin Gorgovan, Guillermo Callaghan, and Mikel Luján. Balancing Performance and Productivity for the Development of Dynamic Binary Instrumentation Tools - A Case Study on Arm Systems. In Proceedings of the 29th International Conference on Compiler Construction (CC '20)](https://dl.acm.org/doi/abs/10.1145/3377555.3377895) **Free download** [via research.manchester.ac.uk](https://www.research.manchester.ac.uk/portal/en/publications/balancing-performance-and-productivity-for-the-development-of-dynamic-binary-instrumentation-tools--a-case-study-on-arm-systems(80e57c1b-9e38-4a15-942d-eb240888b12b).html).
+
+* [Guillermo Callaghan, Cosmin  Gorgovan and Mikel Luján. Optimising dynamic binary modification across 64-bit Arm microarchitectures. In Proceedings of the 16th ACM SIGPLAN/SIGOPS International Conference on Virtual Execution Environments (VEE '20)](https://dl.acm.org/doi/abs/10.1145/3381052.3381322) **Free download** [via research.manchester.ac.uk](https://www.research.manchester.ac.uk/portal/en/publications/optimising-dynamic-binary-modification-across-64bit-arm-microarchitectures(f8e4680f-9410-46c0-960a-8d8a932b974d).html).
+
 
 MAMBO was created as part of Cosmin's [EPSRC](https://www.epsrc.ac.uk)-funded PhD in the [School of Computer Science](http://www.cs.manchester.ac.uk/) at the [University of Manchester](http://www.manchester.ac.uk/). MAMBO is currently being developed as part of the [PAMELA EP/K008730/1](http://apt.cs.manchester.ac.uk/projects/PAMELA/) and DOME EP/J016330/1 EPSRC projects.
 
