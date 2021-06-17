@@ -1000,7 +1000,7 @@ bool thumb_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id
 size_t scan_t32(dbm_thread *thread_data, uint16_t *read_address, int basic_block, cc_type type, uint16_t *write_p) {
   bool stop = false;
 
-  uint16_t *start_scan = read_address;
+  uint16_t *start_scan = read_address, *bb_entry = read_address;
   if (write_p == NULL) {
     write_p = (uint16_t *)&thread_data->code_cache->blocks[basic_block];
   }
@@ -1751,10 +1751,11 @@ size_t scan_t32(dbm_thread *thread_data, uint16_t *read_address, int basic_block
         thumb_blx32_helper(write_p, thread_data->syscall_wrapper_addr);
         write_p += 2;
 
-        thumb_scanner_deliver_callbacks(thread_data, POST_BB_C, &it_state, &read_address, -1,
+        thumb_scanner_deliver_callbacks(thread_data, POST_BB_C, &it_state, &bb_entry, -1,
                                         &write_p, &data_p, basic_block, type, false, &stop);
         // set the correct address for the PRE_BB_C event
         read_address++;
+        bb_entry = read_address;
         thumb_scanner_deliver_callbacks(thread_data, PRE_BB_C, &it_state, &read_address, -1,
                                         &write_p, &data_p, basic_block, type, true, &stop);
         read_address--;
@@ -1787,10 +1788,11 @@ size_t scan_t32(dbm_thread *thread_data, uint16_t *read_address, int basic_block
            This is a hack to avoid trying to elide the b.n 0x7e8c instruction in
            in some versions of ld.so */
         if ((uint32_t)target >= 0x8000) {
-          thumb_scanner_deliver_callbacks(thread_data, POST_BB_C, &it_state, &read_address, -1,
+          thumb_scanner_deliver_callbacks(thread_data, POST_BB_C, &it_state, &bb_entry, -1,
                                           &write_p, &data_p, basic_block, type, false, &stop);
           // set the correct address for the PRE_BB_C event
           read_address = (uint16_t *)(target -1);
+          bb_entry = read_address;
           thumb_scanner_deliver_callbacks(thread_data, PRE_BB_C, &it_state, &read_address, -1,
                                           &write_p, &data_p, basic_block, type, true, &stop);
           read_address--;
@@ -2440,10 +2442,11 @@ size_t scan_t32(dbm_thread *thread_data, uint16_t *read_address, int basic_block
             }
           }
 
-          thumb_scanner_deliver_callbacks(thread_data, POST_BB_C, &it_state, &read_address, -1,
+          thumb_scanner_deliver_callbacks(thread_data, POST_BB_C, &it_state, &bb_entry, -1,
                                           &write_p, &data_p, basic_block, type, false, &stop);
           // set the correct address for the PRE_BB_C event
           read_address = (uint16_t *)(target - 1);
+          bb_entry = read_address;
           thumb_scanner_deliver_callbacks(thread_data, PRE_BB_C, &it_state, &read_address, -1,
                                           &write_p, &data_p, basic_block, type, true, &stop);
           read_address -= 2;
@@ -3160,6 +3163,11 @@ size_t scan_t32(dbm_thread *thread_data, uint16_t *read_address, int basic_block
       read_address+= 2;
     }
   }
+
+  thumb_scanner_deliver_callbacks(thread_data, POST_BB_C, &it_state, &bb_entry, -1,
+                                  &write_p, &data_p, basic_block, type, false, &stop);
+  thumb_scanner_deliver_callbacks(thread_data, POST_FRAGMENT_C, &it_state, &start_scan, -1,
+                                  &write_p, &data_p, basic_block, type, false, &stop);
 
   if (ldrex) {
     if (thread_data->code_cache_meta[basic_block].exit_branch_type != uncond_imm_thumb

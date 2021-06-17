@@ -571,7 +571,7 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
                 int basic_block, cc_type type, uint32_t *write_p) {
   bool stop = false;
 
-  uint32_t *start_scan = read_address;
+  uint32_t *start_scan = read_address, *bb_entry = read_address;
   uint32_t *data_p;
   uint32_t *start_address;
   enum reg spilled_reg;
@@ -679,10 +679,11 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
         write_p++;
         a64_pop_pair_reg(x0, x1);
 
-        a64_scanner_deliver_callbacks(thread_data, POST_BB_C, &read_address, -1,
+        a64_scanner_deliver_callbacks(thread_data, POST_BB_C, &bb_entry, -1,
                                 &write_p, &data_p, basic_block, type, false, &stop);
         // set the correct address for the PRE_BB_C event
         read_address++;
+        bb_entry = read_address;
         a64_scanner_deliver_callbacks(thread_data, PRE_BB_C, &read_address, -1,
                                 &write_p, &data_p, basic_block, type, true, &stop);
         read_address--;
@@ -1003,6 +1004,11 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
 
     read_address++;
   } // while(!stop)
+
+  a64_scanner_deliver_callbacks(thread_data, POST_BB_C, &bb_entry, -1,
+                                &write_p, &data_p, basic_block, type, false, &stop);
+  a64_scanner_deliver_callbacks(thread_data, POST_FRAGMENT_C, &start_scan, -1,
+                                &write_p, &data_p, basic_block, type, false, &stop);
 
   return ((write_p - start_address + 1) * sizeof(*write_p));
 }
