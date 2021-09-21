@@ -35,7 +35,10 @@
   #define SYSCALL_WRAPPER_STACK_OFFSET (2 + 2 + 22)
   #define SYSCALL_WRAPPER_FRAME_SIZE   (SYSCALL_WRAPPER_STACK_OFFSET + 2*32)
 #elif __riscv
-  #warning SYSCALL_WRAPPER_* not defined for RISCV
-  #define SYSCALL_WRAPPER_STACK_OFFSET (0)
-  #define SYSCALL_WRAPPER_FRAME_SIZE   (SYSCALL_WRAPPER_STACK_OFFSET)
+  /* 3+2 regs(s0) | (1 << s1) | (1 << ra) pushed by the ECALL translation
+     20  general purpose regs pushed by syscall_wrapper
+     32  FP registers
+  */
+  #define SYSCALL_WRAPPER_STACK_OFFSET (3+2+20)
+  #define SYSCALL_WRAPPER_FRAME_SIZE   (SYSCALL_WRAPPER_STACK_OFFSET + 32)
 #endif
