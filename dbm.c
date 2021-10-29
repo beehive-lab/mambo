@@ -665,12 +665,25 @@ void main(int argc, char **argv, char **envp) {
   load_elf(argv[1], &elf, &auxv, &entry_address, false);
   debug("entry address: 0x%x\n", entry_address);
 
-  // Set up brk emulation
+  /*
+    Set up brk emulation
+
+    The initial data segment for the application is allocated in a block
+    of RESERVED_BRK_SPACE size, then remapped down to a single page size
+    The application should then be able to expand the data segment with
+    emulated brk syscalls up to at least RESERVED_BRK_SPACE size.
+
+    We use this because the kernel will sometimes map our area immediately
+    before another allocation, which will prevent it from growing past the
+    size of the initial allocation. Libc initialization may fail if brk
+    is unsuccesful, so need to be able to allocate at least a few pages
+  */
   ret = pthread_mutex_init(&global_data.brk_mutex, NULL);
   assert(ret == 0);
-  void *map = mmap((void *)global_data.brk, PAGE_SIZE, PROT_READ | PROT_WRITE,
+  void *map = mmap((void *)global_data.brk, RESERVED_BRK_SPACE, PROT_READ | PROT_WRITE,
                      MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
   assert(map != MAP_FAILED);
+  assert(mremap(map, RESERVED_BRK_SPACE, PAGE_SIZE, 0) == map);
   global_data.initial_brk = global_data.brk = (uintptr_t)map;
   global_data.brk += PAGE_SIZE;
   

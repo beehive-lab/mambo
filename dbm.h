@@ -68,6 +68,9 @@
 
 #define MAX_CC_LINKS 100000
 
+// The size of the initial data segment allocation for brk emulation
+#define RESERVED_BRK_SPACE (128*(PAGE_SIZE))
+
 #ifdef __arm__
 #define THUMB 0x1
 #define FULLADDR 0x2
