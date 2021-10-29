@@ -685,7 +685,6 @@ void main(int argc, char **argv, char **envp) {
   assert(map != MAP_FAILED);
   assert(mremap(map, RESERVED_BRK_SPACE, PAGE_SIZE, 0) == map);
   global_data.initial_brk = global_data.brk = (uintptr_t)map;
-  global_data.brk += PAGE_SIZE;
   
   dbm_thread *thread_data;
   if (!allocate_thread_data(&thread_data)) {

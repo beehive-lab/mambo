@@ -142,10 +142,11 @@ uintptr_t emulate_brk(uintptr_t addr) {
 
   /* We use mremap for non-overlapping re-allocation, therefore
      we must always always keep at least one allocated page. */
-  if (addr >= (global_data.initial_brk + PAGE_SIZE)) {
-    void *map = mremap((void *)global_data.initial_brk,
-                       global_data.brk - global_data.initial_brk,
-                       addr - global_data.initial_brk, 0);
+  if (addr >= global_data.initial_brk) {
+    const size_t cur_size = max(global_data.brk - global_data.initial_brk, PAGE_SIZE);
+    const size_t new_size = max(addr - global_data.initial_brk, PAGE_SIZE);
+
+    void *map = mremap((void *)global_data.initial_brk, cur_size, new_size, 0);
     if (map != MAP_FAILED) {
       vm_op_t op = VM_MAP;
       size_t size = addr - global_data.brk;
