@@ -3,7 +3,7 @@
       https://github.com/beehive-lab/mambo
 
   Copyright 2013-2016 Cosmin Gorgovan <cosmin at linux-geek dot org>
-  Copyright 2017-2020 The University of Manchester
+  Copyright 2017-2021 The University of Manchester
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -29,6 +29,8 @@
 #elif __aarch64__
 #include "../pie/pie-a64-encoder.h"
 #include "../api/emit_a64.h"
+#elif __riscv
+#include "../pie/pie-riscv-encoder.h"
 #endif
 
 #define not_implemented() \
@@ -244,6 +246,27 @@ int emit_a64_add_sub_ext(mambo_context *ctx, int rd, int rn, int rm, int ext_opt
 }
 #endif
 
+#ifdef __riscv
+  void emit_riscv_push(mambo_context *ctx, uint32_t regs) {
+    int reg_no = count_bits(regs);
+    ctx->code.plugin_pushed_reg_count += reg_no;
+
+    uint16_t *write_p = ctx->code.write_p;
+    riscv_push(&write_p, regs);
+
+    ctx->code.write_p = write_p;
+  }
+
+  void emit_riscv_pop(mambo_context *ctx, uint32_t regs) {
+    ctx->code.plugin_pushed_reg_count -= count_bits(regs);
+    assert(ctx->code.plugin_pushed_reg_count >= 0);
+
+    uint16_t *write_p = ctx->code.write_p;
+    riscv_pop(&write_p, regs);
+    ctx->code.write_p = write_p;
+  }
+#endif
+
 void emit_push(mambo_context *ctx, uint32_t regs) {
 #ifdef __arm__
   inst_set isa = mambo_get_inst_type(ctx);
@@ -254,6 +277,8 @@ void emit_push(mambo_context *ctx, uint32_t regs) {
   }
 #elif __aarch64__
   emit_a64_push(ctx, regs);
+#elif __riscv
+  emit_riscv_push(ctx, regs);
 #endif
 }
 
@@ -268,6 +293,8 @@ void emit_pop(mambo_context *ctx, uint32_t regs) {
   }
 #elif __aarch64__
   emit_a64_pop(ctx, regs);
+#elif __riscv
+  emit_riscv_pop(ctx, regs);
 #endif
 }
 
@@ -281,11 +308,18 @@ void emit_set_reg(mambo_context *ctx, enum reg reg, uintptr_t value) {
   }
 #elif __aarch64__
   a64_copy_to_reg_64bits((uint32_t **)&ctx->code.write_p, reg, value);
+#elif __riscv
+  riscv_copy_to_reg((uint16_t **)&ctx->code.write_p, reg, value);
 #endif
 }
 
 int __emit_branch_cond(inst_set inst_type, void *write, uintptr_t target, mambo_cond cond, bool link) {
-  intptr_t diff = (target & (~THUMB)) - (uintptr_t)write;
+  intptr_t diff;
+  #ifdef __arm__
+    diff = (target & (~THUMB)) - (uintptr_t)write;
+  #elif __riscv
+    diff = target - (uintptr_t)write;
+  #endif
   if (cond != AL && link) return -1;
 #ifdef __arm__
   switch (inst_type) {
@@ -323,6 +357,12 @@ int __emit_branch_cond(inst_set inst_type, void *write, uintptr_t target, mambo_
     a64_b_cond_helper(write, target, cond);
   }
 #endif
+#ifdef __riscv
+  if (cond == AL) {
+    if (diff < -1048576 || diff > 1048574) return -1;
+    riscv_jal_helper(write, target, ra);
+  }
+#endif
   return 0;
 }
 
@@ -331,7 +371,11 @@ void emit_fcall(mambo_context *ctx, void *function_ptr) {
   int ret = __emit_branch_cond(ctx->code.inst_type, ctx->code.write_p, (uintptr_t)function_ptr, AL, true);
   if (ret == 0) return;
 
-  emit_set_reg(ctx, lr, (uintptr_t)function_ptr);
+  #ifdef __riscv
+    emit_set_reg(ctx, ra, (uintptr_t)function_ptr);
+  #else
+    emit_set_reg(ctx, lr, (uintptr_t)function_ptr);
+  #endif
 #ifdef __arm__
   inst_set type = mambo_get_inst_type(ctx);
   if (type == ARM_INST) {
@@ -345,11 +389,17 @@ void emit_fcall(mambo_context *ctx, void *function_ptr) {
 }
 
 int emit_safe_fcall(mambo_context *ctx, void *function_ptr, int argno) {
+#ifdef __riscv
+  uintptr_t to_push = (1 << ra);
+#else
   uintptr_t to_push = (1 << lr);
+#endif
 #ifdef __arm__
   to_push |= (1 << r0) | (1 << r1) | (1 << r2) | (1 << r3) | (1 << r4);
 #elif __aarch64__
   to_push |= 0x1FF;
+#elif __riscv
+  to_push |= 0x3FC00;
 #endif
 
   if (argno > MAX_FCALL_ARGS) return -1;
@@ -422,8 +472,10 @@ void emit_mov(mambo_context *ctx, enum reg rd, enum reg rn) {
            assert((shift) == 0 || (shift) == 12); \
            emit_a64_ADD_SUB_immed(ctx, 1, 1, 0, (shift == 12), (offset), (rn), (rd));
 #endif
+#if defined __arm__ || defined __aarch64__
 #define SHIFTED_ADD_SUB_I_MASK ((1 << SHIFTED_ADD_SUB_I_BITS) - 1)
 #define SHIFTED_ADD_SUB_MAX (SHIFTED_ADD_SUB_I_MASK | (SHIFTED_ADD_SUB_I_MASK << SHIFTED_ADD_SUB_I_BITS))
+#endif
 
 int emit_add_sub_i(mambo_context *ctx, int rd, int rn, int offset) {
   if (offset == 0) {
@@ -432,7 +484,7 @@ int emit_add_sub_i(mambo_context *ctx, int rd, int rn, int offset) {
       return 0;
     }
   } else {
-#ifdef __arm__
+#if defined __arm__
     inst_set isa = mambo_get_inst_type(ctx);
     if (isa == THUMB_INST) {
       if (offset > 0xFFF || offset < -0xFFF) return -1;
@@ -445,7 +497,7 @@ int emit_add_sub_i(mambo_context *ctx, int rd, int rn, int offset) {
       }
       return 0;
     }
-#endif
+#elif defined __aarch64__ || defined __arm__
     if (offset < -SHIFTED_ADD_SUB_MAX || offset > SHIFTED_ADD_SUB_MAX) return -1;
 
     if (offset < 0) {
@@ -466,7 +518,10 @@ int emit_add_sub_i(mambo_context *ctx, int rd, int rn, int offset) {
         _emit_add_shift_imm(rd, rn, offset >> SHIFTED_ADD_SUB_I_BITS, SHIFTED_ADD_SUB_I_BITS);
       }
     }
-  } // offset != 0
+  #elif  defined __riscv
+    emit_riscv_addi(ctx, rd, rn, offset);
+  #endif
+  }
   return 0;
 }
 
@@ -653,13 +708,29 @@ void emit_counter64_incr(mambo_context *ctx, void *counter, unsigned incr) {
   emit_a64_LDR_STR_unsigned_immed(ctx, 3, 0, 0, 0, x0, x1);
   emit_a64_pop(ctx, (1 << x0) | (1 << x1));
 #endif
+
+#ifdef __riscv
+  #if __riscv_xlen == 32
+    #error increment 64 not implemented on 32 bit yet
+  #elif __riscv_xlen == 64
+    assert(incr <= 0xFFF);
+    emit_riscv_push(ctx, (1 << x6 | (1 << x7)));
+    riscv_copy_to_reg((uint16_t **)&ctx->code.write_p, x6, (uintptr_t)counter);
+    emit_riscv_ld(ctx, x7, x6, 0);
+    emit_riscv_addi(ctx, x7, x7, incr);
+    emit_riscv_sd(ctx, x7, x6, 0, 0);
+    emit_riscv_pop(ctx, (1 << x6 | (1 << x7)));
+  #else
+    #error increment 64 not implemented
+  #endif
+#endif
 }
 
 int emit_indirect_branch_by_spc(mambo_context *ctx, enum reg reg) {
 #ifdef __aarch64__
   // Uses fragment id 0 to prevent the dispatcher from attempting linking on an IHL miss
   a64_inline_hash_lookup(current_thread, 0, (uint32_t **)&ctx->code.write_p, ctx->code.read_address, reg, false, false);
-#else
+#elif __arm__
   switch(ctx->code.inst_type) {
     case ARM_INST:
       emit_push(ctx, (1 << r4) | (1 << 5) | (1 << 6));

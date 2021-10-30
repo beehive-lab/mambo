@@ -3,7 +3,7 @@
       https://github.com/beehive-lab/mambo
 
   Copyright 2016 Cosmin Gorgovan <cosmin at linux-geek dot org>
-  Copyright 2017 The University of Manchester
+  Copyright 2017-2021 The University of Manchester
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -34,8 +34,63 @@
   #include "../pie/pie-a64-decoder.h"
   #include "../pie/pie-a64-field-decoder.h"
 #endif
+#ifdef __riscv
+  #include "../pie/pie-riscv-decoder.h"
+  #include "../pie/pie-riscv-field-decoder.h"
+#endif
 
 #ifdef PLUGINS_NEW
+
+#ifdef __riscv
+mambo_branch_type __get_riscv_branch_type(mambo_context *ctx) {
+  mambo_branch_type type = BRANCH_NONE;
+  switch (ctx->code.inst) {
+    case RISCV_BEQ:
+    case RISCV_BNE:
+    case RISCV_BLT:
+    case RISCV_BGE:
+    case RISCV_BLTU:
+    case RISCV_BGEU:
+    case RISCV_C_BEQZ:
+    case RISCV_C_BNEZ:
+      type = BRANCH_DIRECT | RISCV_BRANCH | BRANCH_COND;
+      break;
+
+    case RISCV_C_J:
+      type = BRANCH_DIRECT | RISCV_JUMP;
+      break;
+
+    case RISCV_C_JAL:
+    case RISCV_JAL:
+      type = BRANCH_DIRECT | RISCV_JUMP | BRANCH_CALL;
+      break;
+
+    case RISCV_C_JR:
+      unsigned int rs1;
+      riscv_c_jr_decode_fields(ctx->code.read_address, &rs1);
+      type = BRANCH_INDIRECT | RISCV_JUMP;
+      if (rs1 == ra)
+        type |= BRANCH_RETURN;
+      break;
+
+    case RISCV_JALR: {
+      type = BRANCH_INDIRECT | RISCV_JUMP;
+      unsigned int rd, rs1, imm;
+      riscv_jalr_decode_fields(ctx->code.read_address, &rd, &rs1, &imm);
+      if (rs1 == ra)
+        type |= BRANCH_RETURN;
+      else 
+        type |= BRANCH_CALL;
+      break;
+    }
+    case RISCV_C_JALR: {
+    type = BRANCH_INDIRECT | RISCV_JUMP | BRANCH_CALL;
+      break;
+    }
+  }
+  return type;
+}
+#endif //riscv
 
 #ifdef __arm__
 mambo_branch_type __get_thumb_branch_type(mambo_context *ctx) {
@@ -211,19 +266,9 @@ mambo_branch_type __get_arm_branch_type(mambo_context *ctx) {
 }
 #endif // __arm__
 
-mambo_branch_type mambo_get_branch_type(mambo_context *ctx) {
-  mambo_branch_type type;
-
-#ifdef __arm__
-  if (mambo_get_inst_type(ctx) == THUMB_INST) {
-   type = __get_thumb_branch_type(ctx);
-  } else { // ARM
-    type = __get_arm_branch_type(ctx);
-  }
-#endif
-#ifdef __aarch64__
-  type = BRANCH_NONE;
-
+#ifdef __aarch64
+mambo_branch_type __get_aarch64_branch_type(mambo_context *ctx) {
+  mambo_branch_type type = BRANCH_NONE;
   switch (ctx->code.inst) {
     case A64_CBZ_CBNZ:
       type = BRANCH_DIRECT | BRANCH_COND | BRANCH_COND_CBZ;
@@ -254,6 +299,26 @@ mambo_branch_type mambo_get_branch_type(mambo_context *ctx) {
       break;
     }
   }
+}
+#endif
+
+mambo_branch_type mambo_get_branch_type(mambo_context *ctx) {
+  mambo_branch_type type;
+
+#ifdef __arm__
+  if (mambo_get_inst_type(ctx) == THUMB_INST) {
+   type = __get_thumb_branch_type(ctx);
+  } else { // ARM
+    type = __get_arm_branch_type(ctx);
+  }
+#endif
+
+#ifdef __riscv
+   type = __get_riscv_branch_type(ctx);
+#endif
+
+#ifdef __aarch64__
+  type = __get_aarch64_branch_type(ctx);
 #endif // __aarch64__
 
   return type;

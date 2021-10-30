@@ -3,7 +3,7 @@
       https://github.com/beehive-lab/mambo
 
   Copyright 2013-2016 Cosmin Gorgovan <cosmin at linux-geek dot org>
-  Copyright 2017-2020 The University of Manchester
+  Copyright 2017-2021 The University of Manchester
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -105,7 +105,11 @@ void _function_callback_wrapper(mambo_context *ctx, watched_func_t *func) {
   ctx->code.func_name = func->name;
 
   if (func->post_callback != NULL) {
-    emit_push(ctx, (1 << es) | (1 << lr));
+    #if defined __arm__ || __aarch64__
+      emit_push(ctx, (1 << es) | (1 << lr));
+    #elif defined __riscv
+      emit_push(ctx, (1 << x8) | (1 << ra));
+    #endif
   }
   if (func->pre_callback != NULL) {
     ctx->event_type = PRE_FN_C;
@@ -130,9 +134,17 @@ void _function_callback_wrapper(mambo_context *ctx, watched_func_t *func) {
     ctx->event_type = POST_FN_C;
     func->post_callback(ctx);
 
-    emit_pop(ctx, (1 << es) | (1 << lr));
+#if defined __arm__ || __aarch64__
+      emit_pop(ctx, (1 << es) | (1 << lr));
+#elif defined __riscv
+      emit_pop(ctx, (1 << x8) | (1 << ra));
+#endif
     // IHL(LR) - emulated return to the caller of malloc()
-    emit_indirect_branch_by_spc(ctx, lr);
+#if defined __arm__ || __aarch64__
+      emit_indirect_branch_by_spc(ctx, lr);
+#elif defined __riscv
+      #warning "Undefined for riscv"
+#endif
     emit_local_fcall(ctx, &fcall);
   }
 #endif
