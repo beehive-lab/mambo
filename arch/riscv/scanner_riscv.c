@@ -713,6 +713,7 @@ size_t scan_riscv(dbm_thread *thread_data, uint16_t *read_address,
           riscv_jal_decode_fields(read_address, &rd, &imm);
           const intptr_t offset = riscv_decode_j_imm(imm);
           const uintptr_t target = (uintptr_t)read_address + offset;
+          riscv_check_free_space(thread_data, &write_p, &data_p, BRANCH_FSPACE, basic_block);
           riscv_jump(thread_data, read_address, inst, basic_block, &write_p, rd, target);
 
           stop = true;
