@@ -31,6 +31,7 @@
 #include "../api/emit_a64.h"
 #elif __riscv
 #include "../pie/pie-riscv-encoder.h"
+#include "../api/emit_riscv.h"
 #endif
 
 #define not_implemented() \
