@@ -28,7 +28,7 @@
 #include "../../api/helpers.h"
 
 #define MIN_FSPACE 56
-#define BRANCH_FSPACE 96
+#define BRANCH_FSPACE 112
 
 //#define DEBUG
 #ifdef DEBUG
