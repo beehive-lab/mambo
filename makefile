@@ -9,6 +9,7 @@
 #PLUGINS+=plugins/symbol_example.c
 #PLUGINS+=plugins/memcheck/memcheck.S plugins/memcheck/memcheck.c plugins/memcheck/naive_stdlib.c
 #PLUGINS+=plugins/cnd_branch_print.c
+#PLUGINS+=plugins/uncnd_branch_print.c
 
 OPTS= -DDBM_LINK_UNCOND_IMM
 OPTS+=-DDBM_INLINE_UNCOND_IMM
