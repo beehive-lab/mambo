@@ -21,8 +21,9 @@ OPTS+=-DDBM_INLINE_HASH
 OPTS+=-DDBM_TRACES #-DTB_AS_TRACE_HEAD #-DBLXI_AS_TRACE_HEAD
 #OPTS+=-DCC_HUGETLB -DMETADATA_HUGETLB
 
+GIT_VERSION?=$(shell git describe --abbrev=8 --dirty --always || echo '\<nogit\>')
 CFLAGS+=-D_GNU_SOURCE -g -std=gnu99 -O2 -Wunused-variable
-CFLAGS+=-DGIT_VERSION=\"$(shell git describe --abbrev=8 --dirty --always || echo '\<nogit\>')\"
+CFLAGS+=-DGIT_VERSION=\"$(GIT_VERSION)\"
 
 LDFLAGS+=-static -ldl
 LIBS=-lelf -lpthread -lz
