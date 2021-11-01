@@ -34,6 +34,7 @@
 
 #include "dbm.h"
 #include "common.h"
+#include "info.h"
 #include "scanner_common.h"
 
 #include "elf/elf_loader.h"
@@ -601,13 +602,24 @@ void notify_vm_op(vm_op_t op, uintptr_t addr, size_t size, int prot, int flags, 
 #endif
 }
 
-void main(int argc, char **argv, char **envp) {
-  Elf *elf = NULL;
-  
+void parse_args(int argc, char **argv, char **envp) {
   if (argc < 2) {
-    printf("Syntax: dbm elf_file arguments\n");
+    usage(argv[0]);
     exit(EXIT_FAILURE);
+  } else if (!strcmp(argv[1], "--help")) {
+    usage(argv[0]);
+    exit(EXIT_SUCCESS);
+  } else if (!strcmp(argv[1], "--version")) {
+    version(true);
+    exit(EXIT_SUCCESS);
   }
+  return;
+}
+
+void main(int argc, char **argv, char **envp) {
+  parse_args(argc, argv, envp);
+
+  Elf *elf = NULL;
 
   global_data.argc = argc;
   global_data.argv = argv;
