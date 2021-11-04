@@ -407,17 +407,12 @@ void riscv_jump(dbm_thread *thread_data, uint16_t *read_address,
   *o_write_p = write_p;
 }
 
+#define CALC_RET_ADDR() ((uintptr_t)read_address + ((inst >= RISCV_LUI) ? 4 : 2))
+#define IS_CONTEXT_REG(reg) ((reg) == s1 || (reg) == a0 || (reg) == a1)
 void riscv_jump_register(dbm_thread *thread_data, uint16_t *read_address,
                          riscv_instruction inst, const int basic_block, uint16_t **o_write_p,
                          uint32_t rd, uint32_t rs1, uint32_t imm) {
   uint16_t *write_p = *o_write_p;
-
-  riscv_save_context(&write_p);
-
-  if (rd != zero) {
-    assert(rd != s1 && rd != a0 && rd != a1 && rs1 != rd);
-    riscv_copy_to_reg(&write_p, rd, (uintptr_t)read_address + ((inst >= RISCV_LUI) ? 4 : 2));
-  }
 
   thread_data->code_cache_meta[basic_block].exit_branch_type = jalr_riscv;
   thread_data->code_cache_meta[basic_block].exit_branch_addr = write_p;
@@ -425,8 +420,39 @@ void riscv_jump_register(dbm_thread *thread_data, uint16_t *read_address,
 #ifdef DBM_INLINE_HASH
   #warning Inline hash table lookup not implemented for RISCV
 #endif
+
+  if (rd != zero && rd != rs1) {
+    riscv_copy_to_reg(&write_p, rd, CALC_RET_ADDR());
+  }
+
+  riscv_save_context(&write_p);
+
+  /* Use a temporary register to generate the return address and
+     overwrite the value on the stack */
+  if (rd != zero && rd == rs1 && IS_CONTEXT_REG(rd)) {
+    int tmp = s1;
+    while(tmp == rd) tmp++;
+    riscv_copy_to_reg(&write_p, tmp, CALC_RET_ADDR());
+#if __riscv_xlen == 32
+    riscv_sw(&write_p, tmp, sp, 0, sizeof(uintptr_t) * (rd - s1));
+#elif __riscv_xlen == 64
+    riscv_sd(&write_p, tmp, sp, 0, sizeof(uintptr_t) * (rd - s1));
+#else
+    #error TODO: port riscv_jump_register()
+#endif
+    write_p += 2;
+    printf("Untested riscv_jump_register() case, attach GDB and check the output\n");
+    while(1);
+  }
+
   riscv_addi(&write_p, a0, rs1, imm);
   write_p += 2;
+
+  /* Safe to overwrite rs, we've already read rs1 */
+  if (rd != zero && rd == rs1 && !IS_CONTEXT_REG(rd)) {
+    riscv_copy_to_reg(&write_p, rd, CALC_RET_ADDR());
+  }
+
   riscv_copy_to_reg(&write_p, a1, basic_block);
   riscv_go_to_dispatcher(thread_data, &write_p);
 
