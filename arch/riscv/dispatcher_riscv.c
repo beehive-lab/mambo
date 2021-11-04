@@ -3,7 +3,7 @@
       https://github.com/beehive-lab/mambo
 
   Copyright 2020 Guillermo Callaghan <guillermocallaghan at hotmail dot com>
-  Copyright 2020 The University of Manchester
+  Copyright 2021 The University of Manchester
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -142,8 +142,12 @@ void dispatcher_riscv(dbm_thread *thread_data, uint32_t source_index, branch_typ
       break;
 #endif
 #ifdef DBM_LINK_UNCOND_IMM
-  #warning DBM_LINK_UNCOND_IMM not implemented for RISCV
     case jal_riscv:
+      dbm_code_cache_meta *bb_meta = &thread_data->code_cache_meta[source_index];
+      uint16_t *branch_addr = bb_meta->exit_branch_addr;
+      int ret = riscv_link_to(&branch_addr, block_address);
+      assert(ret == 0);
+      __clear_cache(bb_meta->exit_branch_addr, branch_addr);
       break;
 #endif
   }
