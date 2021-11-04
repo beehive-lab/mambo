@@ -3,7 +3,7 @@
       https://github.com/beehive-lab/mambo
 
   Copyright 2020 Guillermo Callaghan <guillermocallaghan at hotmail dot com>
-  Copyright 2020 The University of Manchester
+  Copyright 2020-2021 The University of Manchester
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@
 
 #include "dbm.h"
 #include "scanner_common.h"
+#include "../../api/helpers.h"
 
 #define MIN_FSPACE 56
 #define BRANCH_FSPACE 96
@@ -479,18 +480,6 @@ void riscv_cond_branch(dbm_thread *thread_data, uint16_t *read_address,
   *o_write_p = write_p;
 }
 
-bool riscv_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id,
-                                     uint16_t **o_read_address, riscv_instruction inst,
-                                     uint16_t **o_write_p, uint32_t **o_data_p,
-                                     int const basic_block, cc_type type,
-                                     bool allow_write, bool *stop) {
-#ifdef PLUGINS_NEW
-    // TODO: (riscv) PLUGINS_NEW
-    #error "PLUGINS not implemented"
-#endif
-  return false;
-}
-
 void riscv_check_free_space(dbm_thread *thread_data, uint16_t **write_p,
                           uint32_t **data_p, uint32_t size, int cur_block) {
   int basic_block;
@@ -507,6 +496,82 @@ void riscv_check_free_space(dbm_thread *thread_data, uint16_t **write_p,
     *data_p = (uint32_t *)&thread_data->code_cache->blocks[basic_block];
     *data_p += BASIC_BLOCK_SIZE;
   }
+}
+
+bool riscv_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id,
+                                     uint16_t **o_read_address, riscv_instruction inst,
+                                     uint16_t **o_write_p, uint32_t **o_data_p,
+                                     int const basic_block, cc_type type,
+                                     bool allow_write, bool *stop) {
+
+  bool replaced = false;
+#ifdef PLUGINS_NEW
+  if (global_data.free_plugin > 0) {
+    uint16_t *write_p = *o_write_p;
+    uint32_t *data_p = *o_data_p;
+    uint16_t *read_address = *o_read_address;
+
+    mambo_cond cond = AL;
+
+    mambo_context ctx;
+    set_mambo_context_code(&ctx, thread_data, cb_id, type, basic_block, RISCV_INST, inst, cond, read_address, write_p, data_p, stop);
+
+    for (int i = 0; i < global_data.free_plugin; i++) {
+      if (global_data.plugins[i].cbs[cb_id] != NULL) {
+        ctx.code.write_p = write_p;
+        ctx.code.data_p = data_p;
+        ctx.plugin_id = i;
+        ctx.code.replace = false;
+        ctx.code.available_regs = ctx.code.pushed_regs;
+        global_data.plugins[i].cbs[cb_id](&ctx);
+        if (allow_write) {
+          if (replaced && (write_p != ctx.code.write_p || ctx.code.replace)) {
+            fprintf(stderr, "MAMBO API WARNING: plugin %d added code for overridden"
+                            "instruction (%p).\n", i, read_address);
+          }
+          if (ctx.code.replace) {
+            if (cb_id == PRE_INST_C) {
+              replaced = true;
+            } else {
+              fprintf(stderr, "MAMBO API WARNING: plugin %d set replace_inst for "
+                              "a disallowed event (at %p).\n", i, read_address);
+            }
+          }
+          assert(count_bits(ctx.code.pushed_regs) == ctx.code.plugin_pushed_reg_count);
+          if (allow_write && ctx.code.pushed_regs) {
+            emit_pop(&ctx, ctx.code.pushed_regs);
+          }
+          write_p = ctx.code.write_p;
+          data_p = ctx.code.data_p;
+          riscv_check_free_space(thread_data, &write_p, &data_p, MIN_FSPACE, basic_block);
+        } else {
+          assert(ctx.code.write_p == write_p);
+          assert(ctx.code.data_p == data_p);
+        }
+      }
+    }
+
+    if (cb_id == PRE_BB_C) {
+      watched_functions_t *wf = &global_data.watched_functions;
+      for (int i = 0; i < wf->funcp_count; i++) {
+        if (read_address == wf->funcps[i].addr) {
+          _function_callback_wrapper(&ctx, wf->funcps[i].func);
+          if (ctx.code.replace) {
+            read_address = ctx.code.read_address;
+          }
+          write_p = ctx.code.write_p;
+          data_p = ctx.code.data_p;
+          riscv_check_free_space(thread_data, &write_p, &data_p, MIN_FSPACE, basic_block);
+        }
+      }
+    }
+
+    *o_write_p = write_p;
+    *o_data_p = data_p;
+    *o_read_address = read_address;
+  }
+#endif
+  return replaced;
 }
 
 size_t scan_riscv(dbm_thread *thread_data, uint16_t *read_address,
@@ -554,8 +619,6 @@ size_t scan_riscv(dbm_thread *thread_data, uint16_t *read_address,
     debug("  instruction word: 0x%x\n", *read_address);
 
 #ifdef PLUGINS_NEW
-    // TODO: (riscv) PLUGINS_NEW
-    #error "PLUGINS not implemented"
     bool skip_inst = riscv_scanner_deliver_callbacks(thread_data, PRE_INST_C, &read_address, inst,
                                                    &write_p, &data_p, basic_block, type, true, &stop);
     if (!skip_inst) {
@@ -911,6 +974,8 @@ size_t scan_riscv(dbm_thread *thread_data, uint16_t *read_address,
     if (!stop) {
       riscv_check_free_space(thread_data, &write_p, &data_p, MIN_FSPACE, basic_block);
     }
+
+    riscv_scanner_deliver_callbacks(thread_data, POST_INST_C, &read_address, inst, &write_p, &data_p, basic_block, type, !stop, &stop);
 
     if (inst < RISCV_LUI) {
       read_address++;
