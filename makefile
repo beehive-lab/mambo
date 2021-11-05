@@ -21,7 +21,7 @@ OPTS+=-DDBM_INLINE_HASH
 #OPTS+=-DCC_HUGETLB -DMETADATA_HUGETLB
 
 CFLAGS+=-D_GNU_SOURCE -g -std=gnu99 -O2
-CFLAGS+=-DGIT_VERSION=\"$(shell git describe --abbrev=8 --dirty --always)\"
+CFLAGS+=-DGIT_VERSION=\"$(shell git describe --abbrev=8 --dirty --always || echo '\<nogit\>')\"
 
 LDFLAGS+=-static -ldl
 LIBS=-lelf -lpthread -lz
