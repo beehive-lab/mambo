@@ -21,7 +21,7 @@ The main limitations
 News
 ----
 
-* 2021-09-21: We've released a partial port of MAMBO to RISC-V in the [riscv branch](tree/riscv), where development is continuing. The initial porting was done by Guillermo Callaghan and Cosmin Gorgovan.
+* 2021-09-21: We've released a partial port of MAMBO to RISC-V in the [riscv branch](https://github.com/beehive-lab/mambo/tree/riscv), where development is continuing. The initial porting was done by Guillermo Callaghan and Cosmin Gorgovan.
 * 2021-02-24: PhD opportunities related to MAMBO and security available. If interested, contact mikel.lujan at manchester.ac.uk with the subject *APT MAMBO PhD \[your surname\]*
 * 2020-03-16: We've presented (virtually) our VEE paper about AArch64 optimizations in MAMBO. The talk is [available on youtube](https://www.youtube.com/watch?v=3jxLu1zGpV0).
 * 2020-02-22: We've presented our CC paper about MAMBO's API (see *Publications* and *Plugin API* below) and the [`cachesim` (an online cache simulator)](/plugins/cachesim) and [`memcheck` (a memory error checker)](/plugins/memcheck) plugins. The slides are available [here](https://github.com/beehive-lab/mambo/releases/download/2/slides_mambo_cc20.pdf).
