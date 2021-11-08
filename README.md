@@ -18,6 +18,11 @@ The main limitations
   * many performance optimizations from Arm not ported yet
   * multithreading and signal support not implemented yet
 
+Authors:
+Guillermo Callaghan,
+Cosmin Gorgovan,
+John Kressel
+
 News
 ----
 
