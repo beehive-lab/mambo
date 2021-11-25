@@ -4,7 +4,7 @@
 
   Copyright 2013-2016 Cosmin Gorgovan <cosmin at linux-geek dot org>
   Copyright 2015-2020 Guillermo Callaghan <guillermocallaghan at hotmail dot com>
-  Copyright 2017-2020 The University of Manchester
+  Copyright 2017-2021 The University of Manchester
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -55,6 +55,7 @@ enum reg_alt {
   sp = r13,
   lr = r14,
   pc = r15
+  ra = r14
 };
 
 #define m_r0 (1 << r0)
@@ -126,6 +127,7 @@ enum reg_alt {
   lr   =  x30,  // Link register
   sp   =  x31,  // Stack Pointer
   xzr  =  x31,  // Zero Register
+  ra   =  x30   // Link Register (for RISC-V compatabilibty)
 };
 #endif
 
@@ -212,7 +214,9 @@ enum gp_reg_abi_name {
 };
 
 enum gp_reg_abi_name_alt {
-  fp   =   x8    // Frame Pointer
+  fp   =   x8,    // Frame Pointer
+  lr   =   ra,    // Return Address
+  es   =   s0     //First Callee Saved Register
 };
 
 #ifdef __riscv_fdiv
@@ -468,6 +472,7 @@ void copy_to_reg_32bit(uint16_t **write_p, enum reg reg, uint32_t value);
 #ifdef __riscv
 void riscv_push(uint16_t **o_write_p, uint32_t regs);
 void riscv_pop(uint16_t **o_write_p, uint32_t regs);
+void riscv_copy_to_reg(uint16_t **write_p, const enum reg reg, uintptr_t const value);
 #endif
 
 void init_plugin();

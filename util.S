@@ -392,6 +392,57 @@ safe_fcall_trampoline:
   LDP X8,  X9,  [SP], #128
 
   RET
+
+#elif __riscv
+
+#if __riscv_xlen == 32
+  addi sp, sp, -16
+  sw ra, 0(sp)
+  sw s0, 4(sp)
+  sw s1, 8(sp)
+  sw s2, 12(sp)
+#elif __riscv_xlen == 64
+  addi sp, sp, -32
+  sd ra, 0(sp)
+  sd s0, 8(sp)
+  sd s1, 16(sp)
+  sd s2, 24(sp)
+#endif
+
+  jal ra, push_caller_saved_registers
+#if __riscv_flen
+  jal ra, push_fp
+#endif
+
+  frcsr s0
+  frflags s1
+  frrm s2
+
+  jalr ra, a7
+
+  fscsr s0
+  fsflags s1
+  fsrm s2
+
+#if __riscv_flen
+  jal ra, pop_fp
+#endif
+  jal ra, pop_caller_saved_registers
+
+#if __riscv_xlen == 32
+  sw ra, 0(sp)
+  sw s0, 4(sp)
+  sw s1, 8(sp)
+  sw s2, 12(sp)
+  addi sp, sp, 16
+#elif __riscv_xlen == 64
+  ld ra, 0(sp)
+  ld s0, 8(sp)
+  ld s1, 16(sp)
+  ld s2, 24(sp)
+  addi sp, sp, 32
+#endif
+  ret
 #endif
 
 .endfunc

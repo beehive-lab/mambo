@@ -33,6 +33,7 @@ start_of_dispatcher_s:
    #error "Risc-V 128-bit no implemented"
 #endif
 
+.global push_caller_saved_registers
 push_caller_saved_registers:
   addi    sp, sp, -(12 * GP_REG_SIZE)
   STR     a3,  0 * GP_REG_SIZE(sp)
@@ -49,6 +50,7 @@ push_caller_saved_registers:
   STR     t6, 11 * GP_REG_SIZE(sp)
   ret
 
+.global pop_caller_saved_registers
 pop_caller_saved_registers:
   LDR     a3,  0 * GP_REG_SIZE(sp)
   LDR     a4,  1 * GP_REG_SIZE(sp)
@@ -78,6 +80,7 @@ pop_caller_saved_registers:
 #endif
 #define FP_FRAME_SZ (FP_REG_SIZE * 32)
 
+.global push_fp
 push_fp:
   addi    sp,  sp, -FP_FRAME_SZ
   FSTR    f0,  0  * FP_REG_SIZE(sp)
@@ -114,6 +117,7 @@ push_fp:
   FSTR   f31, 31  * FP_REG_SIZE(sp)
   ret
 
+.global pop_fp
 pop_fp:
   FLDR    f0,  0  * FP_REG_SIZE(sp)
   FLDR    f1,  1  * FP_REG_SIZE(sp)
