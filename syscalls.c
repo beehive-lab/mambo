@@ -30,6 +30,7 @@
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/shm.h>
+#include <inttypes.h>
 
 #include "dbm.h"
 #include "kernel_sigaction.h"
@@ -321,42 +322,43 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
        as a safeguard in case a translation bug causes a branch to unmodified application code.
        Page permissions happen to be passed in the third argument both for mmap and mprotect. */
 #ifdef __arm__
-    case __NR_mmap2: {
+    case __NR_mmap2:
 #endif
 #ifdef __aarch64__
-    case __NR_mmap: {
+    case __NR_mmap:
 #endif
+    case __NR_mprotect: {
       uintptr_t syscall_ret, prot = args[2];
 
       /* Ensure that code pages are readable by the code scanner. */
       if (args[2] & PROT_EXEC) {
-        assert(args[2] & PROT_READ);
+        if (!(args[2] & PROT_READ)) {
+          debug("MAMBO: adding read permission to executable mapping at 0x%" PRIxPTR "\n", args[0]);
+          args[2] |= PROT_READ;
+        }
         args[2] &= ~PROT_EXEC;
       }
-      syscall_ret = raw_syscall(syscall_no, args[0], args[1], args[2], args[3], args[4], args[5]);
-      if (syscall_ret <= -ERANGE) {
-        uintptr_t start = align_lower(syscall_ret, PAGE_SIZE);
-        uintptr_t end = align_higher(syscall_ret + args[1], PAGE_SIZE);
-        notify_vm_op(VM_MAP, start, end-start, prot, args[3], args[4], args[5]);
-      }
 
-      args[0] = syscall_ret;
-      do_syscall = 0;
-      break;
-    }
-    case __NR_mprotect: {
-      int ret;
-      uintptr_t syscall_ret, prot = args[2];
+#ifdef __arm__
+      if (syscall_no == __NR_mmap2) {
+#elif __aarch64__
+      if (syscall_no == __NR_mmap) {
+#endif
+        syscall_ret = raw_syscall(syscall_no, args[0], args[1], args[2], args[3], args[4], args[5]);
+        if (syscall_ret <= -ERANGE) {
+          uintptr_t start = align_lower(syscall_ret, PAGE_SIZE);
+          uintptr_t end = align_higher(syscall_ret + args[1], PAGE_SIZE);
+          notify_vm_op(VM_MAP, start, end-start, prot, args[3], args[4], args[5]);
+        }
+      } else {
+        assert(syscall_no == __NR_mprotect);
 
-      if (args[2] & PROT_EXEC) {
-        assert(args[2] & PROT_READ);
-        args[2] &= ~PROT_EXEC;
-      }
-      syscall_ret = raw_syscall(syscall_no, args[0], args[1], args[2]);
-      if (syscall_ret == 0) {
-        uintptr_t start = align_lower(args[0], PAGE_SIZE);
-        uintptr_t end = align_higher(args[0] + args[1], PAGE_SIZE);
-        notify_vm_op(VM_PROT, start, end-start, args[2], 0, -1, 0);
+        syscall_ret = raw_syscall(syscall_no, args[0], args[1], args[2]);
+        if (syscall_ret == 0) {
+          uintptr_t start = align_lower(args[0], PAGE_SIZE);
+          uintptr_t end = align_higher(args[0] + args[1], PAGE_SIZE);
+          notify_vm_op(VM_PROT, start, end-start, args[2], 0, -1, 0);
+        }
       }
 
       args[0] = syscall_ret;
