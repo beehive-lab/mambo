@@ -49,7 +49,6 @@ extern void *__ehdr_start;
 void load_segment(uintptr_t base_addr, ELF_PHDR *phdr, int fd, Elf32_Half type, bool is_interp) {
   uint32_t *mem;
   int prot = 0;
-  unsigned long pos;
   uintptr_t aligned_vaddr, aligned_fsize, aligned_msize, page_offset, map_file_end;
 
   /*if (phdr->p_flags & PF_X) {
@@ -120,7 +119,6 @@ int load_elf(char *filename, Elf **ret_elf, struct elf_loader_auxv *auxv, uintpt
   ELF_PHDR *phdr;
   char interp[256];
   errno = 0;
-  char *tmpmem;
   size_t phnum;
 
   fd = open(filename, O_RDONLY);

@@ -577,9 +577,9 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
   enum reg spilled_reg;
 
   uint64_t imm;
-  uint32_t immlo, immhi, imm14, imm16, imm19, imm26;
+  uint32_t immlo, immhi, imm19, imm26;
   uint32_t CRn, CRm, Rd, Rn, Rt;
-  uint32_t b5, b40, cond, hw, o0, op, op1, op2, opc, R, sf, V;
+  uint32_t cond, o0, op, op1, op2, opc, R, V;
 
   uint64_t branch_offset;
   uint64_t PC_relative_address;

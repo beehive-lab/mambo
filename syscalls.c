@@ -486,8 +486,6 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
 }
 
 void syscall_handler_post(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_inst, dbm_thread *thread_data) {
-  dbm_thread *new_thread_data;
-  
   debug("syscall post %d\n", syscall_no);
 
   if (global_data.exit_group) {

@@ -114,7 +114,7 @@ bool unlink_indirect_branch(dbm_code_cache_meta *bb_meta, void **o_write_p) {
   int br_inst_type, trap_inst_type;
   inst_decoder decoder;
   void *write_p = *o_write_p;
-  bool is_thumb = false;
+  bool __attribute__((unused)) is_thumb = false;
 #ifdef __arm__
   if (bb_meta->exit_branch_type == uncond_reg_thumb) {
     is_thumb = true;
@@ -180,7 +180,7 @@ int get_direct_branch_exit_trap_sz(dbm_code_cache_meta *bb_meta, int fragment_id
 
 bool unlink_direct_branch(dbm_code_cache_meta *bb_meta, void **o_write_p, int fragment_id, uintptr_t pc) {
   int offset = 0;
-  bool is_thumb = false;
+  bool __attribute__((unused)) is_thumb = false;
   void *write_p = *o_write_p;
 
   offset = get_direct_branch_exit_trap_sz(bb_meta, fragment_id);

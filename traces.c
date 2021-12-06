@@ -95,7 +95,6 @@ int allocate_trace_fragment(dbm_thread *thread_data) {
 uint32_t scan_trace(dbm_thread *thread_data, void *address, cc_type type, int *set_trace_id) {
   size_t fragment_len;
   uint8_t *write_p = thread_data->active_trace.write_p;
-  unsigned long thumb = (unsigned long)address & THUMB;
   int trace_id = allocate_trace_fragment(thread_data);
   if (set_trace_id != NULL) {
     *set_trace_id = trace_id;
@@ -108,6 +107,7 @@ uint32_t scan_trace(dbm_thread *thread_data, void *address, cc_type type, int *s
   thread_data->code_cache_meta[trace_id].branch_cache_status = 0;
 
 #ifdef __arm__
+  unsigned long thumb = (unsigned long)address & THUMB;
   if (thumb) {
     fragment_len = scan_t32(thread_data, (uint16_t *)(((uint32_t)address)-1), trace_id, type, (uint16_t*)write_p);
   } else {
@@ -243,7 +243,10 @@ void install_trace(dbm_thread *thread_data) {
   int bb_source = thread_data->active_trace.source_bb;
   uintptr_t spc = (uintptr_t)thread_data->code_cache_meta[bb_source].source_addr;
   uintptr_t tpc = thread_data->active_trace.entry_addr;
+#ifdef __arm__
   uintptr_t tpc_direct = adjust_cc_entry(tpc);
+#endif
+
   assert(thread_data->active_trace.active);
   thread_data->active_trace.active = false;
 
@@ -467,18 +470,8 @@ void create_trace(dbm_thread *thread_data, uint32_t bb_source, cc_addr_pair *ret
 #ifdef DBM_TRACES
   uint16_t *source_addr;
   uint32_t fragment_len;
-  ll_entry *cc_link;
-  uintptr_t orig_addr;
   int trace_id;
   uintptr_t trace_entry;
-
-#ifdef __arm__
-  uint16_t *bb_addr = (uint16_t *)&thread_data->code_cache->blocks[bb_source];
-  bool is_thumb;
-#endif
-#ifdef __aarch64__
-  uint32_t  *bb_addr = (uint32_t *)&thread_data->code_cache->blocks[bb_source];
-#endif
 
   thread_data->trace_fragment_count = 0;
 #ifdef __arm__
@@ -502,7 +495,7 @@ void create_trace(dbm_thread *thread_data, uint32_t bb_source, cc_addr_pair *ret
     source_addr = thread_data->code_cache_meta[bb_source].source_addr;
     ret_addr->spc = (uintptr_t)source_addr;
 #ifdef __arm__
-    is_thumb = (uintptr_t)source_addr & THUMB;
+    bool is_thumb = (uintptr_t)source_addr & THUMB;
 #endif
 
     /* Alignment doesn't seem to make much of a difference */

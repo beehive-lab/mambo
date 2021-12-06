@@ -232,12 +232,6 @@ uintptr_t scan(dbm_thread *thread_data, uint16_t *address, int basic_block) {
   block_size = scan_a64(thread_data, (uint32_t *)address, basic_block, mambo_bb, NULL);
 #endif
 
-#ifdef __arm__
-  inst_set inst_type = thumb ? THUMB_INST : ARM_INST;
-#elif __aarch64__
-  inst_set inst_type = A64_INST;
-#endif
-
   // Flush modified instructions from caches
   // End address is exclusive
   if (thread_data->free_block < basic_block) {
