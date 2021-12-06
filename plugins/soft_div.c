@@ -30,8 +30,6 @@
 #include <stdio.h>
 #include <assert.h>
 #include "../plugins.h"
-#include "../pie/pie-arm-field-decoder.h"
-#include "../pie/pie-thumb-field-decoder.h"
 
 #define DEBUG
 
@@ -67,7 +65,7 @@ int soft_div_pre_inst(mambo_context *ctx) {
         mambo_set_cc_addr(ctx, tr_start + 4);
       }
 
-      arm_divide_decode_fields(ctx->read_address, &opcode, &rd, &rn, &rm);
+      arm_divide_decode_fields(mambo_get_source_addr(ctx), &opcode, &rd, &rn, &rm);
       assert(rd != sp && rn != sp && rm != sp);
 
       debug("Replacing A32 %sdiv from %p at: %p\n", (inst == ARM_SDIV) ? "s" : "u",
@@ -109,7 +107,7 @@ int soft_div_pre_inst(mambo_context *ctx) {
         mambo_set_cc_addr(ctx, tr_start + 2);
       }
 
-      thumb_sdiv32_decode_fields(ctx->read_address, &rn, &rd, &rm);
+      thumb_sdiv32_decode_fields(mambo_get_source_addr(ctx), &rn, &rd, &rm);
       assert(rd != sp && rn != sp && rm != sp);
 
       debug("Replacing T32 %sdiv from %p at: %p\n", (inst == THUMB_SDIV32) ? "s" : "u",
