@@ -145,7 +145,7 @@ uintptr_t emulate_brk(uintptr_t addr) {
       vm_op_t op = VM_MAP;
       size_t size = addr - global_data.brk;
       if (addr < global_data.brk) {
-        vm_op_t op = VM_UNMAP;
+        op = VM_UNMAP;
         size = global_data.brk - addr;
       }
       notify_vm_op(op, min(addr, global_data.brk), size, PROT_READ | PROT_WRITE,
