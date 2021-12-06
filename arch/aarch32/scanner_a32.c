@@ -130,12 +130,7 @@ void arm_branch_save_context(dbm_thread *thread_data, uint32_t **o_write_p, bool
 void arm_branch_jump(dbm_thread *thread_data, uint32_t **o_write_p, int basic_block,
                      uint32_t offset, uint32_t *read_address, uint32_t cond, uint32_t flags) {
   uint32_t *write_p = *o_write_p;
-  
   int32_t  branch_offset;
-  
-  uint32_t *scratch_data;
-  uint32_t scratch_offset;
-  uint32_t condition_code = 0xE0000000;
 
   debug("ARM branch: read_addr: %p, offset: 0x%x\n", read_address, offset);
 
@@ -345,7 +340,7 @@ bool inline_uncond_imm(dbm_thread *thread_data, bool insert_branch, uint32_t **w
 }
 
 void pass1_arm(dbm_thread *thread_data, uint32_t *read_address, branch_type *bb_type) {
-  uint32_t null, reglist, rd, dn, imm, offset;
+  uint32_t null, reglist, rd, offset;
   int32_t branch_offset;
   *bb_type = unknown;
   int inlined_back_count = 0;
@@ -542,14 +537,11 @@ void arm_ihl_tr_rn_rm(uint32_t **o_write_p, uint32_t *read_address, uint32_t ava
 size_t scan_a32(dbm_thread *thread_data, uint32_t *read_address, int basic_block, cc_type type, uint32_t *write_p) {
   bool stop = false;
 
-  uint32_t *scratch_data;
-  uint32_t scratch_offset;
   uint32_t condition_code;
   uint32_t scratch_reg;
-  
+
   int32_t  branch_offset;
   uint32_t target;
-  uint32_t return_addr;
   uint32_t *tr_start;
   uint32_t *start_scan = read_address, *bb_entry = read_address;
 
@@ -823,7 +815,6 @@ size_t scan_a32(dbm_thread *thread_data, uint32_t *read_address, int basic_block
       
       case ARM_LDM: {
         uint32_t rn, registers, prepostindex, updown, writeback, psr;
-        int ret;
         arm_ldm_decode_fields(read_address, &rn, &registers, &prepostindex, &updown, &writeback, &psr);
         assert(rn != pc);
 

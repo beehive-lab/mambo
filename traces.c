@@ -494,9 +494,6 @@ void create_trace(dbm_thread *thread_data, uint32_t bb_source, cc_addr_pair *ret
 #endif
     source_addr = thread_data->code_cache_meta[bb_source].source_addr;
     ret_addr->spc = (uintptr_t)source_addr;
-#ifdef __arm__
-    bool is_thumb = (uintptr_t)source_addr & THUMB;
-#endif
 
     /* Alignment doesn't seem to make much of a difference */
     thread_data->trace_cache_next += (TRACE_ALIGN -

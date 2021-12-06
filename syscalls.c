@@ -191,7 +191,6 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
 
 #ifdef PLUGINS_NEW
   mambo_context ctx;
-  int cont;
 
   if (global_data.free_plugin > 0) {
     set_mambo_context_syscall(&ctx, thread_data, PRE_SYSCALL_C, syscall_no, args);
