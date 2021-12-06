@@ -47,10 +47,6 @@ void dispatcher(uintptr_t target, uint32_t source_index, uintptr_t *next_addr, d
   bool        cached;
   branch_type source_branch_type;
 
-#ifdef __aarch64__
-  uint32_t *branch_addr;
-#endif // __arch64__
-
 /* It's essential to copy exit_branch_type before calling lookup_or_scan
      because when scanning a stub basic block the source block and its
      meta-information get overwritten */

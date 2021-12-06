@@ -118,12 +118,6 @@ uint32_t scan_trace(dbm_thread *thread_data, void *address, cc_type type, int *s
   fragment_len = scan_a64(thread_data, (uint32_t *)address, trace_id, type, (uint32_t*)write_p);
 #endif
 
-#ifdef __arm__
-  inst_set inst_type = thumb ? THUMB_INST : ARM_INST;
-#elif __aarch64__
-  inst_set inst_type = A64_INST;
-#endif
-
   __clear_cache(write_p, write_p + fragment_len);
 
   thread_data->trace_fragment_count++;
