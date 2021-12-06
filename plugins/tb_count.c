@@ -18,6 +18,7 @@
 */
 
 #ifdef PLUGINS_NEW
+#ifdef __arm__
 
 #include <stdio.h>
 #include <assert.h>
@@ -84,4 +85,8 @@ __attribute__((constructor)) void tb_init_plugin() {
   
   setlocale(LC_NUMERIC, "");
 }
+
+#else // __arm__
+  #error The tb_count plugin is only available for AArch32 because the table branch instructions are only available on this architecture
+#endif
 #endif

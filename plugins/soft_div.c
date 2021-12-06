@@ -25,6 +25,8 @@
 */
 
 #ifdef PLUGINS_NEW
+#ifdef __arm__
+
 #include <stdio.h>
 #include <assert.h>
 #include "../plugins.h"
@@ -150,4 +152,7 @@ __attribute__((constructor)) void init_plugin() {
   mambo_register_pre_inst_cb(ctx, &soft_div_pre_inst);
 }
 
+#else // __arm__
+  #error The soft_div plugin is only implemented for AArch32
 #endif
+#endif // PLUGINS_NEW
