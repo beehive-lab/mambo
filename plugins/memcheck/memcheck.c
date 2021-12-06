@@ -241,9 +241,9 @@ void __memcheck_inst_aarch64(mambo_context *ctx, int size) {
 
 // Pattern matching accesses which cause false positives
 bool memcheck_should_ignore(mambo_context *ctx) {
-  uint32_t iw = *(uint32_t *)mambo_get_source_addr(ctx);
 #ifdef __aarch64__
   #ifdef MC_IGNORE_LIST
+  uint32_t iw = *(uint32_t *)mambo_get_source_addr(ctx);
   if (iw == 0x4cdfa041 ||  // strchr
       iw == 0x4cdfa061 ||  // memchr
       iw == 0xa9410c22 ||  // strlen + 0x70
@@ -559,7 +559,7 @@ void __memcheck_mark_valid(uintptr_t addr, size_t size) {
 
 size_t memcheck_malloc_usable_size(uintptr_t ptr) {
   uintptr_t alloc_size = 0;
-  int ret = mambo_ht_get(&allocs, ptr, &alloc_size);
+  mambo_ht_get(&allocs, ptr, &alloc_size);
   return alloc_size;
 }
 
