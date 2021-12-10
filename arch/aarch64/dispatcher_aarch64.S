@@ -172,9 +172,13 @@ create_trace_trampoline:
 
   BL pop_x4_x21
   /* Stack layout:
-     X29, X30
-     TPC  SPC
-     X2, X3 */
+   * SP ->| X29 | X30 | SP + 0
+   *      | TPC | SPC | SP + 16
+   *      | X2  | X3  | SP + 32
+   *      ---------------------
+   *      | X0  | X1  | SP + 48 (Pushed by the basic block
+   *                             and popped in the newly created trace)
+   */
   LDP  X0,  X1, [SP, #16]
   LDP  X2,  X3, [SP, #32]
   LDP X29, X30, [SP], #48
