@@ -75,7 +75,7 @@ uintptr_t active_trace_lookup_or_scan(dbm_thread *thread_data, uintptr_t target)
   if (target == spc) {
     return adjust_cc_entry(thread_data->active_trace.entry_addr);
   }
-  return lookup_or_scan(thread_data, target, NULL);
+  return lookup_or_scan(thread_data, target);
 }
 
 uintptr_t active_trace_lookup_or_stub(dbm_thread *thread_data, uintptr_t target) {
@@ -503,7 +503,7 @@ void create_trace(dbm_thread *thread_data, uint32_t bb_source, cc_addr_pair *ret
         || thread_data->trace_id >= (CODE_CACHE_SIZE + TRACE_FRAGMENT_NO - TRACE_FRAGMENT_OVERP)) {
       fprintf(stderr, "trace cache full, flushing the CC\n");
       flush_code_cache(thread_data);
-      ret_addr->tpc = lookup_or_scan(thread_data, (uintptr_t)source_addr, NULL);
+      ret_addr->tpc = lookup_or_scan(thread_data, (uintptr_t)source_addr);
       return;
     }
 
@@ -676,7 +676,7 @@ void trace_dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_in
     case tbh:
     case tbb:
     case uncond_reg_arm:
-      *next_addr = lookup_or_scan(thread_data, target, NULL);
+      *next_addr = lookup_or_scan(thread_data, target);
       return;
 
       break;
@@ -705,7 +705,7 @@ void trace_dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_in
       bb_meta->branch_cache_status = BRANCH_LINKED;
       break;
     case uncond_branch_reg:
-      *next_addr = lookup_or_scan(thread_data, target, NULL);
+      *next_addr = lookup_or_scan(thread_data, target);
       return;
       break;
 #endif
@@ -719,7 +719,7 @@ void trace_dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_in
 
   // If the CC was flushed to generate exits, then abort the active trace
   if (thread_data->was_flushed) {
-    *next_addr = lookup_or_scan(thread_data, target, NULL);
+    *next_addr = lookup_or_scan(thread_data, target);
     return;
   }
 

@@ -65,7 +65,7 @@ void dispatcher(uintptr_t target, uint32_t source_index, uintptr_t *next_addr, d
 
   debug("Reached the dispatcher, target: 0x%x, ret: %p, src: %d thr: %p\n", target, next_addr, source_index, thread_data);
   thread_data->was_flushed = false;
-  block_address = lookup_or_scan(thread_data, target, &cached);
+  block_address = lookup_or_scan_with_cached(thread_data, target, &cached);
   if (cached) {
     debug("Found block from %d for 0x%x in cache at 0x%x\n", source_index, target, block_address);
   } else {

@@ -97,30 +97,36 @@ uintptr_t cc_lookup(dbm_thread *thread_data, uintptr_t target) {
   return adjust_cc_entry(addr);
 }
 
-uintptr_t lookup_or_scan(dbm_thread *thread_data, uintptr_t target, bool *cached) {
-  uintptr_t block_address;
-  bool from_cache = true;
-  uintptr_t basic_block;
-  
+inline uintptr_t _lookup_or_scan(dbm_thread * const thread_data,
+                                 const uintptr_t target,
+                                 bool * const cached) {
+  bool from_cache = false;
   debug("Thread_data: %p\n", thread_data);
-  
-  block_address = cc_lookup(thread_data, target);
 
-  if (block_address == UINT_MAX) {
-    from_cache = false;
-    block_address = scan(thread_data, (uint16_t *)target, ALLOCATE_BB);
-  } else {
-    basic_block = ((uintptr_t)block_address - (uintptr_t)(thread_data->code_cache)) >> 8;
-    if (thread_data->code_cache_meta[basic_block].exit_branch_type == stub) {
-      block_address = scan(thread_data, (uint16_t *)target, basic_block);
-    }
+  const uintptr_t block_address = cc_lookup(thread_data, target);
+  int basic_block = ALLOCATE_BB;
+  if (block_address != UINT_MAX) {
+    from_cache = true;
+    basic_block = addr_to_bb_id(thread_data, block_address);
+    if (thread_data->code_cache_meta[basic_block].exit_branch_type != stub)
+        return block_address;
   }
-  
+
   if (cached != NULL) {
     *cached = from_cache;
   }
-  
-  return block_address;
+
+  return scan(thread_data, (uint16_t *)target, basic_block);
+}
+
+uintptr_t lookup_or_scan(dbm_thread * const thread_data, const uintptr_t target) {
+    return lookup_or_scan_with_cached(thread_data, target, NULL);
+}
+
+inline uintptr_t lookup_or_scan_with_cached(dbm_thread * const thread_data,
+                                            const uintptr_t target,
+                                            bool *const cached) {
+    return _lookup_or_scan(thread_data, target, cached);
 }
 
 int allocate_bb(dbm_thread *thread_data) {
