@@ -533,7 +533,7 @@ uintptr_t signal_dispatcher(int i, siginfo_t *info, void *context) {
   }
 
   if (deliver_now) {
-    handler = lookup_or_scan(current_thread, global_data.signal_handlers[i], NULL);
+    handler = lookup_or_scan(current_thread, global_data.signal_handlers[i]);
     return handler;
   }
 
@@ -655,7 +655,7 @@ uintptr_t signal_dispatcher(int i, siginfo_t *info, void *context) {
     }
 
     cont->pc_field = 0;
-    handler = lookup_or_scan(current_thread, handler, NULL);
+    handler = lookup_or_scan(current_thread, handler);
     return handler;
   }
 

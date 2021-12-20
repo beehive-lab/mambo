@@ -317,7 +317,10 @@ void init_thread(dbm_thread *thread_data);
 void reset_process(dbm_thread *thread_data);
 
 uintptr_t cc_lookup(dbm_thread *thread_data, uintptr_t target);
-uintptr_t lookup_or_scan(dbm_thread *thread_data, uintptr_t target, bool *cached);
+uintptr_t lookup_or_scan(dbm_thread * const thread_data, uintptr_t target);
+uintptr_t lookup_or_scan_with_cached(dbm_thread * const thread_data,
+                                     const uintptr_t target,
+                                     bool * const cached);
 uintptr_t lookup_or_stub(dbm_thread *thread_data, uintptr_t target);
 uintptr_t scan(dbm_thread *thread_data, uint16_t *address, int basic_block);
 uint32_t scan_a32(dbm_thread *thread_data, uint32_t *read_address, int basic_block, cc_type type, uint32_t *write_p);
