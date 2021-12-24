@@ -264,11 +264,7 @@ void install_trace(dbm_thread *thread_data) {
       arm_adjust_b_bl_target((uintptr_t *)orig_branch, tpc_direct);
     }
 #elif __aarch64__
-    if (orig_branch >= (uintptr_t)thread_data->code_cache->traces) {
-      patch_trace_branches(thread_data, (uint32_t *)orig_branch, tpc + 4);
-    } else {
-      a64_b_helper((uint32_t *)orig_branch, tpc + 4);
-    }
+    patch_trace_branches(thread_data, (uint32_t *)orig_branch, tpc + 4);
 #endif
     cc_link = cc_link->next;
     __clear_cache((void *)orig_branch, (void *)orig_branch + 4);
