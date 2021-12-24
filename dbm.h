@@ -335,10 +335,11 @@ void sigret_dispatcher_call(dbm_thread *thread_data, ucontext_t *cont, uintptr_t
 void thumb_encode_stub_bb(dbm_thread *thread_data, int basic_block, uint32_t target);
 void arm_encode_stub_bb(dbm_thread *thread_data, int basic_block, uint32_t target);
 
-int addr_to_bb_id(dbm_thread *thread_data, uintptr_t addr);
-int addr_to_fragment_id(dbm_thread *thread_data, uintptr_t addr);
+int addr_to_bb_id(dbm_thread * const thread_data, const uintptr_t addr);
+int addr_to_fragment_id(dbm_thread * const thread_data, const uintptr_t addr);
 void record_cc_link(dbm_thread *thread_data, uintptr_t linked_from, uintptr_t linked_to_addr);
-bool is_bb(dbm_thread *thread_data, uintptr_t addr);
+bool is_bb(dbm_thread * const thread_data, const uintptr_t addr);
+
 void install_system_sig_handlers();
 
 #define MAP_INTERP (0x40000000)
