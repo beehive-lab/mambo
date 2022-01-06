@@ -154,9 +154,9 @@ create_trace_trampoline:
   MRS X21, FPSR
 
   /*
-   * create_trace (dbm_thread *thread_data,   X0
-   *               uint32_t    bb_source,     X1
-   *               uint32_t   *trace_addr)    X2
+   * create_trace(dbm_thread   *thread_data,   X0
+   *              uint32_t      bb_source,     X1
+   *              cc_addr_pair *trace_addr)    X2
    */
   ADD X2, SP, #160
   LDR X0, disp_thread_data
