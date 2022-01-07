@@ -20,15 +20,17 @@
 */
 
 #include <stdio.h>
-#include <limits.h>
 
 #include "dbm.h"
 #include "scanner_common.h"
 #ifdef __arm__
-#include "pie/pie-thumb-encoder.h"
-#include "pie/pie-arm-encoder.h"
+void dispatcher_aarch32(dbm_thread *thread_data, uint32_t source_index,
+                        branch_type exit_type, uintptr_t target,
+                        uintptr_t block_address);
 #elif __aarch64__
-#include "pie/pie-a64-encoder.h"
+void dispatcher_aarch64(dbm_thread *thread_data, uint32_t source_index,
+                        branch_type exit_type, uintptr_t target,
+                        uintptr_t block_address);
 #endif
 
 #ifdef DEBUG
@@ -37,21 +39,14 @@
   #define debug(...)
 #endif
 
-void dispatcher_aarch32(dbm_thread *thread_data, uint32_t source_index, branch_type exit_type,
-                        uintptr_t target, uintptr_t block_address);
-void dispatcher_aarch64(dbm_thread *thread_data, uint32_t source_index, branch_type exit_type,
-                        uintptr_t target, uintptr_t block_address);
-
-void dispatcher(uintptr_t target, uint32_t source_index, uintptr_t *next_addr, dbm_thread *thread_data) {
-  uintptr_t   block_address;
-  bool        cached;
-  branch_type source_branch_type;
-
+void dispatcher(const uintptr_t target, const uint32_t source_index,
+                uintptr_t * const next_addr, dbm_thread * const thread_data) {
 /* It's essential to copy exit_branch_type before calling lookup_or_scan
      because when scanning a stub basic block the source block and its
      meta-information get overwritten */
   debug("Source block index: %d\n", source_index);
-  source_branch_type = thread_data->code_cache_meta[source_index].exit_branch_type;
+  branch_type source_branch_type =
+                    thread_data->code_cache_meta[source_index].exit_branch_type;
 
 #ifdef DBM_TRACES
   // Handle trace exits separately
@@ -63,16 +58,22 @@ void dispatcher(uintptr_t target, uint32_t source_index, uintptr_t *next_addr, d
   }
 #endif
 
-  debug("Reached the dispatcher, target: 0x%x, ret: %p, src: %d thr: %p\n", target, next_addr, source_index, thread_data);
+  debug("Reached the dispatcher, target: 0x%x, ret: %p, src: %d thr: %p\n",
+        target, next_addr, source_index, thread_data);
   thread_data->was_flushed = false;
-  block_address = lookup_or_scan_with_cached(thread_data, target, &cached);
-  if (cached) {
-    debug("Found block from %d for 0x%x in cache at 0x%x\n", source_index, target, block_address);
-  } else {
-    debug("Scanned at 0x%x for 0x%x\n", block_address, target);
-  }
 
-  *next_addr = block_address;
+#ifdef DEBUG
+  bool cached;
+  *next_addr = lookup_or_scan_with_cached(thread_data, target, &cached);
+  if (cached) {
+    debug("Found block from %d for 0x%x in cache at 0x%x\n",
+          source_index, target, *next_addr);
+  } else {
+    debug("Scanned at 0x%x for 0x%x\n", *next_addr, target);
+  }
+#else
+   *next_addr = lookup_or_scan(thread_data, target);
+#endif
 
   // Bypass any linking
   if (source_index == 0 || thread_data->was_flushed) {
@@ -80,9 +81,11 @@ void dispatcher(uintptr_t target, uint32_t source_index, uintptr_t *next_addr, d
   }
 
 #ifdef __arm__
-  dispatcher_aarch32(thread_data, source_index, source_branch_type, target, block_address);
+  dispatcher_aarch32(thread_data, source_index, source_branch_type, target,
+                     *next_addr);
 #endif
 #ifdef __aarch64__
-  dispatcher_aarch64(thread_data, source_index, source_branch_type, target, block_address);
+  dispatcher_aarch64(thread_data, source_index, source_branch_type, target,
+                     *next_addr);
 #endif
 }
