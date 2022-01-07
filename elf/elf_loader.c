@@ -49,9 +49,11 @@ void load_segment(uintptr_t base_addr, ELF_PHDR *phdr, int fd, Elf32_Half type, 
   int prot = 0;
   uintptr_t aligned_vaddr, aligned_fsize, aligned_msize, page_offset, map_file_end;
 
-  /*if (phdr->p_flags & PF_X) {
+#ifdef ENABLE_EXECUTE
+  if (phdr->p_flags & PF_X) {
     prot |= PROT_EXEC;
-  }*/
+  }
+#endif
 
   if (phdr->p_flags & PF_W) {
     prot |= PROT_WRITE;
@@ -97,11 +99,11 @@ void load_segment(uintptr_t base_addr, ELF_PHDR *phdr, int fd, Elf32_Half type, 
                  prot | ((phdr->p_flags & PF_X) ? PROT_EXEC : 0), MAP_EL_ANON, -1, 0);
   }
 
-  /*
+#ifdef ENABLE_EXECUTE
   if (phdr->p_flags & PF_X) {
     __clear_cache((char *)phdr->p_vaddr, (char *)phdr->p_vaddr + (char *)phdr->p_memsz);
   }
-  */
+#endif
 
   if (!is_interp && (aligned_vaddr + aligned_msize) > global_data.brk) {
     global_data.brk = aligned_vaddr + aligned_msize;
