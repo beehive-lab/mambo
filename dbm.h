@@ -339,6 +339,7 @@ int addr_to_bb_id(dbm_thread * const thread_data, const uintptr_t addr);
 int addr_to_fragment_id(dbm_thread * const thread_data, const uintptr_t addr);
 void record_cc_link(dbm_thread *thread_data, uintptr_t linked_from, uintptr_t linked_to_addr);
 bool is_bb(dbm_thread * const thread_data, const uintptr_t addr);
+bool is_trace(dbm_thread * const thread_data, const uintptr_t addr);
 
 void install_system_sig_handlers();
 

@@ -64,10 +64,10 @@ uintptr_t active_trace_lookup(dbm_thread *thread_data, uintptr_t target) {
   if (target == spc) {
     return adjust_cc_entry(thread_data->active_trace.entry_addr);
   }
-  uintptr_t return_tpc = hash_lookup(&thread_data->entry_address, target);
-  if (return_tpc >= (uintptr_t)thread_data->code_cache->traces)
-    return adjust_cc_entry(return_tpc);
-  return UINT_MAX;
+
+  uintptr_t tpc = hash_lookup(&thread_data->entry_address, target);
+
+  return is_trace(thread_data, tpc) ? adjust_cc_entry(tpc) : UINT_MAX;
 }
 
 uintptr_t active_trace_lookup_or_scan(dbm_thread *thread_data, uintptr_t target) {
@@ -264,7 +264,7 @@ void install_trace(dbm_thread *thread_data) {
       arm_adjust_b_bl_target((uintptr_t *)orig_branch, tpc_direct);
     }
 #elif __aarch64__
-    if (orig_branch >= (uintptr_t)thread_data->code_cache->traces) {
+    if (is_trace(thread_data, orig_branch)) {
       patch_trace_branches(thread_data, (uint32_t *)orig_branch, tpc + 4);
     } else {
       a64_b_helper((uint32_t *)orig_branch, tpc + 4);

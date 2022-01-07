@@ -475,6 +475,13 @@ bool is_bb(dbm_thread * const thread_data, const uintptr_t addr) {
   return (addr >= cc_start) && (addr < bbc_end);
 }
 
+bool is_trace(dbm_thread * const thread_data, const uintptr_t addr) {
+  const uintptr_t bbc_end = (uintptr_t)thread_data->code_cache->traces;
+  const uintptr_t cc_end = bbc_end + TRACE_CACHE_SIZE;
+
+  return (addr >= bbc_end) && (addr < cc_end);
+}
+
 int addr_to_bb_id(dbm_thread * const thread_data, const uintptr_t addr) {
   const uintptr_t cc_start = (uintptr_t)thread_data->code_cache->blocks;
   const uintptr_t bbc_end = (uintptr_t)thread_data->code_cache->traces;
