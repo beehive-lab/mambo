@@ -36,8 +36,6 @@
   #define AT_MINSIGSTKSZ 51
 #endif
 
-#define DEBUG 1
-#undef DEBUG
 #ifdef DEBUG
   #define debug(...) fprintf(stderr, __VA_ARGS__)
 #else

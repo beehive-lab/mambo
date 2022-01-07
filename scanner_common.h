@@ -31,9 +31,7 @@
   #define APP_SP (r3)
   #define DISP_SP_OFFSET (28)
   #define DISP_RES_WORDS (3)
-#endif
 
-#ifdef __arm__
 void thumb_cc_branch(dbm_thread *thread_data, uint16_t *write_p, uint32_t dest_addr);
 void thumb_b16_cond_helper(uint16_t *write_p, uint32_t dest_addr, mambo_cond cond);
 void thumb_b32_helper(uint16_t *write_p, uint32_t dest_addr);
@@ -88,8 +86,4 @@ void a64_inline_hash_lookup(dbm_thread *thread_data, int basic_block, uint32_t *
                             uint32_t *read_address, enum reg rn, bool link, bool set_meta);
 #endif
 
-extern void inline_hash_lookup();
-extern void end_of_inline_hash_lookup();
-extern void inline_hash_lookup_get_addr();
-extern void inline_hash_lookup_data();
 #endif
