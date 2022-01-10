@@ -151,7 +151,7 @@ uintptr_t stub_bb(dbm_thread *thread_data, uintptr_t target) {
   basic_block = allocate_bb(thread_data);
   block_address = (uintptr_t)&thread_data->code_cache->blocks[basic_block];
   
-  debug("Stub BB: 0x%x\n", block_address + thumb);
+  debug("Stub BB: 0x%" PRIxPTR "\n", block_address + thumb);
   
   thread_data->code_cache_meta[basic_block].exit_branch_type = stub;
   if (!hash_add(&thread_data->entry_address, target, block_address + thumb)) {
@@ -176,7 +176,7 @@ uintptr_t stub_bb(dbm_thread *thread_data, uintptr_t target) {
 uintptr_t lookup_or_stub(dbm_thread *thread_data, uintptr_t target) {
   uintptr_t block_address;
   
-  debug("Stub(0x%x)\n", target);
+  debug("Stub (0x%" PRIxPTR ")\n", target);
   debug("Thread_data: %p\n", thread_data);
   
   block_address = cc_lookup(thread_data, target);
@@ -429,7 +429,7 @@ void init_thread(dbm_thread *thread_data) {
 
   thread_data->status = THREAD_RUNNING;
                         
-  debug("Syscall wrapper addr: 0x%x\n", thread_data->syscall_wrapper_addr);
+  debug("Syscall wrapper addr: 0x%" PRIxPTR "\n", thread_data->syscall_wrapper_addr);
 }
 
 void free_all_other_threads(dbm_thread *thread_data) {
@@ -534,7 +534,7 @@ int addr_to_fragment_id(dbm_thread * const thread_data, const uintptr_t addr) {
 void record_cc_link(dbm_thread *thread_data, uintptr_t linked_from, uintptr_t linked_to_addr) {
   int linked_to = addr_to_bb_id(thread_data, linked_to_addr);
 
-  debug("Linked 0x%x (%d) from 0x%x\n", linked_to_addr, linked_to, linked_from);
+  debug("Linked 0x%" PRIxPTR " (%d) from 0x%" PRIxPTR "\n", linked_to_addr, linked_to, linked_from);
 
   if (linked_to < 0) return;
 
@@ -631,7 +631,7 @@ void main(int argc, char **argv, char **envp) {
   struct elf_loader_auxv auxv;
   uintptr_t entry_address;
   load_elf(argv[1], &elf, &auxv, &entry_address, false);
-  debug("entry address: 0x%x\n", entry_address);
+  debug("entry address: 0x%" PRIxPTR "\n", entry_address);
 
   // Set up brk emulation
   ret = pthread_mutex_init(&global_data.brk_mutex, NULL);
@@ -653,7 +653,7 @@ void main(int argc, char **argv, char **envp) {
   register_thread(thread_data, false);
 
   uintptr_t block_address = scan(thread_data, (uint16_t *)entry_address, ALLOCATE_BB);
-  debug("Address of first basic block is: 0x%x\n", block_address);
+  debug("Address of first basic block is: 0x%" PRIxPTR "\n", block_address);
 
   #define ARGDIFF 2
   elf_run(block_address, argv[1], argc-ARGDIFF, &argv[ARGDIFF], envp, &auxv);

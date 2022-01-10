@@ -252,7 +252,7 @@ void install_trace(dbm_thread *thread_data) {
 
   cc_link = thread_data->code_cache_meta[bb_source].linked_from;
   while(cc_link != NULL) {
-    debug("Link from: 0x%lx, update to: 0x%lx\n", cc_link->data, tpc);
+    debug("Link from: 0x%" PRIxPTR ", update to: 0x%" PRIxPTR "\n", cc_link->data, tpc);
     orig_branch = cc_link->data;
 #ifdef __arm__
     orig_branch &= 0xFFFFFFFE;
@@ -507,7 +507,7 @@ void create_trace(dbm_thread *thread_data, uint32_t bb_source, cc_addr_pair *ret
       return;
     }
 
-    debug("bb: %d, source: %p, ret to: 0x%x\n", bb_source, source_addr, ret_addr->tpc);
+    debug("bb: %d, source: %p, ret to: 0x%" PRIxPTR "\n", bb_source, source_addr, ret_addr->tpc);
     hot_bb_cnt++;
 
     trace_entry = (uintptr_t)thread_data->trace_cache_next;
@@ -520,10 +520,10 @@ void create_trace(dbm_thread *thread_data, uint32_t bb_source, cc_addr_pair *ret
     thread_data->active_trace.entry_addr = trace_entry;
     thread_data->active_trace.free_exit_rec = 0;
 
-    debug("Create trace: %d (%p), source_bb: %d, entry: %lx\n",
+    debug("Create trace: %d (%p), source_bb: %d, entry: %" PRIxPTR "\n",
           thread_data->active_trace.id, thread_data->active_trace.write_p,
           thread_data->active_trace.source_bb, thread_data->active_trace.entry_addr);
-    debug("\n    Trace head: %p at 0x%x\n\n", source_addr, ret_addr->tpc);
+    debug("\n    Trace head: %p at 0x%" PRIxPTR "\n\n", source_addr, ret_addr->tpc);
 
     ret_addr->tpc = adjust_cc_entry(trace_entry);
     fragment_len = scan_trace(thread_data, source_addr, mambo_trace_entry, &trace_id);
@@ -595,7 +595,7 @@ void trace_dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_in
   size_t fragment_len;
   thread_data->was_flushed = false;
 
-  debug("Trace dispatcher (target: 0x%x)\n", target);
+  debug("Trace dispatcher (target: 0x%" PRIxPTR ")\n", target);
 
   switch(bb_meta->exit_branch_type) {
 #ifdef __arm__
@@ -724,7 +724,7 @@ void trace_dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_in
 
   // Check if the fragment count has reached the max limit
   if (thread_data->trace_fragment_count > MAX_TRACE_FRAGMENTS) {
-    debug("Trace fragment count limit, branch to: 0x%x, written at: %p\n", target, write_p);
+    debug("Trace fragment count limit, branch to: 0x%" PRIxPTR ", written at: %p\n", target, write_p);
     addr = active_trace_lookup_or_scan(thread_data, target);
     early_trace_exit(thread_data, bb_meta, write_p, target, addr);
     *next_addr = addr;
@@ -733,14 +733,14 @@ void trace_dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_in
 
   // Check if the target is already a trace
   addr = active_trace_lookup(thread_data, target);
-  debug("Hash lookup for 0x%x: 0x%x\n", target, addr);
+  debug("Hash lookup for 0x%" PRIxPTR ": 0x%" PRIxPTR "\n", target, addr);
   if (addr != UINT_MAX) {
     early_trace_exit(thread_data, bb_meta, write_p, target, addr);
     *next_addr = addr;
     return;
   }
 
-  debug("\n   Trace fragment: 0x%x\n", target);
+  debug("\n   Trace fragment: 0x%" PRIxPTR "\n", target);
   int fragment_id;
 #ifdef __arm__
   fragment_len = scan_trace(thread_data, (uint16_t *)target, mambo_trace, &fragment_id);
@@ -748,7 +748,7 @@ void trace_dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_in
 #ifdef __aarch64__
   fragment_len = scan_trace(thread_data, (uint32_t *)target, mambo_trace, &fragment_id);
 #endif
-  debug("len: %d\n\n", fragment_len);
+  debug("len: %" PRIdPTR "\n\n", fragment_len);
 
   thread_data->active_trace.write_p += fragment_len;
   switch(thread_data->code_cache_meta[fragment_id].exit_branch_type) {

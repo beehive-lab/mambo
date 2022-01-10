@@ -187,7 +187,7 @@ ssize_t readlink_handler(char *sys_path, char *sys_buf, ssize_t bufsize) {
 int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_inst, dbm_thread *thread_data) {
   int do_syscall = 1;
   sys_clone_args *clone_args;
-  debug("syscall pre %d\n", syscall_no);
+  debug("syscall pre %" PRIdPTR "\n", syscall_no);
 
 #ifdef PLUGINS_NEW
   mambo_context ctx;
@@ -485,7 +485,7 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
 }
 
 void syscall_handler_post(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_inst, dbm_thread *thread_data) {
-  debug("syscall post %d\n", syscall_no);
+  debug("syscall post %" PRIdPTR "\n", syscall_no);
 
   if (global_data.exit_group) {
     thread_abort(thread_data);
@@ -494,7 +494,7 @@ void syscall_handler_post(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_
 
   switch(syscall_no) {
     case __NR_clone:
-      debug("r0 (tid): %d\n", args[0]);
+      debug("r0 (tid): %" PRIdPTR "\n", args[0]);
       if (args[0] == 0) { // the child
         assert(!thread_data->clone_vm);
         /* Without CLONE_VM, the child runs in a separate memory space,
