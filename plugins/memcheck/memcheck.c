@@ -577,7 +577,7 @@ __attribute__((constructor)) void memcheck_init_plugin() {
   mambo_context *ctx = mambo_register_plugin();
   assert(ctx != NULL);
 
-  printf("\n-- MAMBO memcheck " GIT_VERSION " --\n\n");
+  printf("\n-- MAMBO memcheck " VERSION " --\n\n");
 
   /* Reserve the highest page of the application's memory range */
   void *guard_page = mmap((void *)RESERVED_BASE - PAGE_SIZE, PAGE_SIZE, PROT_NONE,
