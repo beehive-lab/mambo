@@ -27,7 +27,7 @@
 #include <stdint.h>
 #include <sys/auxv.h>
 #include <libelf.h>
-
+#include <inttypes.h>
 #ifdef __arm__
 #include "pie/pie-arm-decoder.h"
 #include "pie/pie-thumb-decoder.h"

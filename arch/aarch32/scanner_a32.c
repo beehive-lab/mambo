@@ -753,7 +753,7 @@ size_t scan_a32(dbm_thread *thread_data, uint32_t *read_address, int basic_block
         if ((*read_address >> 28) != AL) {
           debug("w: %p, r: %p, bb: %d\n", write_p, read_address, basic_block);
           target = lookup_or_stub(thread_data, (uint32_t)read_address + 4);
-          debug("stub: %p\n", target);
+          debug("stub: 0x%x\n", target);
           arm_cc_branch(thread_data,write_p, target,
                         arm_inverse_cond_code[(*read_address >> 28)]);
           write_p++;
