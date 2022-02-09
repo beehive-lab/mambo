@@ -468,27 +468,34 @@ void reset_process(dbm_thread *thread_data) {
   mambo_deliver_callbacks(PRE_THREAD_C, thread_data);
 }
 
-bool is_bb(dbm_thread *thread_data, uintptr_t addr) {
-  uintptr_t min = (uintptr_t)thread_data->code_cache->blocks;
-  uintptr_t max = (uintptr_t)thread_data->code_cache->traces;
+bool is_bb(dbm_thread * const thread_data, const uintptr_t addr) {
+  const uintptr_t cc_start = (uintptr_t)thread_data->code_cache->blocks;
+  const uintptr_t bbc_end = (uintptr_t)thread_data->code_cache->traces;
 
-  return addr >= min && addr < max;
+  return (addr >= cc_start) && (addr < bbc_end);
 }
 
-int addr_to_bb_id(dbm_thread *thread_data, uintptr_t addr) {
-  uintptr_t min = (uintptr_t)thread_data->code_cache->blocks;
-  uintptr_t max = (uintptr_t)thread_data->code_cache->traces;
+bool is_trace(dbm_thread * const thread_data, const uintptr_t addr) {
+  const uintptr_t bbc_end = (uintptr_t)thread_data->code_cache->traces;
+  const uintptr_t cc_end = bbc_end + TRACE_CACHE_SIZE;
 
-  if (addr < min || addr > max) {
+  return (addr >= bbc_end) && (addr < cc_end);
+}
+
+int addr_to_bb_id(dbm_thread * const thread_data, const uintptr_t addr) {
+  const uintptr_t cc_start = (uintptr_t)thread_data->code_cache->blocks;
+  const uintptr_t bbc_end = (uintptr_t)thread_data->code_cache->traces;
+
+  if (addr < cc_start || addr > bbc_end) {
     return -1;
   }
 
-  return (addr - (uintptr_t)thread_data->code_cache->blocks) / sizeof(dbm_block);
+  return (addr - cc_start) / sizeof(dbm_block);
 }
 
-int addr_to_fragment_id(dbm_thread *thread_data, uintptr_t addr) {
-  uintptr_t start = (uintptr_t )thread_data->code_cache->blocks;
-  assert(addr >= start && addr < (start + MAX_BRANCH_RANGE));
+int addr_to_fragment_id(dbm_thread * const thread_data, const uintptr_t addr) {
+  const uintptr_t cc_start = (uintptr_t)thread_data->code_cache->blocks;
+  assert(addr >= cc_start && addr < (cc_start + MAX_BRANCH_RANGE));
 
   int id = addr_to_bb_id(thread_data, addr);
   if (id >= 0) {
