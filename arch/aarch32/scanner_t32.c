@@ -2510,12 +2510,9 @@ size_t scan_t32(dbm_thread *thread_data, uint16_t *read_address, int basic_block
 #ifdef DBM_LINK_COND_IMM
         }
 #endif
-        
         stop = true;
-        
-        //while(1);
         break;
-        
+
       case THUMB_DSB32:
       case THUMB_DMB32:
       case THUMB_ISB32:
@@ -2898,7 +2895,6 @@ size_t scan_t32(dbm_thread *thread_data, uint16_t *read_address, int basic_block
         thumb_mrc32_decode_fields(read_address, &opc1, &crn, &rt, &coproc, &opc2, &crm);
 
         if (coproc == 15 && opc1 == 0 && crn == 13 && crm == 0 && opc2 == 3) {
-          //fprintf(stderr, "Read TPIDRURO into R%d\n", rt);
           assert(rt != pc);
 
           modify_in_it_pre(5);
@@ -3117,7 +3113,6 @@ size_t scan_t32(dbm_thread *thread_data, uint16_t *read_address, int basic_block
       if(!it_cond_handled) {
         fprintf(stderr, "Didn't handle instruction-after IT at %p, inst: %d\n", read_address, inst);
         while(1);
-        //exit(EXIT_FAILURE);
       }
       do_it_iter(&it_state);
     }

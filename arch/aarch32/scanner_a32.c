@@ -1491,7 +1491,6 @@ size_t scan_a32(dbm_thread *thread_data, uint32_t *read_address, int basic_block
       }
 
       case ARM_BFC: {
-      //case ARM_BFI: {
         uint32_t rd, lsb, msb;
         arm_bfc_decode_fields(read_address, &rd, &lsb, &msb);
         assert(rd != pc);

@@ -82,7 +82,6 @@ void dispatcher_aarch32(dbm_thread *thread_data, uint32_t source_index, branch_t
         break;
       }
     #endif
-      //thread_data->code_cache_meta[source_index].count++;
       branch_addr = thread_data->code_cache_meta[source_index].exit_branch_addr;
     #ifdef FAST_BT
       uint32_t *branch_table = (uint32_t *)(((uint32_t)branch_addr + 20 + 2) & 0xFFFFFFFC);

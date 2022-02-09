@@ -640,7 +640,6 @@ void trace_dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_in
       thumb_bx16(&write_p, pc);
       __clear_cache(write_p-2, write_p+2);
       write_p += 2;
-      //while(1);
     #endif
 
     /* Alternative implementations might be faster on other microarchitectures */

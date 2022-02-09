@@ -36,35 +36,13 @@
 #define NOP_INSTRUCTION 0xD503201F
 #define MIN_FSPACE      60
 
-//#define DEBUG
 #ifdef DEBUG
   #define debug(...) fprintf(stderr, __VA_ARGS__)
 #else
   #define debug(...)
 #endif
 
-/*
- * Macros for Pushing and Poping pair or single registers.
- * ====== === ======= === ====== ==== == ====== =========
- *
- *                     PUSH-POP Pair of registers
- *
- * The "L" field defines if the instruction is a Load (L = 1) or a
- * Store (L = 0).
- * The field "type" controls the addressing mode.
- *      C4.3.15 Load/store register pair (post-indexed, page 205.
- *      C4.3.16 Load/store register pair (pre-indexed), page 206.
- *
- * A64_LDP_STP_encode (address, opc, V, type, L, imm7, Rt2, Rn, Rt)
- * imm7:
- * For the 64-bit post-index and 64-bit pre-index variant: is the signed
- * immediate byte offset, a multiple of 8 in the range -512 to 504, encoded
- * in the "imm7" field as <imm>/8. Page 668.
-*/
-
 #define a64_copy() *(write_p++) = *read_address;
-
-#define a64_brk() *(write_p++) = 0xD4200000;
 
 void a64_branch_helper(uint32_t *write_p, uint64_t target, bool link) {
   int64_t difference = target - (uint64_t)write_p;
@@ -768,7 +746,6 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
         a64_branch_jump(thread_data, &write_p, basic_block, target,
                         REPLACE_TARGET | INSERT_BRANCH);
         stop = true;
-        //while(1);
         break;
 
       case A64_BR:

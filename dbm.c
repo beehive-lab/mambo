@@ -130,18 +130,13 @@ inline uintptr_t lookup_or_scan_with_cached(dbm_thread * const thread_data,
 }
 
 int allocate_bb(dbm_thread *thread_data) {
-  unsigned int basic_block;
-  bool flushed = false;
-
   // Reserve CODE_CACHE_OVERP basic blocks to be able to scan large blocks
   if(thread_data->free_block >= (CODE_CACHE_SIZE - CODE_CACHE_OVERP)) {
     fprintf(stderr, "code cache full, flushing it\n");
     flush_code_cache(thread_data);
-    flushed = true;
   }
-  
-  basic_block = thread_data->free_block++;
-  return basic_block;
+
+  return thread_data->free_block++;
 }
 
 /* Stub BBs only contain a call to the dispatcher
@@ -211,7 +206,6 @@ uintptr_t scan(dbm_thread *thread_data, uint16_t *address, int basic_block) {
   block_address = (uintptr_t)&thread_data->code_cache->blocks[basic_block];
   thread_data->code_cache_meta[basic_block].source_addr = address;
   thread_data->code_cache_meta[basic_block].tpc = block_address;
-  //fprintf(stderr, "scan(%p): 0x%x (bb %d)\n", address, block_address, basic_block);
 
   // Add entry into the code cache hash table
   // It must be added before scan_ is called, otherwise a call for scan

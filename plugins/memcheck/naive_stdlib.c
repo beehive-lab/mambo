@@ -124,10 +124,8 @@ size_t memcheck_strspn(const char *s, const char *accept) {
   size_t len = 0;
   char *p = (char *)s;
   for (; *p != '\0'; p++) {
-    //printf("%c\n", *p);
     bool match = false;
     for (int i = 0; accept[i] != '\0' && !match; i++) {
-      //printf(" %c\n", accept[i]);
       if (*p == accept[i]) {
         match = true;
         break;
