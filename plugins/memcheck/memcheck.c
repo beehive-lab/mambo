@@ -86,8 +86,9 @@ void memcheck_print_error(void *addr, uintptr_t meta, void *pc, stack_frame_t *f
   }
 
   fprintf(stderr, "==memcheck==  Backtrace:\n");
-  get_backtrace(frame, &print_backtrace, NULL);
-  
+  ret = get_backtrace(frame, &print_backtrace, NULL);
+  assert(ret == 0);
+
   fprintf(stderr, "\n");
 }
 
