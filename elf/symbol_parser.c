@@ -237,7 +237,8 @@ void function_watch_try_addp(watched_functions_t *self, char *name, void *addr) 
 
   for (int i = 0; i < self->func_count; i++) {
     if (strcmp(name, self->funcs[i].name) == 0) {
-      function_watch_addp(self, &self->funcs[i], addr);
+      int ret = function_watch_addp(self, &self->funcs[i], addr);
+      assert(ret == 0);
     }
   }
 
@@ -267,15 +268,21 @@ int function_watch_delete_addp(watched_functions_t *self, int i) {
   return 0;
 }
 
-void function_watch_addp_invalidate(watched_functions_t *self, void *addr, size_t size) {
+int function_watch_addp_invalidate(watched_functions_t *self, void *addr, size_t size) {
+  int ret = -1;
+
   function_watch_lock_funcps(self);
 
   for (int i = 0; i < self->funcp_count; i++) {
     if (self->funcps[i].addr >= addr && self->funcps[i].addr < (addr + size)) {
-      function_watch_delete_addp(self, i);
+      ret = function_watch_delete_addp(self, i);
+      assert(ret == 0);
     }
   }
+
   function_watch_unlock_funcps(self);
+
+  return ret;
 }
 
 int function_watch_parse_elf(watched_functions_t *self, Elf *elf, void *base_addr) {
