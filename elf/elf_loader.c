@@ -398,7 +398,18 @@ void elf_run(uintptr_t entry_address, char *filename, int argc, char **argv, cha
 
       case AT_ENTRY:
         d_aux->a_un.a_val = auxv->at_entry;
-        break;  
+        break;
+
+      case AT_L1I_CACHESIZE:
+      case AT_L1I_CACHEGEOMETRY:
+      case AT_L1D_CACHESIZE:
+      case AT_L1D_CACHEGEOMETRY:
+      case AT_L2_CACHESIZE:
+      case AT_L2_CACHEGEOMETRY:
+      case AT_L3_CACHESIZE:
+      case AT_L3_CACHEGEOMETRY:
+        // Ignore
+        break;
 
       default:
         #ifdef __arm__
