@@ -23,8 +23,8 @@
 #include <assert.h>
 #include <stdio.h>
 
-#include "dbm.h"
-#include "scanner_common.h"
+#include "../../dbm.h"
+#include "../../scanner_common.h"
 #include "../../api/helpers.h"
 
 #define MIN_FSPACE 56
@@ -419,7 +419,8 @@ void riscv_jump_register(dbm_thread *thread_data, uint16_t *read_address,
   thread_data->code_cache_meta[basic_block].exit_branch_addr = write_p;
 
 #ifdef DBM_INLINE_HASH
-  #warning Inline hash table lookup not implemented for RISCV
+  riscv_inline_hash_lookup(thread_data, &write_p, basic_block, rd, rs1, imm, CALC_RET_ADDR());
+  return;
 #endif
 
   if (rd != zero && rd != rs1) {
@@ -600,6 +601,129 @@ bool riscv_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id
   return replaced;
 }
 
+void riscv_inline_hash_lookup(dbm_thread *thread_data, uint16_t **write_p,
+  int basic_block, enum reg rd, enum reg rs, uint32_t offset, uintptr_t ret_addr) {
+  /*
+   * Indirect Branch Lookup
+   * 
+   *            +-------------------------------+
+   *            |   push    s1, a0, a1          |   (Pseudo instruction)
+   *        **  |   addi    a1, rs, offset      |   a1 = rs + offset
+   *        ##  |   li      rd, ret_addr        |   ret_addr is 2 or 4
+   *            |   li      a0, &hash_table     |
+   *            |   li      x_tmp, HASH_MASK<<1 |   HASH_MASK = 0x7FFFF
+   *        *   |   and     x_tmp, x_tmp, rs    |
+   *            |   c.slli  x_tmp, 3            |   sll 3 + sll 1 (from mask)
+   *            |   c.add   a0, x_tmp           |     = sll 4 for 16 byte
+   *            |                               |     struct size
+   *            | lin_probing:                  |
+   *            |   c.ld    x_tmp, 0(a0)        |
+   *            |   c.addi  a0, 16              |
+   *            |   c.beqz  x_tmp, not_found    |
+   *        *   |   bne     x_tmp, rs, lin_probing
+   *            |   ld      a0, -8(a0)          |   load code_cache_address
+   *            |   pop     s1                  |   (Pseudo instruction)
+   *            |   c.jr    a0                  |
+   *            |                               |
+   *            | not_found:                    |
+   *        *   |   c.mv    a0, rs              |   dispatcher: target
+   *            |   li      a1, basic_block     |   dispatcher: source_index
+   *            |   j       dispatcher          |   Large jump
+   *            +-------------------------------+
+   * 
+   * ** if rs is a0, a1, or return address register (if jalr or c.jalr), 
+   * 	  or offset != 0
+   * *  rs is replaced with a1 if ** was executed
+   * ## for jalr or c.jalr
+   */
+
+  uint16_t *lin_probing;
+  uint16_t *branch_to_not_found;
+  enum reg x_spc, x_tmp;
+  bool use_s1 = false;
+
+  if ((rs == a0) || (rs == a1) || (rs == rd) || offset != 0) {
+    x_spc = a1;
+    x_tmp = s1;
+    use_s1 = true;
+  } else {
+    x_spc = rs;
+    x_tmp = a1;
+  }
+
+  // push s1, a0, a1
+  riscv_push(write_p, (1 << s1) | (1 << a0) | (1 << a1));
+
+  if (use_s1) {
+    //addi a1, rs, offset
+    riscv_addi(write_p, x_spc, rs, offset);
+    *write_p += 2;
+  }
+
+  if (rd)
+    //li rd, ret_addr
+    riscv_copy_to_reg_64bits(write_p, rd, ret_addr);
+
+  // li a0, &hash_table
+  riscv_copy_to_reg_64bits(write_p, a0, (uint64_t)&thread_data->entry_address.entries);
+
+  // li x_tmp, HASH_MASK << 1
+  /* Hash mask shifted here because of the 16 bit alignment making the least 
+   * segnificant bit always 0.
+   */
+  riscv_copy_to_reg_32bits(write_p, x_tmp, CODE_CACHE_HASH_SIZE << 1);
+  // and x_tmp, x_tmp, rs
+  riscv_and(write_p, x_tmp, x_tmp, x_spc);
+  *write_p += 2;
+
+  // c.slli x_tmp, 3
+  riscv_c_slli(write_p, x_tmp, 0, 3);
+  (*write_p)++;
+  // c.add a0, x_tmp
+  riscv_c_add(write_p, a0, x_tmp);
+  (*write_p)++;
+
+  // lin_probing:
+  lin_probing = *write_p;
+
+  // c.ld x_tmp, 0(a0)
+  riscv_c_ld(write_p, x_tmp, a0, 0, 0);
+  (*write_p)++;
+  // c.addi a0, 16
+  riscv_c_addi(write_p, a0, 0, 16);
+  (*write_p)++;
+
+  // c.beqz x_tmp, not_found (added later)
+  branch_to_not_found = (*write_p)++;
+
+  // bne x_tmp, rs, lin_probing
+  riscv_branch_helper(write_p, (uintptr_t)lin_probing, x_tmp, x_spc, BNE);
+
+  // ld a0, -8(a0)
+  riscv_ld(write_p, a0, a0, -8);
+  *write_p += 2;
+
+  // pop s1
+  riscv_pop(write_p, 1 << s1);
+
+  // c.jr a0
+  riscv_c_jr(write_p, a0);
+  (*write_p)++;
+
+  // Insert "c.beqz x_tmp, not_found" at branch_to_not_found (above)
+  riscv_c_beqz_helper(&branch_to_not_found, (uintptr_t)*write_p, x_tmp);
+
+  // c.mv a0, rs
+  riscv_c_mv(write_p, a0, x_spc);
+  (*write_p)++;
+
+  // li a1, basic_block
+  riscv_copy_to_reg_32bits(write_p, a1, basic_block);
+
+  // j dispatcher
+  riscv_go_to_dispatcher(thread_data, write_p);
+}
+
 size_t scan_riscv(dbm_thread *thread_data, uint16_t *read_address,
                   int basic_block, cc_type type, uint16_t *write_p) {
 
@@ -675,19 +799,16 @@ size_t scan_riscv(dbm_thread *thread_data, uint16_t *read_address,
           stop = true;
           break;
         }
-        case RISCV_C_JR: {          // Expands to: jalr    x0,  0(rs1)
-          uint32_t rs1;
-          riscv_c_jr_decode_fields(read_address, &rs1);
-          riscv_jump_register(thread_data, read_address, inst, basic_block,
-                              &write_p, zero, rs1, 0);
-          stop = true;
-          break;
-        }
+        case RISCV_C_JR:           // Expands to: jalr    x0,  0(rs1)
         case RISCV_C_JALR: {       // Expands to: jalr    x1,  0(rs1)
           uint32_t rs1;
-          riscv_c_jalr_decode_fields(read_address, &rs1);
+          riscv_c_jr_decode_fields(read_address, &rs1);
+          enum reg rd = inst == RISCV_C_JALR ? ra : zero;
+#ifdef DBM_INLINE_HASH
+          riscv_check_free_space(thread_data, &write_p, &data_p, BRANCH_FSPACE, basic_block);
+#endif
           riscv_jump_register(thread_data, read_address, inst, basic_block,
-                              &write_p, ra, rs1, 0);
+                              &write_p, rd, rs1, 0);
           stop = true;
           break;
         }
@@ -748,6 +869,9 @@ size_t scan_riscv(dbm_thread *thread_data, uint16_t *read_address,
         case RISCV_JALR: {   // Jump and Link Register
           uint32_t rd, rs1, imm;
           riscv_jalr_decode_fields(read_address, &rd, &rs1, &imm);
+#ifdef DBM_INLINE_HASH
+          riscv_check_free_space(thread_data, &write_p, &data_p, BRANCH_FSPACE, basic_block);
+#endif
           riscv_jump_register(thread_data, read_address, inst, basic_block,
                               &write_p, rd, rs1, imm);
 
