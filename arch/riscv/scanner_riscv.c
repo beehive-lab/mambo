@@ -611,7 +611,7 @@ void riscv_inline_hash_lookup(dbm_thread *thread_data, uint16_t **write_p,
    *        **  |   addi    a1, rs, offset      |   a1 = rs + offset
    *        ##  |   li      rd, ret_addr        |   ret_addr is 2 or 4
    *            |   li      a0, &hash_table     |
-   *            |   li      x_tmp, HASH_MASK<<1 |   HASH_MASK = 0x7FFFF
+   *            |   li      x_tmp, HASH_MASK<<HT_SHIFT  HASH_MASK = 0x7FFFF
    *        *   |   and     x_tmp, x_tmp, rs    |
    *            |   c.slli  x_tmp, 3            |   sll 3 + sll 1 (from mask)
    *            |   c.add   a0, x_tmp           |     = sll 4 for 16 byte
@@ -667,11 +667,12 @@ void riscv_inline_hash_lookup(dbm_thread *thread_data, uint16_t **write_p,
   // li a0, &hash_table
   riscv_copy_to_reg_64bits(write_p, a0, (uint64_t)&thread_data->entry_address.entries);
 
-  // li x_tmp, HASH_MASK << 1
-  /* Hash mask shifted here because of the 16 bit alignment making the least 
-   * segnificant bit always 0.
+  // li x_tmp, HASH_MASK << HT_SHIFT
+  /* Hash mask shifted here because of the natural alignment making the two least
+   * segnificant bits always 0, or only the least segnificant bit if compressed
+   * instructions are supported.
    */
-  riscv_copy_to_reg_32bits(write_p, x_tmp, CODE_CACHE_HASH_SIZE << 1);
+  riscv_copy_to_reg_32bits(write_p, x_tmp, CODE_CACHE_HASH_SIZE << HT_SHIFT);
   // and x_tmp, x_tmp, rs
   riscv_and(write_p, x_tmp, x_tmp, x_spc);
   *write_p += 2;
