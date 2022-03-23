@@ -870,11 +870,65 @@ size_t scan_riscv(dbm_thread *thread_data, uint16_t *read_address,
         case RISCV_REMW:
         case RISCV_REMUW:
   #endif
+          copy_riscv();
+          break;
 #endif
 #ifdef __riscv_atomic // (“A” Standard Extension for Atomic Instructions)
         // RV32A
-        case RISCV_LR_W: // LR.W -> load-reserved word
-        case RISCV_SC_W: // SC.W -> store-conditional word
+        case RISCV_LR_W: { // LR.W -> load-reserved word
+          /*
+           * Original instruction
+           *          +-------------------------------+
+           *          |   lr.w    x, (y)              |
+           *          +-------------------------------+
+           * 
+           * Translate to
+           *          +-------------------------------+
+           *          |   lw      x, 0(y)             |
+           *          |   c.mv    t6, x               |   Save original x in t6 for
+           *          +-------------------------------+       comparison when SC
+           * // TODO: Don't just hope that t6 is unused!
+           */
+          unsigned int aq, rl, x, y;
+
+          riscv_lr_w_decode_fields(read_address, &aq, &rl, &x, &y);
+          riscv_lw(&write_p, x, y, 0);
+          write_p += 2;
+#ifdef __riscv_compressed
+          riscv_c_mv(&write_p, t6, x);
+          write_p++;
+#else
+          riscv_add(&write_p, t6, x, zero);
+          write_p += 2;
+#endif
+          break;
+        }
+        case RISCV_SC_W: { // SC.W -> store-conditional word
+          /*
+           * Original instruction
+           *          +-------------------------------+
+           *          |   sc.w    x, y, (z)           |
+           *          +-------------------------------+
+           * 
+           * Translate to
+           *          +-------------------------------+
+           *          |   lr.w    x, (z)n             |
+           *          |   bne     x, t6, .+8          |   Ignore sc as if it fails.
+           *          |   sc.w    x, y, (z)           |       Branch to lr is expected
+           *          +-------------------------------+       to follow.
+           * // TODO: Don't just hope that t6 is unused!
+           */
+          unsigned int aq, rl, x, z, y;
+          riscv_instruction follow_inst = riscv_decode(read_address + 2);
+
+          riscv_sc_w_decode_fields(read_address, &aq, &rl, &x, &y, &z);
+          riscv_lr_w(&write_p, 1, 1, x, z);
+          write_p += 2;
+          riscv_bne(&write_p, x, t6, 0, 8);
+          write_p += 2;
+          copy_riscv();
+          break;
+        }
         case RISCV_AMOSWAP_W:
         case RISCV_AMOADD_W:
         case RISCV_AMOXOR_W:
@@ -884,9 +938,63 @@ size_t scan_riscv(dbm_thread *thread_data, uint16_t *read_address,
         case RISCV_AMOMAX_W:
         case RISCV_AMOMINU_W:
         case RISCV_AMOMAXU_W:
+          copy_riscv();
+          break;
   #if __riscv_xlen == 64 // RV64A
-        case RISCV_LR_D: // LR.D -> load-reserved double word
-        case RISCV_SC_D: // SC.D -> store-conditional double word
+        case RISCV_LR_D: { // LR.D -> load-reserved double word
+          /*
+           * Original instruction
+           *          +-------------------------------+
+           *          |   lr.d    x, (y)              |
+           *          +-------------------------------+
+           * 
+           * Translate to
+           *          +-------------------------------+
+           *          |   ld      x, 0(y)             |
+           *          |   c.mv    t6, x               |   Save original x in t6 for
+           *          +-------------------------------+       comparison when SC
+           * // TODO: Don't just hope that t6 is unused!
+           */
+          unsigned int aq, rl, x, y;
+
+          riscv_lr_d_decode_fields(read_address, &aq, &rl, &x, &y);
+          riscv_ld(&write_p, x, y, 0);
+          write_p += 2;
+#ifdef __riscv_compressed
+          riscv_c_mv(&write_p, t6, x);
+          write_p++;
+#else
+          riscv_add(&write_p, t6, x, zero);
+          write_p += 2;
+#endif
+          break;
+        }
+        case RISCV_SC_D: { // SC.D -> store-conditional double word
+          /*
+           * Original instruction
+           *          +-------------------------------+
+           *          |   sc.d    x, y, (z)           |
+           *          +-------------------------------+
+           * 
+           * Translate to
+           *          +-------------------------------+
+           *          |   lr.d    x, (z)n             |
+           *          |   bne     x, t6, .+8          |   Ignore sc as if it fails.
+           *          |   sc.d    x, y, (z)           |       Branch to lr is expected
+           *          +-------------------------------+       to follow.
+           * // TODO: Don't just hope that t6 is unused!
+           */
+          unsigned int aq, rl, x, z, y;
+          riscv_instruction follow_inst = riscv_decode(read_address + 2);
+
+          riscv_sc_d_decode_fields(read_address, &aq, &rl, &x, &y, &z);
+          riscv_lr_d(&write_p, 1, 1, x, z);
+          write_p += 2;
+          riscv_bne(&write_p, x, t6, 0, 8);
+          write_p += 2;
+          copy_riscv();
+          break;
+        }
         case RISCV_AMOSWAP_D:
         case RISCV_AMOADD_D:
         case RISCV_AMOXOR_D:
