@@ -18,6 +18,8 @@
   limitations under the License.
 */
 
+#include <asm/unistd.h>
+
 # These helpers are executed from .text and are not copied to the code cache
 
 #ifdef __arm__
@@ -170,7 +172,7 @@ signal_trampoline:
   POP {PC}
 sigret:
   ADD SP, SP, #32
-  MOV R7, #173
+  MOV R7, #__NR_rt_sigreturn
   SVC 0
 #endif
 #ifdef __aarch64__
@@ -204,7 +206,7 @@ sigret:
   BR X0
 sigret:
   ADD SP, SP, #16
-  MOV X8, #139
+  MOV X8, #__NR_rt_sigreturn
   SVC 0
 #endif
 .endfunc
