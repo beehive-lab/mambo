@@ -100,20 +100,28 @@ uintptr_t cc_lookup(dbm_thread *thread_data, uintptr_t target) {
 inline uintptr_t _lookup_or_scan(dbm_thread * const thread_data,
                                  const uintptr_t target,
                                  bool * const cached) {
-  bool from_cache = false;
   debug("Thread_data: %p\n", thread_data);
 
-  const uintptr_t block_address = cc_lookup(thread_data, target);
+  uintptr_t block_address = cc_lookup(thread_data, target);
   int basic_block = ALLOCATE_BB;
+
   if (block_address != UINT_MAX) {
-    from_cache = true;
-    basic_block = addr_to_bb_id(thread_data, block_address);
-    if (thread_data->code_cache_meta[basic_block].exit_branch_type != stub)
-        return block_address;
+    /* Only basic blocks can be stubs
+       use addr_to_bb_id over addr_to_fragment_id as it's a O(1) lookup vs O(log n) */
+    if (!is_trace(thread_data, block_address)) {
+      basic_block = addr_to_bb_id(thread_data, block_address);
+      if (thread_data->code_cache_meta[basic_block].exit_branch_type == stub) {
+        block_address = UINT_MAX;
+      }
+    }
   }
 
   if (cached != NULL) {
-    *cached = from_cache;
+    *cached = (block_address != UINT_MAX);
+  }
+
+  if (block_address != UINT_MAX) {
+    return block_address;
   }
 
   return scan(thread_data, (uint16_t *)target, basic_block);
