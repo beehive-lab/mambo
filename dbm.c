@@ -97,7 +97,7 @@ uintptr_t cc_lookup(dbm_thread *thread_data, uintptr_t target) {
   return adjust_cc_entry(addr);
 }
 
-inline uintptr_t _lookup_or_scan(dbm_thread * const thread_data,
+static inline uintptr_t _lookup_or_scan(dbm_thread * const thread_data,
                                  const uintptr_t target,
                                  bool * const cached) {
   debug("Thread_data: %p\n", thread_data);
