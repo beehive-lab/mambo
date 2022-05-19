@@ -82,6 +82,14 @@ void _a64_is_load_or_store(mambo_context *ctx, bool *is_load, bool *is_store) {
       }
       break;
     }
+    case A64_LDADD:
+    case A64_LDCLR:
+    case A64_LDEOR:
+    case A64_LDSET:
+    case A64_SWP:
+      *is_load = true;
+      *is_store = true;
+      break;
   }
 }
 #endif
