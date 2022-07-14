@@ -150,6 +150,7 @@ int mambo_register_function_cb(mambo_context *ctx, char *fn_name,
 
 /* Memory management */
 void *mambo_alloc(mambo_context *ctx, size_t size);
+void *mambo_calloc(mambo_context *ctx, size_t nitems, size_t size);
 void mambo_free(mambo_context *ctx, void *ptr);
 
 /* Access plugin data */

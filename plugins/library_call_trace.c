@@ -73,46 +73,12 @@ typedef struct lct_priv {
   Elf64_Addr main_address;
 } lct_priv_t;
 
-
-void lct_free(lct_priv_t* lct_priv) {
-  // free the list items
-  int idx = 0;
-  while(lct_priv->plt_list[idx]) {
-    free(lct_priv->plt_list[idx]->plt_string);
-    free(lct_priv->plt_list[idx]);
-    idx++;
-  } 
-  free(lct_priv->plt_list);
-
-  // free the string list
-  idx = 0;
-  while(lct_priv->plt_string_list[idx]) {
-    free(lct_priv->plt_string_list[idx]);
-    idx++;
-  }
-  free(lct_priv->plt_string_list);
-
-  // free the hash table
-  idx = 0;
-  for(int i = 0; i < NUM_HASH_BUCKETS; i++) {
-    plt_hash_entry* curr_entry = lct_priv->plt_hash_table[i];
-    plt_hash_entry* prev_entry;
-    while(curr_entry) {
-      free(curr_entry->name);
-      prev_entry = curr_entry;
-      curr_entry = curr_entry->next;
-      free(prev_entry);
-    }
-  }
-  free(lct_priv->plt_hash_table);
-}
-
-int plt_list_add_entry(plt_list_item ** list, Elf64_Addr plt_addr, char* str, int str_idx) {
-  plt_list_item * list_item = (plt_list_item*) malloc(sizeof(plt_list_item));
+int plt_list_add_entry(mambo_context* ctx, plt_list_item ** list, Elf64_Addr plt_addr, char* str, int str_idx) {
+  plt_list_item * list_item = (plt_list_item*) mambo_alloc(ctx, sizeof(plt_list_item));
   if(list_item == NULL) {
     return -1;
   }
-  char * str_alloc = (char*) malloc(strlen(str)*sizeof(char));
+  char * str_alloc = (char*) mambo_alloc(ctx, strlen(str)*sizeof(char));
   strcpy(str_alloc, str);
   if(str_alloc == NULL) {
     return -1;
@@ -140,8 +106,8 @@ uint32_t list_search_by_translated_addr(plt_list_item ** list, Elf64_Addr addr) 
   return returner;
 }
 
-int plt_string_list_add_entry(char ** list, char* str, int str_idx) {
-  char * str_alloc = (char*) malloc(strlen(str)*sizeof(char));
+int plt_string_list_add_entry(mambo_context* ctx, char ** list, char* str, int str_idx) {
+  char * str_alloc = (char*) mambo_alloc(ctx, strlen(str)*sizeof(char));
   strcpy(str_alloc, str);
   printf("%s %d string is\n", str, str_idx);
   if(str_alloc == NULL) {
@@ -184,8 +150,8 @@ uint32_t get_plt_list_index(lct_priv_t* priv, Elf64_Addr plt_address) {
   return returner;
 }
 
-plt_hash_entry ** plt_hash_create_table() {
-  plt_hash_entry ** tbl = (plt_hash_entry**) calloc(NUM_HASH_BUCKETS, sizeof(plt_hash_entry*));
+plt_hash_entry ** plt_hash_create_table(mambo_context* ctx) {
+  plt_hash_entry ** tbl = (plt_hash_entry**) mambo_calloc(ctx, NUM_HASH_BUCKETS, sizeof(plt_hash_entry*));
   if(tbl == NULL) {
     return NULL;
   } else {
@@ -193,9 +159,9 @@ plt_hash_entry ** plt_hash_create_table() {
   }
 }
 
-int plt_hash_add_entry(plt_hash_entry** plt_hash_table, Elf64_Addr plt_address, char* name) {
-  plt_hash_entry * tbl = (plt_hash_entry*) malloc(sizeof(plt_hash_entry));
-  char * name_alloc = malloc(sizeof(char)*strlen(name));
+int plt_hash_add_entry(mambo_context* ctx, plt_hash_entry** plt_hash_table, Elf64_Addr plt_address, char* name) {
+  plt_hash_entry * tbl = (plt_hash_entry*) mambo_alloc(ctx, sizeof(plt_hash_entry));
+  char * name_alloc = mambo_alloc(ctx, sizeof(char)*strlen(name));
   strcpy(name_alloc, name);
   tbl->next = 0;
   tbl->addr = plt_address;
@@ -297,10 +263,10 @@ int lct_pre_thread_handler(mambo_context *ctx) {
   lct_priv_t * lct_priv = (lct_priv_t *) mambo_alloc(ctx, sizeof(lct_priv_t));
   assert(lct_priv != NULL);
 
-  lct_priv->plt_string_list = (char**) calloc(1000, sizeof(char *));
-  lct_priv->plt_list = (plt_list_item **) calloc(1000, sizeof(plt_list_item *));
+  lct_priv->plt_string_list = (char**) mambo_calloc(ctx, 1000, sizeof(char *));
+  lct_priv->plt_list = (plt_list_item **) mambo_calloc(ctx, 1000, sizeof(plt_list_item *));
 
-  lct_priv->plt_hash_table = plt_hash_create_table();
+  lct_priv->plt_hash_table = plt_hash_create_table(ctx);
 
   if(lct_priv->plt_hash_table == NULL) {
     printf("Couldn't create the hash table\n");
@@ -369,7 +335,7 @@ int lct_pre_thread_handler(mambo_context *ctx) {
   // their information. The information relates to an index in the .dynsym table.
   // we extract these indexes for use in the second pass. 
   int * rela_indexes;
-  rela_indexes = calloc(1000,sizeof(int));
+  rela_indexes = mambo_calloc(ctx,1000,sizeof(int));
   uint32_t use_zero_index = 0;
 
   while ((scn = elf_nextscn(elf, scn)) != NULL) {
@@ -451,14 +417,14 @@ int lct_pre_thread_handler(mambo_context *ctx) {
         GElf_Sym sym;
         gelf_getsym(symtab, 0, &sym);
         index = 1;
-        plt_list_add_entry(lct_priv->plt_list, plt_addr_curr, elf_strptr(elf, shdr.sh_link, sym.st_name), str_idx);
+        plt_list_add_entry(ctx, lct_priv->plt_list, plt_addr_curr, elf_strptr(elf, shdr.sh_link, sym.st_name), str_idx);
         str_idx++;
         plt_addr_curr = plt_addr_curr + 0x10;
       } 
       while(rela_indexes[index] != 0) {
         GElf_Sym sym;
         sym = * gelf_getsym(symtab, rela_indexes[index], &sym);
-        plt_list_add_entry(lct_priv->plt_list, plt_addr_curr, elf_strptr(elf, shdr.sh_link, sym.st_name), str_idx);
+        plt_list_add_entry(ctx, lct_priv->plt_list, plt_addr_curr, elf_strptr(elf, shdr.sh_link, sym.st_name), str_idx);
         plt_addr_curr = plt_addr_curr + 0x10;
         index++;
         str_idx++;
@@ -468,7 +434,7 @@ int lct_pre_thread_handler(mambo_context *ctx) {
 
   elf_end(elf);
   close(fd);
-  free(rela_indexes);
+  mambo_free(ctx, rela_indexes);
 
   mambo_set_thread_plugin_data(ctx, lct_priv);
 }
@@ -484,7 +450,6 @@ int lct_post_thread_handler(mambo_context *ctx) {
 int lct_exit_handler(mambo_context *ctx) {
   lct_priv_t* lct_priv = (lct_priv_t*) mambo_get_thread_plugin_data(ctx);
   assert(lct_priv != NULL);
-  lct_free(lct_priv);
   mambo_free(ctx, lct_priv);
   fprintf(stderr, "Exit called:\n");
 }
