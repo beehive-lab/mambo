@@ -880,6 +880,10 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
       case A64_LDCLR:
       case A64_LDEOR:
       case A64_LDSET:
+      case A64_LDSMAX:
+      case A64_LDSMIN:
+      case A64_LDUMAX:
+      case A64_LDUMIN:
       case A64_SWP:
       case A64_HVC:
       case A64_BRK:
