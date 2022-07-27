@@ -1845,6 +1845,11 @@ size_t scan_a32(dbm_thread *thread_data, uint32_t *read_address, int basic_block
       case ARM_NEON_VRADDHN:
       case ARM_VFP_VSQRT:
       case ARM_VFP_VSUB_F:
+      case ARM_NEON_VQRDMLAHA1:
+      case ARM_NEON_VQRDMLAHA2:
+      case ARM_NEON_VQRDMLSHA1:
+      case ARM_NEON_VQRDMLSHA2:
+      case ARM_SETPAN:
         copy_arm();
         break;
 

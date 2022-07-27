@@ -3090,6 +3090,11 @@ size_t scan_t32(dbm_thread *thread_data, uint16_t *read_address, int basic_block
       case THUMB_VFP_VPUSH:
       case THUMB_VFP_VSQRT:
       case THUMB_VFP_VSUB:
+      case THUMB_NEON_VQRDMLAHT1:
+      case THUMB_NEON_VQRDMLAHT2:
+      case THUMB_NEON_VQRDMLSHT1:
+      case THUMB_NEON_VQRDMLSHT2:
+      case THUMB_SETPAN:
         copy_thumb_32();
         it_cond_handled = true;
         break;
