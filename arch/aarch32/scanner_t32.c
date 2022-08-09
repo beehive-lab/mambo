@@ -3090,6 +3090,20 @@ size_t scan_t32(dbm_thread *thread_data, uint16_t *read_address, int basic_block
       case THUMB_VFP_VPUSH:
       case THUMB_VFP_VSQRT:
       case THUMB_VFP_VSUB:
+      case THUMB_VFP_VINS_HP:
+      case THUMB_VFP_VFMAL_EL:
+      case THUMB_VFP_VFMAL_VEC:
+      case THUMB_VFP_VFMSL_EL:
+      case THUMB_VFP_VFMSL_VEC:
+      case THUMB_VFP_VMOV_HP:
+      case THUMB_VFP_VMOVX_HP:
+      case THUMB_NEON_VSDOT_EL:
+      case THUMB_NEON_VSDOT_VEC:
+      case THUMB_NEON_VSUDOT_EL:
+      case THUMB_NEON_VUDOT_EL:
+      case THUMB_NEON_VUDOT_VEC:
+      case THUMB_NEON_VUSDOT_EL:
+      case THUMB_NEON_VUSDOT_VEC:
         copy_thumb_32();
         it_cond_handled = true;
         break;
