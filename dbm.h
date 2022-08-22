@@ -126,6 +126,7 @@ typedef enum {
   jal_riscv,
   jalr_riscv,
   branch_riscv,
+  atomic_memory_riscv, //TODO maybe shouldn't have this here?
 #endif
 } branch_type;
 
