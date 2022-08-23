@@ -88,12 +88,17 @@ void a64_inline_hash_lookup(dbm_thread *thread_data, int basic_block, uint32_t *
 #endif
 
 #ifdef __riscv
+#ifdef DBM_TRIBI
+#define TRIBI_SLOTS 4
+#endif
 int riscv_c_beqz_helper(uint16_t **o_write_p, uintptr_t const target, int const rs1);
 int riscv_c_bnez_helper(uint16_t **o_write_p, uintptr_t const target, int const rs1);
 int riscv_branch_helper(uint16_t **o_write_p, uintptr_t target, int const rs1,
                         int const rs2, enum branch_condition const condition);
 int riscv_jalr_helper(uint16_t **o_write_p, uintptr_t target, enum reg rd, enum reg rs1);
 int riscv_jal_helper(uint16_t **o_write_p, uintptr_t target, enum reg rd);
+void riscv_inline_hash_lookup(dbm_thread *thread_data, int basic_block, uint16_t **o_write_p,
+                              uint16_t *read_address, enum reg rs1, uint32_t imm, bool link, bool set_meta, bool tribi);
 #endif
 
 #endif

@@ -167,6 +167,16 @@ typedef struct {
   uintptr_t branch_cache_status : 3;
   uintptr_t rs1 : 6;
   uintptr_t rs2 : 6;
+#if defined DBM_TRACES && DBM_TRIBI
+  uintptr_t *next_prediction_slot;
+  uintptr_t *ihlu_address;
+  int number_of_predictions;
+#endif
+  bool link;
+  uint32_t imm;
+  uint32_t rd;
+  int inst;
+  uint16_t *read_addr;
 #endif
   uint32_t free_b;
   ll_entry *linked_from;
