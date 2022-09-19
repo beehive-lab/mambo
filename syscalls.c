@@ -49,11 +49,10 @@
   #define SIG_FRAG_OFFSET 0
 #endif
 
-void *dbm_start_thread_pth(void *ptr, void *mambo_sp) {
+void *dbm_start_thread_pth(void *ptr) {
   dbm_thread *thread_data = (dbm_thread *)ptr;
   assert(thread_data->clone_args->child_stack);
   current_thread = thread_data;
-  current_thread->mambo_sp = mambo_sp;
 
   pid_t tid = syscall(__NR_gettid);
   thread_data->tid = tid;
@@ -250,11 +249,10 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
       break;
     case __NR_exit:
       debug("thread exit\n");
-      void *sp = thread_data->mambo_sp;
       assert(unregister_thread(thread_data, false) == 0);
       assert(free_thread_data(thread_data) == 0);
 
-      return_with_sp(sp); // this should never return
+      syscall(__NR_exit); // this should never return
       while(1); 
       break;
 #ifdef __arm__
