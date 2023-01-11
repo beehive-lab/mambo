@@ -927,13 +927,18 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
       case A64_SIMD_SCALAR_SHIFT_IMMED:
       case A64_SIMD_SCALAR_THREE_DIFF:
       case A64_SIMD_SCALAR_THREE_SAME:
+      case A64_SIMD_SCALAR_THREE_SAME_FP16:
       case A64_SIMD_SHIFT_IMMED:
       case A64_SIMD_TABLE_LOOKUP:
       case A64_SIMD_THREE_DIFF:
+      case A64_SIMD_THREE_REG_EXT:
       case A64_SIMD_THREE_SAME:
+      case A64_SIMD_THREE_SAME_FP16:
       case A64_SIMD_SCALAR_TWO_REG:
+      case A64_SIMD_SCALAR_TWO_REG_FP16:
       case A64_SIMD_SCALAR_X_INDEXED:
       case A64_SIMD_TWO_REG:
+      case A64_SIMD_TWO_REG_FP16:
       case A64_SIMD_X_INDEXED:
       case A64_CRYPTO_AES:
       case A64_CRYPTO_SHA_REG3:
@@ -944,9 +949,22 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
       case A64_FLOAT_REG1:
       case A64_FLOAT_REG2:
       case A64_FLOAT_REG3:
+      case A64_FLOAT_IMMED:
       case A64_FMOV_IMMED:
       case A64_FLOAT_CVT_FIXED:
       case A64_FLOAT_CVT_INT:
+      case A64_SVE_FLOAT_MAT_MULT_ACC:
+      case A64_SVE_LD_BCAST_QUAD_SCAL_IMMED:
+      case A64_SVE_LD_BCAST_QUAD_SCAL_SCAL:
+      case A64_SVE_PERMUTE_VECTOR:
+      case A64_SVE_PERMUTE_VECTOR_EL:
+      case A64_SVE_PERMUTE_VECTOR_PRED_EL:
+      case A64_SVE_PERMUTE_VECTOR_SEG:
+      case A64_CRYPTO_REG3_IMM2:
+      case A64_CRYPTO_REG4:
+      case A64_CRYPTO_SHA512_REG2:
+      case A64_CRYPTO_SHA512_REG3:
+      case A64_SVE_XAR:
         a64_copy();
         break;
 
