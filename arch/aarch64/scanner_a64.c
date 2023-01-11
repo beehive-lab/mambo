@@ -36,35 +36,13 @@
 #define NOP_INSTRUCTION 0xD503201F
 #define MIN_FSPACE      60
 
-//#define DEBUG
 #ifdef DEBUG
   #define debug(...) fprintf(stderr, __VA_ARGS__)
 #else
   #define debug(...)
 #endif
 
-/*
- * Macros for Pushing and Poping pair or single registers.
- * ====== === ======= === ====== ==== == ====== =========
- *
- *                     PUSH-POP Pair of registers
- *
- * The "L" field defines if the instruction is a Load (L = 1) or a
- * Store (L = 0).
- * The field "type" controls the addressing mode.
- *      C4.3.15 Load/store register pair (post-indexed, page 205.
- *      C4.3.16 Load/store register pair (pre-indexed), page 206.
- *
- * A64_LDP_STP_encode (address, opc, V, type, L, imm7, Rt2, Rn, Rt)
- * imm7:
- * For the 64-bit post-index and 64-bit pre-index variant: is the signed
- * immediate byte offset, a multiple of 8 in the range -512 to 504, encoded
- * in the "imm7" field as <imm>/8. Page 668.
-*/
-
 #define a64_copy() *(write_p++) = *read_address;
-
-#define a64_brk() *(write_p++) = 0xD4200000;
 
 void a64_branch_helper(uint32_t *write_p, uint64_t target, bool link) {
   int64_t difference = target - (uint64_t)write_p;
@@ -577,9 +555,9 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
   enum reg spilled_reg;
 
   uint64_t imm;
-  uint32_t immlo, immhi, imm14, imm16, imm19, imm26;
+  uint32_t immlo, immhi, imm19, imm26;
   uint32_t CRn, CRm, Rd, Rn, Rt;
-  uint32_t b5, b40, cond, hw, o0, op, op1, op2, opc, R, sf, V;
+  uint32_t cond, o0, op, op1, op2, opc, R, V;
 
   uint64_t branch_offset;
   uint64_t PC_relative_address;
@@ -768,7 +746,6 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
         a64_branch_jump(thread_data, &write_p, basic_block, target,
                         REPLACE_TARGET | INSERT_BRANCH);
         stop = true;
-        //while(1);
         break;
 
       case A64_BR:
@@ -899,6 +876,11 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
         a64_copy_to_reg_64bits(&write_p, Rd, PC_relative_address);
         break;
 
+      case A64_LDADD:
+      case A64_LDCLR:
+      case A64_LDEOR:
+      case A64_LDSET:
+      case A64_SWP:
       case A64_HVC:
       case A64_BRK:
       case A64_HINT:

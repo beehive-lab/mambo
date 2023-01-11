@@ -34,7 +34,6 @@
 #include "common.h"
 #include "scanner_public.h"
 
-//#undef DEBUG
 #ifdef DEBUG
   #define debug(...) fprintf(stderr, __VA_ARGS__)
 #else
@@ -86,7 +85,6 @@ uintptr_t hash_lookup(hash_table *table, uintptr_t key) {
 
 bool hash_add(hash_table *table, uintptr_t key, uintptr_t value) {
   int index = GET_INDEX(key);
-  int prev_index;
   bool done = false;
   
   do {
@@ -98,7 +96,6 @@ bool hash_add(hash_table *table, uintptr_t key, uintptr_t value) {
       table->entries[index].value = value;
       done = true;
     } else {
-      prev_index = index;
       index++;
       if (index >= table->size -1) {
         fprintf(stderr, "Hash table index overflow\n");

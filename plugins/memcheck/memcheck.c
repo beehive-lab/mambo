@@ -86,8 +86,9 @@ void memcheck_print_error(void *addr, uintptr_t meta, void *pc, stack_frame_t *f
   }
 
   fprintf(stderr, "==memcheck==  Backtrace:\n");
-  get_backtrace(frame, &print_backtrace, NULL);
-  
+  ret = get_backtrace(frame, &print_backtrace, NULL);
+  assert(ret == 0);
+
   fprintf(stderr, "\n");
 }
 
@@ -241,9 +242,9 @@ void __memcheck_inst_aarch64(mambo_context *ctx, int size) {
 
 // Pattern matching accesses which cause false positives
 bool memcheck_should_ignore(mambo_context *ctx) {
-  uint32_t iw = *(uint32_t *)mambo_get_source_addr(ctx);
 #ifdef __aarch64__
   #ifdef MC_IGNORE_LIST
+  uint32_t iw = *(uint32_t *)mambo_get_source_addr(ctx);
   if (iw == 0x4cdfa041 ||  // strchr
       iw == 0x4cdfa061 ||  // memchr
       iw == 0xa9410c22 ||  // strlen + 0x70
@@ -559,7 +560,7 @@ void __memcheck_mark_valid(uintptr_t addr, size_t size) {
 
 size_t memcheck_malloc_usable_size(uintptr_t ptr) {
   uintptr_t alloc_size = 0;
-  int ret = mambo_ht_get(&allocs, ptr, &alloc_size);
+  mambo_ht_get(&allocs, ptr, &alloc_size);
   return alloc_size;
 }
 
@@ -577,7 +578,7 @@ __attribute__((constructor)) void memcheck_init_plugin() {
   mambo_context *ctx = mambo_register_plugin();
   assert(ctx != NULL);
 
-  printf("\n-- MAMBO memcheck " GIT_VERSION " --\n\n");
+  printf("\n-- MAMBO memcheck " VERSION " --\n\n");
 
   /* Reserve the highest page of the application's memory range */
   void *guard_page = mmap((void *)RESERVED_BASE - PAGE_SIZE, PAGE_SIZE, PROT_NONE,

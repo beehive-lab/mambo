@@ -64,10 +64,10 @@ uintptr_t active_trace_lookup(dbm_thread *thread_data, uintptr_t target) {
   if (target == spc) {
     return adjust_cc_entry(thread_data->active_trace.entry_addr);
   }
-  uintptr_t return_tpc = hash_lookup(&thread_data->entry_address, target);
-  if (return_tpc >= (uintptr_t)thread_data->code_cache->traces)
-    return adjust_cc_entry(return_tpc);
-  return UINT_MAX;
+
+  uintptr_t tpc = hash_lookup(&thread_data->entry_address, target);
+
+  return is_trace(thread_data, tpc) ? adjust_cc_entry(tpc) : UINT_MAX;
 }
 
 uintptr_t active_trace_lookup_or_scan(dbm_thread *thread_data, uintptr_t target) {
@@ -75,7 +75,7 @@ uintptr_t active_trace_lookup_or_scan(dbm_thread *thread_data, uintptr_t target)
   if (target == spc) {
     return adjust_cc_entry(thread_data->active_trace.entry_addr);
   }
-  return lookup_or_scan(thread_data, target, NULL);
+  return lookup_or_scan(thread_data, target);
 }
 
 uintptr_t active_trace_lookup_or_stub(dbm_thread *thread_data, uintptr_t target) {
@@ -95,7 +95,6 @@ int allocate_trace_fragment(dbm_thread *thread_data) {
 uint32_t scan_trace(dbm_thread *thread_data, void *address, cc_type type, int *set_trace_id) {
   size_t fragment_len;
   uint8_t *write_p = thread_data->active_trace.write_p;
-  unsigned long thumb = (unsigned long)address & THUMB;
   int trace_id = allocate_trace_fragment(thread_data);
   if (set_trace_id != NULL) {
     *set_trace_id = trace_id;
@@ -108,6 +107,7 @@ uint32_t scan_trace(dbm_thread *thread_data, void *address, cc_type type, int *s
   thread_data->code_cache_meta[trace_id].branch_cache_status = 0;
 
 #ifdef __arm__
+  unsigned long thumb = (unsigned long)address & THUMB;
   if (thumb) {
     fragment_len = scan_t32(thread_data, (uint16_t *)(((uint32_t)address)-1), trace_id, type, (uint16_t*)write_p);
   } else {
@@ -116,12 +116,6 @@ uint32_t scan_trace(dbm_thread *thread_data, void *address, cc_type type, int *s
 #endif // __arm__
 #ifdef __aarch64__
   fragment_len = scan_a64(thread_data, (uint32_t *)address, trace_id, type, (uint32_t*)write_p);
-#endif
-
-#ifdef __arm__
-  inst_set inst_type = thumb ? THUMB_INST : ARM_INST;
-#elif __aarch64__
-  inst_set inst_type = A64_INST;
 #endif
 
   __clear_cache(write_p, write_p + fragment_len);
@@ -249,13 +243,16 @@ void install_trace(dbm_thread *thread_data) {
   int bb_source = thread_data->active_trace.source_bb;
   uintptr_t spc = (uintptr_t)thread_data->code_cache_meta[bb_source].source_addr;
   uintptr_t tpc = thread_data->active_trace.entry_addr;
+#ifdef __arm__
   uintptr_t tpc_direct = adjust_cc_entry(tpc);
+#endif
+
   assert(thread_data->active_trace.active);
   thread_data->active_trace.active = false;
 
   cc_link = thread_data->code_cache_meta[bb_source].linked_from;
   while(cc_link != NULL) {
-    debug("Link from: 0x%lx, update to: 0x%lx\n", cc_link->data, tpc);
+    debug("Link from: 0x%" PRIxPTR ", update to: 0x%" PRIxPTR "\n", cc_link->data, tpc);
     orig_branch = cc_link->data;
 #ifdef __arm__
     orig_branch &= 0xFFFFFFFE;
@@ -267,7 +264,7 @@ void install_trace(dbm_thread *thread_data) {
       arm_adjust_b_bl_target((uintptr_t *)orig_branch, tpc_direct);
     }
 #elif __aarch64__
-    if (orig_branch >= (uintptr_t)thread_data->code_cache->traces) {
+    if (is_trace(thread_data, orig_branch)) {
       patch_trace_branches(thread_data, (uint32_t *)orig_branch, tpc + 4);
     } else {
       a64_b_helper((uint32_t *)orig_branch, tpc + 4);
@@ -473,18 +470,8 @@ void create_trace(dbm_thread *thread_data, uint32_t bb_source, cc_addr_pair *ret
 #ifdef DBM_TRACES
   uint16_t *source_addr;
   uint32_t fragment_len;
-  ll_entry *cc_link;
-  uintptr_t orig_addr;
   int trace_id;
   uintptr_t trace_entry;
-
-#ifdef __arm__
-  uint16_t *bb_addr = (uint16_t *)&thread_data->code_cache->blocks[bb_source];
-  bool is_thumb;
-#endif
-#ifdef __aarch64__
-  uint32_t  *bb_addr = (uint32_t *)&thread_data->code_cache->blocks[bb_source];
-#endif
 
   thread_data->trace_fragment_count = 0;
 #ifdef __arm__
@@ -507,9 +494,6 @@ void create_trace(dbm_thread *thread_data, uint32_t bb_source, cc_addr_pair *ret
 #endif
     source_addr = thread_data->code_cache_meta[bb_source].source_addr;
     ret_addr->spc = (uintptr_t)source_addr;
-#ifdef __arm__
-    is_thumb = (uintptr_t)source_addr & THUMB;
-#endif
 
     /* Alignment doesn't seem to make much of a difference */
     thread_data->trace_cache_next += (TRACE_ALIGN -
@@ -519,11 +503,11 @@ void create_trace(dbm_thread *thread_data, uint32_t bb_source, cc_addr_pair *ret
         || thread_data->trace_id >= (CODE_CACHE_SIZE + TRACE_FRAGMENT_NO - TRACE_FRAGMENT_OVERP)) {
       fprintf(stderr, "trace cache full, flushing the CC\n");
       flush_code_cache(thread_data);
-      ret_addr->tpc = lookup_or_scan(thread_data, (uintptr_t)source_addr, NULL);
+      ret_addr->tpc = lookup_or_scan(thread_data, (uintptr_t)source_addr);
       return;
     }
 
-    debug("bb: %d, source: %p, ret to: 0x%x\n", bb_source, source_addr, ret_addr->tpc);
+    debug("bb: %d, source: %p, ret to: 0x%" PRIxPTR "\n", bb_source, source_addr, ret_addr->tpc);
     hot_bb_cnt++;
 
     trace_entry = (uintptr_t)thread_data->trace_cache_next;
@@ -536,10 +520,10 @@ void create_trace(dbm_thread *thread_data, uint32_t bb_source, cc_addr_pair *ret
     thread_data->active_trace.entry_addr = trace_entry;
     thread_data->active_trace.free_exit_rec = 0;
 
-    debug("Create trace: %d (%p), source_bb: %d, entry: %lx\n",
+    debug("Create trace: %d (%p), source_bb: %d, entry: %" PRIxPTR "\n",
           thread_data->active_trace.id, thread_data->active_trace.write_p,
           thread_data->active_trace.source_bb, thread_data->active_trace.entry_addr);
-    debug("\n    Trace head: %p at 0x%x\n\n", source_addr, ret_addr->tpc);
+    debug("\n    Trace head: %p at 0x%" PRIxPTR "\n\n", source_addr, ret_addr->tpc);
 
     ret_addr->tpc = adjust_cc_entry(trace_entry);
     fragment_len = scan_trace(thread_data, source_addr, mambo_trace_entry, &trace_id);
@@ -611,7 +595,7 @@ void trace_dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_in
   size_t fragment_len;
   thread_data->was_flushed = false;
 
-  debug("Trace dispatcher (target: 0x%x)\n", target);
+  debug("Trace dispatcher (target: 0x%" PRIxPTR ")\n", target);
 
   switch(bb_meta->exit_branch_type) {
 #ifdef __arm__
@@ -656,7 +640,6 @@ void trace_dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_in
       thumb_bx16(&write_p, pc);
       __clear_cache(write_p-2, write_p+2);
       write_p += 2;
-      //while(1);
     #endif
 
     /* Alternative implementations might be faster on other microarchitectures */
@@ -692,7 +675,7 @@ void trace_dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_in
     case tbh:
     case tbb:
     case uncond_reg_arm:
-      *next_addr = lookup_or_scan(thread_data, target, NULL);
+      *next_addr = lookup_or_scan(thread_data, target);
       return;
 
       break;
@@ -721,7 +704,7 @@ void trace_dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_in
       bb_meta->branch_cache_status = BRANCH_LINKED;
       break;
     case uncond_branch_reg:
-      *next_addr = lookup_or_scan(thread_data, target, NULL);
+      *next_addr = lookup_or_scan(thread_data, target);
       return;
       break;
 #endif
@@ -735,13 +718,13 @@ void trace_dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_in
 
   // If the CC was flushed to generate exits, then abort the active trace
   if (thread_data->was_flushed) {
-    *next_addr = lookup_or_scan(thread_data, target, NULL);
+    *next_addr = lookup_or_scan(thread_data, target);
     return;
   }
 
   // Check if the fragment count has reached the max limit
   if (thread_data->trace_fragment_count > MAX_TRACE_FRAGMENTS) {
-    debug("Trace fragment count limit, branch to: 0x%x, written at: %p\n", target, write_p);
+    debug("Trace fragment count limit, branch to: 0x%" PRIxPTR ", written at: %p\n", target, write_p);
     addr = active_trace_lookup_or_scan(thread_data, target);
     early_trace_exit(thread_data, bb_meta, write_p, target, addr);
     *next_addr = addr;
@@ -750,14 +733,14 @@ void trace_dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_in
 
   // Check if the target is already a trace
   addr = active_trace_lookup(thread_data, target);
-  debug("Hash lookup for 0x%x: 0x%x\n", target, addr);
+  debug("Hash lookup for 0x%" PRIxPTR ": 0x%" PRIxPTR "\n", target, addr);
   if (addr != UINT_MAX) {
     early_trace_exit(thread_data, bb_meta, write_p, target, addr);
     *next_addr = addr;
     return;
   }
 
-  debug("\n   Trace fragment: 0x%x\n", target);
+  debug("\n   Trace fragment: 0x%" PRIxPTR "\n", target);
   int fragment_id;
 #ifdef __arm__
   fragment_len = scan_trace(thread_data, (uint16_t *)target, mambo_trace, &fragment_id);
@@ -765,7 +748,7 @@ void trace_dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_in
 #ifdef __aarch64__
   fragment_len = scan_trace(thread_data, (uint32_t *)target, mambo_trace, &fragment_id);
 #endif
-  debug("len: %d\n\n", fragment_len);
+  debug("len: %" PRIdPTR "\n\n", fragment_len);
 
   thread_data->active_trace.write_p += fragment_len;
   switch(thread_data->code_cache_meta[fragment_id].exit_branch_type) {

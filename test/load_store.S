@@ -365,8 +365,8 @@ test_thumb32:
   VPOP  {S4-S8}
   VPUSH {D4-D15}
   VPOP  {D4-D15}
-  VPUSH {S0-S31}
-  VPOP  {S0-S31}
+  vstmdb sp!, {s0-s31} // VPUSH {s0-s31}
+  vldm   sp!, {s0-s31} // VPOP  {S0-S31}
   VPUSH {D16-D31}
   VPOP  {D16-D31}
 
@@ -1178,10 +1178,10 @@ test_a32:
   // VPUSH, VPOP
   VPUSH {S0}
   VPUSH {D0}
-  VPUSH {S0-S31}
+  vstmdb sp!, {s0-s31} // VPUSH {S0-S31}
   VPUSH {D0-D15}
   VPOP {D0-D15}
-  VPOP {S0-S31}
+  vldm   sp!, {s0-s31} // VPOP  {S0-S31}
   VPOP {D0}
   VPOP {S0}
 

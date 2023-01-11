@@ -77,6 +77,7 @@ int __mambo_ht_resize(mambo_ht_t *ht) {
       assert(ret == 0);
     }
   }
+  return 0;
 }
 
 int mambo_ht_add_nolock(mambo_ht_t *ht, uintptr_t key, uintptr_t value) {
@@ -84,7 +85,8 @@ int mambo_ht_add_nolock(mambo_ht_t *ht, uintptr_t key, uintptr_t value) {
 
   if (ht->entry_count >= ht->resize_threshold) {
     if (ht->allow_resize) {
-      __mambo_ht_resize(ht);
+      const int ret = __mambo_ht_resize(ht);
+      assert(ret == 0);
     } else {
       return -1;
     }

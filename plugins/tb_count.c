@@ -18,6 +18,7 @@
 */
 
 #ifdef PLUGINS_NEW
+#ifdef __arm__
 
 #include <stdio.h>
 #include <assert.h>
@@ -42,8 +43,8 @@ int tb_cnt_pre_inst_handler(mambo_context *ctx) {
     // MOVT R0, #(ptr_to_ctr >> 16)
     emit_thumb_copy_to_reg_32bit(ctx, r0, (uint32_t)mambo_get_thread_plugin_data(ctx));
     emit_thumb_ldrd32(ctx, 1, 1, 0, r0, r1, r2, 0); // LDRD R1, R2, [R0, #0]
-    emit_thumb_addi16(ctx, 1, r1, r1);              // ADDS R1, R1, #1       
-    emit_thumb_adci32(ctx, 0, 0, r2, 0, r2, 0);     // ADC  R2, R2, #0        
+    emit_thumb_addi16(ctx, 1, r1, r1);              // ADDS R1, R1, #1
+    emit_thumb_adci32(ctx, 0, 0, r2, 0, r2, 0);     // ADC  R2, R2, #0
     emit_thumb_strd32(ctx, 1, 1, 0, r0, r1, r2, 0); // STRD R1, R2, [R0, #0]
     emit_thumb_pop_cpsr(ctx, r0);                   // POP {R0}; MSR CPSR, R0
     emit_thumb_pop16(ctx, (1 << r0) | (1 << r1) | (1 << r2));  // POP {R0-R2}
@@ -81,7 +82,11 @@ __attribute__((constructor)) void tb_init_plugin() {
   mambo_register_pre_inst_cb(ctx, &tb_cnt_pre_inst_handler);
   mambo_register_pre_thread_cb(ctx, &tb_cnt_pre_thread_handler);
   mambo_register_post_thread_cb(ctx, &tb_cnt_post_thread_handler);
-  
+
   setlocale(LC_NUMERIC, "");
 }
+
+#else // __arm__
+  #error The tb_count plugin is only available for AArch32 because the table branch instructions are only available on this architecture
+#endif
 #endif

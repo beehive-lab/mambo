@@ -66,7 +66,6 @@ void dispatcher_aarch32(dbm_thread *thread_data, uint32_t source_index, branch_t
   uintptr_t other_target;
   bool      other_target_in_cache;
   uint32_t  cond;
-  uint32_t  *branch_table;
 
   switch (exit_type) {
 #ifdef DBM_TB_DIRECT
@@ -83,10 +82,9 @@ void dispatcher_aarch32(dbm_thread *thread_data, uint32_t source_index, branch_t
         break;
       }
     #endif
-      //thread_data->code_cache_meta[source_index].count++;
       branch_addr = thread_data->code_cache_meta[source_index].exit_branch_addr;
     #ifdef FAST_BT
-      branch_table = (uint32_t *)(((uint32_t)branch_addr + 20 + 2) & 0xFFFFFFFC);
+      uint32_t *branch_table = (uint32_t *)(((uint32_t)branch_addr + 20 + 2) & 0xFFFFFFFC);
       branch_table[thread_data->code_cache_meta[source_index].rn] = block_address;
     #else
       branch_addr += 7;

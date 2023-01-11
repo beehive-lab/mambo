@@ -36,8 +36,6 @@
   #define AT_MINSIGSTKSZ 51
 #endif
 
-#define DEBUG 1
-#undef DEBUG
 #ifdef DEBUG
   #define debug(...) fprintf(stderr, __VA_ARGS__)
 #else
@@ -49,12 +47,13 @@ extern void *__ehdr_start;
 void load_segment(uintptr_t base_addr, ELF_PHDR *phdr, int fd, Elf32_Half type, bool is_interp) {
   uint32_t *mem;
   int prot = 0;
-  unsigned long pos;
   uintptr_t aligned_vaddr, aligned_fsize, aligned_msize, page_offset, map_file_end;
 
-  /*if (phdr->p_flags & PF_X) {
+#ifdef ENABLE_EXECUTE
+  if (phdr->p_flags & PF_X) {
     prot |= PROT_EXEC;
-  }*/
+  }
+#endif
 
   if (phdr->p_flags & PF_W) {
     prot |= PROT_WRITE;
@@ -100,18 +99,18 @@ void load_segment(uintptr_t base_addr, ELF_PHDR *phdr, int fd, Elf32_Half type, 
                  prot | ((phdr->p_flags & PF_X) ? PROT_EXEC : 0), MAP_EL_ANON, -1, 0);
   }
 
-  /*
+#ifdef ENABLE_EXECUTE
   if (phdr->p_flags & PF_X) {
     __clear_cache((char *)phdr->p_vaddr, (char *)phdr->p_vaddr + (char *)phdr->p_memsz);
   }
-  */
+#endif
 
   if (!is_interp && (aligned_vaddr + aligned_msize) > global_data.brk) {
     global_data.brk = aligned_vaddr + aligned_msize;
   }
 }
 
-int load_elf(char *filename, Elf **ret_elf, struct elf_loader_auxv *auxv, uintptr_t *entry_addr, bool is_interp) {
+void load_elf(char *filename, Elf **ret_elf, struct elf_loader_auxv *auxv, uintptr_t *entry_addr, bool is_interp) {
   int fd;
   FILE *file;
   Elf *elf;
@@ -120,7 +119,6 @@ int load_elf(char *filename, Elf **ret_elf, struct elf_loader_auxv *auxv, uintpt
   ELF_PHDR *phdr;
   char interp[256];
   errno = 0;
-  char *tmpmem;
   size_t phnum;
 
   fd = open(filename, O_RDONLY);

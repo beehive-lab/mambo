@@ -317,7 +317,6 @@ int __emit_branch_cond(inst_set inst_type, void *write, uintptr_t target, mambo_
   if (cond == AL) {
     if (diff < -134217728 || diff > 134217724) return -1;
     a64_branch_helper(write, target, link);
-    //a64_b_helper(write, target);
   } else {
     if (diff < -1048576 || diff > 1048572) return -1;
     a64_b_cond_helper(write, target, cond);

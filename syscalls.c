@@ -30,6 +30,7 @@
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/shm.h>
+#include <inttypes.h>
 
 #include "dbm.h"
 #include "kernel_sigaction.h"
@@ -48,7 +49,7 @@
   #define SIG_FRAG_OFFSET 0
 #endif
 
-void *dbm_start_thread_pth(void *ptr, void *mambo_sp) {
+void *dbm_start_thread_pth(void *ptr) {
 #ifdef __riscv
   #warning dbm_start_thread_pth() not implemented for RISCV
   fprintf(stderr, "dbm_start_thread_pth() not implementd for RISCV\n");
@@ -57,7 +58,6 @@ void *dbm_start_thread_pth(void *ptr, void *mambo_sp) {
   dbm_thread *thread_data = (dbm_thread *)ptr;
   assert(thread_data->clone_args->child_stack);
   current_thread = thread_data;
-  current_thread->mambo_sp = mambo_sp;
 
   pid_t tid = syscall(__NR_gettid);
   thread_data->tid = tid;
@@ -151,7 +151,7 @@ uintptr_t emulate_brk(uintptr_t addr) {
       vm_op_t op = VM_MAP;
       size_t size = addr - global_data.brk;
       if (addr < global_data.brk) {
-        vm_op_t op = VM_UNMAP;
+        op = VM_UNMAP;
         size = global_data.brk - addr;
       }
       notify_vm_op(op, min(addr, global_data.brk), size, PROT_READ | PROT_WRITE,
@@ -193,11 +193,10 @@ ssize_t readlink_handler(char *sys_path, char *sys_buf, ssize_t bufsize) {
 int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_inst, dbm_thread *thread_data) {
   int do_syscall = 1;
   sys_clone_args *clone_args;
-  debug("syscall pre %d\n", syscall_no);
+  debug("syscall pre %" PRIdPTR "\n", syscall_no);
 
 #ifdef PLUGINS_NEW
   mambo_context ctx;
-  int cont;
 
   if (global_data.free_plugin > 0) {
     set_mambo_context_syscall(&ctx, thread_data, PRE_SYSCALL_C, syscall_no, args);
@@ -257,11 +256,10 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
       break;
     case __NR_exit:
       debug("thread exit\n");
-      void *sp = thread_data->mambo_sp;
       assert(unregister_thread(thread_data, false) == 0);
       assert(free_thread_data(thread_data) == 0);
 
-      return_with_sp(sp); // this should never return
+      syscall(__NR_exit); // this should never return
       while(1); 
       break;
 #ifdef __arm__
@@ -328,42 +326,44 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
        as a safeguard in case a translation bug causes a branch to unmodified application code.
        Page permissions happen to be passed in the third argument both for mmap and mprotect. */
 #if defined(__arm__) || __riscv_xlen == 32
-    case __NR_mmap2: {
+    case __NR_mmap2:
 #endif
 #if defined(__aarch64__) || __riscv_xlen == 64
-    case __NR_mmap: {
+    case __NR_mmap:
 #endif
+    case __NR_mprotect: {
       uintptr_t syscall_ret, prot = args[2];
 
       /* Ensure that code pages are readable by the code scanner. */
       if (args[2] & PROT_EXEC) {
-        assert(args[2] & PROT_READ);
+        if (!(args[2] & PROT_READ)) {
+          debug("MAMBO: adding read permission to executable mapping at 0x%" PRIxPTR "\n", args[0]);
+          args[2] |= PROT_READ;
+        }
         args[2] &= ~PROT_EXEC;
       }
-      syscall_ret = raw_syscall(syscall_no, args[0], args[1], args[2], args[3], args[4], args[5]);
-      if (syscall_ret <= -ERANGE) {
-        uintptr_t start = align_lower(syscall_ret, PAGE_SIZE);
-        uintptr_t end = align_higher(syscall_ret + args[1], PAGE_SIZE);
-        notify_vm_op(VM_MAP, start, end-start, prot, args[3], args[4], args[5]);
-      }
 
-      args[0] = syscall_ret;
-      do_syscall = 0;
-      break;
-    }
-    case __NR_mprotect: {
-      int ret;
-      uintptr_t syscall_ret, prot = args[2];
+#if defined(__arm__) || __riscv_xlen == 32
+      if (syscall_no == __NR_mmap2) {
+#endif
+#if defined(__aarch64__) || __riscv_xlen == 64
+      if (syscall_no == __NR_mmap) {
+#endif
+        syscall_ret = raw_syscall(syscall_no, args[0], args[1], args[2], args[3], args[4], args[5]);
+        if (syscall_ret <= -ERANGE) {
+          uintptr_t start = align_lower(syscall_ret, PAGE_SIZE);
+          uintptr_t end = align_higher(syscall_ret + args[1], PAGE_SIZE);
+          notify_vm_op(VM_MAP, start, end-start, prot, args[3], args[4], args[5]);
+        }
+      } else {
+        assert(syscall_no == __NR_mprotect);
 
-      if (args[2] & PROT_EXEC) {
-        assert(args[2] & PROT_READ);
-        args[2] &= ~PROT_EXEC;
-      }
-      syscall_ret = raw_syscall(syscall_no, args[0], args[1], args[2]);
-      if (syscall_ret == 0) {
-        uintptr_t start = align_lower(args[0], PAGE_SIZE);
-        uintptr_t end = align_higher(args[0] + args[1], PAGE_SIZE);
-        notify_vm_op(VM_PROT, start, end-start, args[2], 0, -1, 0);
+        syscall_ret = raw_syscall(syscall_no, args[0], args[1], args[2]);
+        if (syscall_ret == 0) {
+          uintptr_t start = align_lower(args[0], PAGE_SIZE);
+          uintptr_t end = align_higher(args[0] + args[1], PAGE_SIZE);
+          notify_vm_op(VM_PROT, start, end-start, args[2], 0, -1, 0);
+        }
       }
 
       args[0] = syscall_ret;
@@ -497,9 +497,7 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
 }
 
 void syscall_handler_post(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_inst, dbm_thread *thread_data) {
-  dbm_thread *new_thread_data;
-  
-  debug("syscall post %d\n", syscall_no);
+  debug("syscall post %" PRIdPTR "\n", syscall_no);
 
   if (global_data.exit_group) {
     thread_abort(thread_data);
@@ -508,7 +506,7 @@ void syscall_handler_post(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_
 
   switch(syscall_no) {
     case __NR_clone:
-      debug("r0 (tid): %d\n", args[0]);
+      debug("r0 (tid): %" PRIdPTR "\n", args[0]);
       if (args[0] == 0) { // the child
         assert(!thread_data->clone_vm);
         /* Without CLONE_VM, the child runs in a separate memory space,

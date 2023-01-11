@@ -27,7 +27,7 @@
 #include <stdint.h>
 #include <sys/auxv.h>
 #include <libelf.h>
-
+#include <inttypes.h>
 #ifdef __arm__
 #include "pie/pie-arm-decoder.h"
 #include "pie/pie-thumb-decoder.h"
@@ -253,7 +253,6 @@ struct dbm_thread_s {
   bool clone_vm;
   int pending_signals[_NSIG];
   uint32_t is_signal_pending;
-  void *mambo_sp;
 };
 
 typedef enum {
@@ -347,7 +346,10 @@ void init_thread(dbm_thread *thread_data);
 void reset_process(dbm_thread *thread_data);
 
 uintptr_t cc_lookup(dbm_thread *thread_data, uintptr_t target);
-uintptr_t lookup_or_scan(dbm_thread *thread_data, uintptr_t target, bool *cached);
+uintptr_t lookup_or_scan(dbm_thread * const thread_data, uintptr_t target);
+uintptr_t lookup_or_scan_with_cached(dbm_thread * const thread_data,
+                                     const uintptr_t target,
+                                     bool * const cached);
 uintptr_t lookup_or_stub(dbm_thread *thread_data, uintptr_t target);
 uintptr_t scan(dbm_thread *thread_data, uint16_t *address, int basic_block);
 uint32_t scan_a32(dbm_thread *thread_data, uint32_t *read_address, int basic_block, cc_type type, uint32_t *write_p);
@@ -363,10 +365,12 @@ void sigret_dispatcher_call(dbm_thread *thread_data, ucontext_t *cont, uintptr_t
 void thumb_encode_stub_bb(dbm_thread *thread_data, int basic_block, uint32_t target);
 void arm_encode_stub_bb(dbm_thread *thread_data, int basic_block, uint32_t target);
 
-int addr_to_bb_id(dbm_thread *thread_data, uintptr_t addr);
-int addr_to_fragment_id(dbm_thread *thread_data, uintptr_t addr);
+int addr_to_bb_id(dbm_thread * const thread_data, const uintptr_t addr);
+int addr_to_fragment_id(dbm_thread * const thread_data, const uintptr_t addr);
 void record_cc_link(dbm_thread *thread_data, uintptr_t linked_from, uintptr_t linked_to_addr);
-bool is_bb(dbm_thread *thread_data, uintptr_t addr);
+bool is_bb(dbm_thread * const thread_data, const uintptr_t addr);
+bool is_trace(dbm_thread * const thread_data, const uintptr_t addr);
+
 void install_system_sig_handlers();
 
 #define MAP_INTERP (0x40000000)

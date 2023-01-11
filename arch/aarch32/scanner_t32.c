@@ -437,7 +437,6 @@ void branch_save_context(dbm_thread *thread_data, uint16_t **o_write_p, bool lat
 
 void branch_jump(dbm_thread *thread_data, uint16_t **o_write_p, int bb_index, uint32_t target, uint32_t flags) {
   uint16_t *write_p = *o_write_p;
-  uint32_t offset;
 
   if (flags & SETUP) {
     copy_to_reg_32bit(&write_p, r1, bb_index);
@@ -880,8 +879,8 @@ bool thumb_scanner_deliver_callbacks(dbm_thread *thread_data, mambo_cb_idx cb_id
                                      uint32_t **o_data_p, int basic_block, cc_type type,
                                      bool allow_write, bool *stop) {
   bool replaced = false;
-  void *prev_write_p;
 #ifdef PLUGINS_NEW
+  void *prev_write_p;
   if (global_data.free_plugin > 0) {
     uint16_t *write_p = *o_write_p;
     uint32_t *data_p = *o_data_p;
@@ -1049,7 +1048,6 @@ size_t scan_t32(dbm_thread *thread_data, uint16_t *read_address, int basic_block
   uint32_t shift;
   uint32_t opcode;
   uint32_t opcode2;
-  uint32_t byteword;
   uint32_t loadstore;
   uint32_t datasize;
   uint32_t rotate;
@@ -1061,18 +1059,13 @@ size_t scan_t32(dbm_thread *thread_data, uint16_t *read_address, int basic_block
   uint32_t d;
   uint32_t vd;
   uint32_t load_store;
-  uint32_t double_reg;
   uint32_t p;
-  uint32_t double_single;
   uint32_t n;
   uint32_t vn;
-  uint32_t f2;
   uint32_t n_high;
   uint32_t m_swap;
   uint32_t link;
   uint32_t size;
-  uint32_t sz;
-  uint32_t element_size;
   uint32_t align;
   
   uint32_t opc1;
@@ -1082,11 +1075,9 @@ size_t scan_t32(dbm_thread *thread_data, uint16_t *read_address, int basic_block
   uint32_t crm;
   
   uint32_t target;
-  uint32_t *scratch_data;
   uint32_t offset;
   uint32_t scratch_reg;
   uint32_t scratch_reg2;
-  uint32_t sr[3];
 
   int32_t  branch_offset;
   uint32_t block_address;
@@ -1094,10 +1085,6 @@ size_t scan_t32(dbm_thread *thread_data, uint16_t *read_address, int basic_block
   uint32_t branch_skipped_address;
   uint32_t branch_taken_cached;
   uint32_t branch_skipped_cached;
-  uint32_t *saved_data_p;
-  int lowest_reg;
-  uint32_t to_push;
-  uint32_t return_addr;
 
   bool it_cond_handled = false;
   thumb_it_state it_state;
@@ -1105,13 +1092,11 @@ size_t scan_t32(dbm_thread *thread_data, uint16_t *read_address, int basic_block
   it_state.is_overwritten = false;
 
   bool ldrex = false;
-  bool insert_inline = false;
 
   uint16_t *inst_pop_regs;
   uint16_t *set_inst_pop_regs = NULL;
   uint32_t *inst_pop_regs_data;
   uint32_t poped_regs = 0;
-  bool is_valid;
 
 #ifdef DBM_INLINE_UNCOND_IMM
   int inline_back_count = 0;
@@ -1483,8 +1468,6 @@ size_t scan_t32(dbm_thread *thread_data, uint16_t *read_address, int basic_block
       case THUMB_STRBI16:
       case THUMB_LDRBI16:
         // only low 8 regs
-//        thumb_load_store_byte_word_i_16_decode_fields(read_address, &byteword, &loadstore, &imm5, &rn, &rdn);
-
         copy_thumb_16();
         it_cond_handled = true;
         
@@ -1493,8 +1476,6 @@ size_t scan_t32(dbm_thread *thread_data, uint16_t *read_address, int basic_block
       case THUMB_LDRHI16:
       case THUMB_STRHI16:
         // only low 8 regs
-//        thumb_load_store_halfword_i_16_decode_fields(read_address, &loadstore, &imm5, &rn, &rt);
-        
         copy_thumb_16();
         it_cond_handled = true;
         
@@ -2529,12 +2510,9 @@ size_t scan_t32(dbm_thread *thread_data, uint16_t *read_address, int basic_block
 #ifdef DBM_LINK_COND_IMM
         }
 #endif
-        
         stop = true;
-        
-        //while(1);
         break;
-        
+
       case THUMB_DSB32:
       case THUMB_DMB32:
       case THUMB_ISB32:
@@ -2743,6 +2721,8 @@ size_t scan_t32(dbm_thread *thread_data, uint16_t *read_address, int basic_block
           }
 #endif
 #ifdef DBM_D_INLINE_HASH
+          uint32_t sr[3];
+
           sr[0] = 3;
           while (sr[0] == rn || sr[0] == rm) {
             sr[0]++;
@@ -2915,7 +2895,6 @@ size_t scan_t32(dbm_thread *thread_data, uint16_t *read_address, int basic_block
         thumb_mrc32_decode_fields(read_address, &opc1, &crn, &rt, &coproc, &opc2, &crm);
 
         if (coproc == 15 && opc1 == 0 && crn == 13 && crm == 0 && opc2 == 3) {
-          //fprintf(stderr, "Read TPIDRURO into R%d\n", rt);
           assert(rt != pc);
 
           modify_in_it_pre(5);
@@ -3134,7 +3113,6 @@ size_t scan_t32(dbm_thread *thread_data, uint16_t *read_address, int basic_block
       if(!it_cond_handled) {
         fprintf(stderr, "Didn't handle instruction-after IT at %p, inst: %d\n", read_address, inst);
         while(1);
-        //exit(EXIT_FAILURE);
       }
       do_it_iter(&it_state);
     }
