@@ -876,47 +876,57 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
         a64_copy_to_reg_64bits(&write_p, Rd, PC_relative_address);
         break;
 
+      case A64_ADC_SBC:
+      case A64_ADD_SUB_EXT_REG:
+      case A64_ADD_SUB_IMMED:
+      case A64_ADD_SUB_SHIFT_REG:
+      case A64_BFM:
+      case A64_BRK:
+      case A64_CCMP_CCMN_IMMED:
+      case A64_CCMP_CCMN_REG:
+      case A64_CLREX:
+      case A64_COND_SELECT:
+      case A64_CRYPTO_AES:
+      case A64_CRYPTO_SHA_REG2:
+      case A64_CRYPTO_SHA_REG3:
+      case A64_DATA_PROC_REG1:
+      case A64_DATA_PROC_REG2:
+      case A64_DATA_PROC_REG3:
+      case A64_DMB:
+      case A64_DSB:
+      case A64_EXTR:
+      case A64_FCCMP:
+      case A64_FCMP:
+      case A64_FCSEL:
+      case A64_FLOAT_CVT_FIXED:
+      case A64_FLOAT_CVT_INT:
+      case A64_FLOAT_REG1:
+      case A64_FLOAT_REG2:
+      case A64_FLOAT_REG3:
+      case A64_FMOV_IMMED:
+      case A64_HINT:
+      case A64_HVC:
+      case A64_ISB:
       case A64_LDADD:
       case A64_LDCLR:
       case A64_LDEOR:
+      case A64_LDP_STP:
+      case A64_LDR_STR_IMMED:
+      case A64_LDR_STR_REG:
+      case A64_LDR_STR_UNSIGNED_IMMED:
       case A64_LDSET:
       case A64_LDSMAX:
       case A64_LDSMIN:
       case A64_LDUMAX:
       case A64_LDUMIN:
-      case A64_SWP:
-      case A64_HVC:
-      case A64_BRK:
-      case A64_HINT:
-      case A64_CLREX:
-      case A64_DSB:
-      case A64_DMB:
-      case A64_ISB:
-      case A64_SYS:
       case A64_LDX_STX:
-      case A64_LDP_STP:
-      case A64_LDR_STR_IMMED:
-      case A64_LDR_STR_REG:
-      case A64_LDR_STR_UNSIGNED_IMMED:
       case A64_LDX_STX_MULTIPLE:
       case A64_LDX_STX_MULTIPLE_POST:
       case A64_LDX_STX_SINGLE:
       case A64_LDX_STX_SINGLE_POST:
-      case A64_ADD_SUB_IMMED:
-      case A64_BFM:
-      case A64_EXTR:
       case A64_LOGICAL_IMMED:
-      case A64_MOV_WIDE:
-      case A64_ADD_SUB_EXT_REG:
-      case A64_ADD_SUB_SHIFT_REG:
-      case A64_ADC_SBC:
-      case A64_CCMP_CCMN_IMMED:
-      case A64_CCMP_CCMN_REG:
-      case A64_COND_SELECT:
-      case A64_DATA_PROC_REG1:
-      case A64_DATA_PROC_REG2:
-      case A64_DATA_PROC_REG3:
       case A64_LOGICAL_REG:
+      case A64_MOV_WIDE:
       case A64_SIMD_ACROSS_LANE:
       case A64_SIMD_COPY:
       case A64_SIMD_EXTRACT:
@@ -927,26 +937,16 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
       case A64_SIMD_SCALAR_SHIFT_IMMED:
       case A64_SIMD_SCALAR_THREE_DIFF:
       case A64_SIMD_SCALAR_THREE_SAME:
+      case A64_SIMD_SCALAR_TWO_REG:
+      case A64_SIMD_SCALAR_X_INDEXED:
       case A64_SIMD_SHIFT_IMMED:
       case A64_SIMD_TABLE_LOOKUP:
       case A64_SIMD_THREE_DIFF:
       case A64_SIMD_THREE_SAME:
-      case A64_SIMD_SCALAR_TWO_REG:
-      case A64_SIMD_SCALAR_X_INDEXED:
       case A64_SIMD_TWO_REG:
       case A64_SIMD_X_INDEXED:
-      case A64_CRYPTO_AES:
-      case A64_CRYPTO_SHA_REG3:
-      case A64_CRYPTO_SHA_REG2:
-      case A64_FCMP:
-      case A64_FCCMP:
-      case A64_FCSEL:
-      case A64_FLOAT_REG1:
-      case A64_FLOAT_REG2:
-      case A64_FLOAT_REG3:
-      case A64_FMOV_IMMED:
-      case A64_FLOAT_CVT_FIXED:
-      case A64_FLOAT_CVT_INT:
+      case A64_SWP:
+      case A64_SYS:
         a64_copy();
         break;
 

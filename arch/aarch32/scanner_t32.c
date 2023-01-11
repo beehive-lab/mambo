@@ -1667,6 +1667,7 @@ size_t scan_t32(dbm_thread *thread_data, uint16_t *read_address, int basic_block
       case THUMB_NOP16:
       case THUMB_BKPT16:
       case THUMB_UDF16:
+      case THUMB_SETPAN: // NOP in user mode
         copy_thumb_16();
         it_cond_handled = true;
         break;
@@ -3046,6 +3047,10 @@ size_t scan_t32(dbm_thread *thread_data, uint16_t *read_address, int basic_block
       case THUMB_NEON_VQADD:
       case THUMB_NEON_VQMOVN:
       case THUMB_NEON_VQMOVUN:
+      case THUMB_NEON_VQRDMLAHT1:
+      case THUMB_NEON_VQRDMLAHT2:
+      case THUMB_NEON_VQRDMLSHT1:
+      case THUMB_NEON_VQRDMLSHT2:
       case THUMB_NEON_VQRSHRUN:
       case THUMB_NEON_VQSHRUN:
       case THUMB_NEON_VQSUB:
@@ -3054,6 +3059,8 @@ size_t scan_t32(dbm_thread *thread_data, uint16_t *read_address, int basic_block
       case THUMB_NEON_VRHADD:
       case THUMB_NEON_VRSHR:
       case THUMB_NEON_VRSHRN:
+      case THUMB_NEON_VSDOT_EL:
+      case THUMB_NEON_VSDOT_VEC:
       case THUMB_NEON_VSHL:
       case THUMB_NEON_VSHLI:
       case THUMB_NEON_VSHLL:
@@ -3063,9 +3070,14 @@ size_t scan_t32(dbm_thread *thread_data, uint16_t *read_address, int basic_block
       case THUMB_NEON_VSUB_I:
       case THUMB_NEON_VSUBL:
       case THUMB_NEON_VSUBW:
+      case THUMB_NEON_VSUDOT_EL:
       case THUMB_NEON_VSWP:
       case THUMB_NEON_VTRN:
       case THUMB_NEON_VTST:
+      case THUMB_NEON_VUDOT_EL:
+      case THUMB_NEON_VUDOT_VEC:
+      case THUMB_NEON_VUSDOT_EL:
+      case THUMB_NEON_VUSDOT_VEC:
       case THUMB_VFP_VABS:
       case THUMB_VFP_VADD:
       case THUMB_VFP_VCMP:
@@ -3076,10 +3088,17 @@ size_t scan_t32(dbm_thread *thread_data, uint16_t *read_address, int basic_block
       case THUMB_VFP_VCVT_F_FP:
       case THUMB_VFP_VCVT_F_I:
       case THUMB_VFP_VDIV:
+      case THUMB_VFP_VFMAL_EL:
+      case THUMB_VFP_VFMAL_VEC:
+      case THUMB_VFP_VFMSL_EL:
+      case THUMB_VFP_VFMSL_VEC:
+      case THUMB_VFP_VINS_HP:
       case THUMB_VFP_VMLA_F:
       case THUMB_VFP_VMLS_F:
       case THUMB_VFP_VMOV:
+      case THUMB_VFP_VMOV_HP:
       case THUMB_VFP_VMOVI:
+      case THUMB_VFP_VMOVX_HP:
       case THUMB_VFP_VMRS: // rt=0xF is CPSR
       case THUMB_VFP_VMUL:
       case THUMB_VFP_VNEG:
@@ -3090,25 +3109,6 @@ size_t scan_t32(dbm_thread *thread_data, uint16_t *read_address, int basic_block
       case THUMB_VFP_VPUSH:
       case THUMB_VFP_VSQRT:
       case THUMB_VFP_VSUB:
-      case THUMB_NEON_VQRDMLAHT1:
-      case THUMB_NEON_VQRDMLAHT2:
-      case THUMB_NEON_VQRDMLSHT1:
-      case THUMB_NEON_VQRDMLSHT2:
-      case THUMB_SETPAN:
-      case THUMB_VFP_VINS_HP:
-      case THUMB_VFP_VFMAL_EL:
-      case THUMB_VFP_VFMAL_VEC:
-      case THUMB_VFP_VFMSL_EL:
-      case THUMB_VFP_VFMSL_VEC:
-      case THUMB_VFP_VMOV_HP:
-      case THUMB_VFP_VMOVX_HP:
-      case THUMB_NEON_VSDOT_EL:
-      case THUMB_NEON_VSDOT_VEC:
-      case THUMB_NEON_VSUDOT_EL:
-      case THUMB_NEON_VUDOT_EL:
-      case THUMB_NEON_VUDOT_VEC:
-      case THUMB_NEON_VUSDOT_EL:
-      case THUMB_NEON_VUSDOT_VEC:
         copy_thumb_32();
         it_cond_handled = true;
         break;
