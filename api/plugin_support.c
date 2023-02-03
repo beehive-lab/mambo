@@ -27,6 +27,10 @@
 #include "../common.h"
 #include "helpers.h"
 
+#ifdef __riscv
+#include "pie/pie-riscv-decoder.h"
+#endif
+
 #ifdef PLUGINS_NEW
 
 /* Plugin management */
@@ -119,6 +123,8 @@ int mambo_register_function_cb(mambo_context *ctx, char *fn_name,
   #define ARG_LIMIT 4
 #elif __aarch64__
   #define ARG_LIMIT 8
+#elif __riscv
+  #define ARG_LIMIT 8
 #endif
   if (cb_pre == NULL && cb_post == NULL) return -1;
   if (cb_post && (max_args > ARG_LIMIT || max_args < 0)) return -2;
@@ -205,6 +211,8 @@ int mambo_get_inst_len(mambo_context *ctx) {
   }
 #elif __aarch64__
   return 4;
+#elif __riscv
+  return (inst < RISCV_LUI) ? 2 : 4;
 #endif
 }
 
@@ -402,7 +410,9 @@ int mambo_add_identity_mapping(mambo_context *ctx) {
 
   uintptr_t addr = (uintptr_t)mambo_get_cc_addr(ctx);
   if (ctx->code.inst_type == THUMB_INST) {
+#ifdef __arm__
     addr |= THUMB;
+#endif
   }
 
   int ret = hash_add(&current_thread->entry_address, addr, addr);
@@ -473,6 +483,9 @@ void arm_check_free_space(dbm_thread *thread_data, uint32_t **write_p,
 void a64_check_free_space(dbm_thread *thread_data, uint32_t **write_p,
                           uint32_t **data_p, uint32_t size, int cur_block);
 
+void riscv_check_free_space(dbm_thread *thread_data, uint16_t **write_p,
+                          uint32_t **data_p, uint32_t size, int cur_block);
+
 int mambo_reserve_cc_space(mambo_context *ctx, size_t size) {
   if (ctx->code.write_p == NULL || ctx->code.data_p == NULL) return -1;
 #ifdef __arm__
@@ -485,6 +498,9 @@ int mambo_reserve_cc_space(mambo_context *ctx, size_t size) {
   }
 #elif __aarch64__
   a64_check_free_space(ctx->thread_data, (uint32_t **)&ctx->code.write_p, (uint32_t **)&ctx->code.data_p,
+                       size, mambo_get_fragment_id(ctx));
+#elif __riscv
+  riscv_check_free_space(ctx->thread_data, (uint16_t **)&ctx->code.write_p, (uint32_t **)&ctx->code.data_p,
                        size, mambo_get_fragment_id(ctx));
 #endif
   return 0;

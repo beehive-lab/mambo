@@ -398,6 +398,131 @@ safe_fcall_trampoline:
   LDP X8,  X9,  [SP], #128
 
   RET
+
+#elif __riscv
+
+#if __riscv_xlen == 32
+  addi sp, sp, -92
+  sw x1, 0(sp)
+  sw x2, 4(sp)
+  sw x3, 8(sp)
+  sw x4, 12(sp)
+  sw x5, 16(sp)
+  sw x6, 20(sp)
+  sw x7, 24(sp)
+  sw x8, 28(sp)
+  sw x9, 32(sp)
+  sw x18, 36(sp)
+  sw x19, 40(sp)
+  sw x20, 44(sp)
+  sw x21, 48(sp)
+  sw x22, 52(sp)
+  sw x23, 56(sp)
+  sw x24, 60(sp)
+  sw x25, 64(sp)
+  sw x25, 68(sp)
+  sw x27, 72(sp)
+  sw x28, 76(sp)
+  sw x29, 80(sp)
+  sw x30, 84(sp)
+  sw x31, 88(sp)
+#elif __riscv_xlen == 64
+  addi sp, sp, -184
+  sd x1, 0(sp)
+  sd x2, 8(sp)
+  sd x3, 16(sp)
+  sd x4, 24(sp)
+  sd x5, 32(sp)
+  sd x6, 40(sp)
+  sd x7, 48(sp)
+  sd x8, 56(sp)
+  sd x9, 64(sp)
+  sd x18, 72(sp)
+  sd x19, 80(sp)
+  sd x20, 88(sp)
+  sd x21, 96(sp)
+  sd x22, 104(sp)
+  sd x23, 112(sp)
+  sd x24, 120(sp)
+  sd x25, 128(sp)
+  sd x25, 136(sp)
+  sd x27, 144(sp)
+  sd x28, 152(sp)
+  sd x29, 160(sp)
+  sd x30, 168(sp)
+  sd x31, 176(sp)
+#endif
+
+#if __riscv_flen
+  jal ra, push_fp
+#endif
+
+  frcsr s0
+  frflags s1
+  frrm s2
+
+  jalr ra, a7
+
+  fscsr s0
+  fsflags s1
+  fsrm s2
+
+#if __riscv_flen
+  jal ra, pop_fp
+#endif
+
+#if __riscv_xlen == 32
+  lw x1, 0(sp)
+  lw x2, 4(sp)
+  lw x3, 8(sp)
+  lw x4, 12(sp)
+  lw x5, 16(sp)
+  lw x6, 20(sp)
+  lw x7, 24(sp)
+  lw x8, 28(sp)
+  lw x9, 32(sp)
+  lw x18, 36(sp)
+  lw x19, 40(sp)
+  lw x20, 44(sp)
+  lw x21, 48(sp)
+  lw x22, 52(sp)
+  lw x23, 56(sp)
+  lw x24, 60(sp)
+  lw x25, 64(sp)
+  lw x25, 68(sp)
+  lw x27, 72(sp)
+  lw x28, 76(sp)
+  lw x29, 80(sp)
+  lw x30, 84(sp)
+  lw x31, 88(sp)
+  addi sp, sp, 92
+#elif __riscv_xlen == 64
+  ld x1, 0(sp)
+  ld x2, 8(sp)
+  ld x3, 16(sp)
+  ld x4, 24(sp)
+  ld x5, 32(sp)
+  ld x6, 40(sp)
+  ld x7, 48(sp)
+  ld x8, 56(sp)
+  ld x9, 64(sp)
+  ld x18, 72(sp)
+  ld x19, 80(sp)
+  ld x20, 88(sp)
+  ld x21, 96(sp)
+  ld x22, 104(sp)
+  ld x23, 112(sp)
+  ld x24, 120(sp)
+  ld x25, 128(sp)
+  ld x25, 136(sp)
+  ld x27, 144(sp)
+  ld x28, 152(sp)
+  ld x29, 160(sp)
+  ld x30, 168(sp)
+  ld x31, 176(sp)
+  addi sp, sp, 184
+#endif
+  ret
 #endif
 
 .endfunc

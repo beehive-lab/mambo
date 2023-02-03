@@ -54,7 +54,7 @@ ifeq ($(ARCH),aarch64)
 	SOURCES += api/emit_a64.c
 endif
 ifeq ($(ARCH), riscv64)
-  # HEADERS += api/emit_riscv.h
+   HEADERS += api/emit_riscv.h
 	LDFLAGS += -Wl,-Ttext-segment=$(or $(TEXT_SEGMENT),0x7f000000)
 	PIE += pie/pie-riscv-field-decoder.o
 	PIE += pie/pie-riscv-encoder.o

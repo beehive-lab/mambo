@@ -212,7 +212,9 @@ enum gp_reg_abi_name {
 };
 
 enum gp_reg_abi_name_alt {
-  fp   =   x8    // Frame Pointer
+  fp   =   x8,    // Frame Pointer
+  lr   =   ra,
+  es   =   s0,
 };
 
 #ifdef __riscv_fdiv
@@ -335,6 +337,7 @@ enum branch_condition {
 #endif
 
 enum reg_portable { // TODO:(riscv) see how these would map to riscv
+#if defined(__arm__) || defined(__aarch64__)
   reg0 = 0,
   reg1 = 1,
   reg2 = 2,
@@ -348,6 +351,22 @@ enum reg_portable { // TODO:(riscv) see how these would map to riscv
   reg10 = 10,
   reg11 = 11,
   reg12 = 12
+#endif
+#ifdef __riscv
+  reg0 = 10,
+  reg1 = 11,
+  reg2 = 12,
+  reg3 = 13,
+  reg4 = 14,
+  reg5 = 15,
+  reg6 = 16,
+  reg7 = 17,
+  reg8 = 18,
+  reg9 = 19,
+  reg10 = 20,
+  reg11 = 21,
+  reg12 = 22
+#endif
 };
 
 #if defined(__arm__) || defined(__aarch64__)

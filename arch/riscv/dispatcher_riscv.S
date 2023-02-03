@@ -78,6 +78,7 @@ pop_caller_saved_registers:
 #endif
 #define FP_FRAME_SZ (FP_REG_SIZE * 32)
 
+.global push_fp
 push_fp:
   addi    sp,  sp, -FP_FRAME_SZ
   FSTR    f0,  0  * FP_REG_SIZE(sp)
@@ -114,6 +115,7 @@ push_fp:
   FSTR   f31, 31  * FP_REG_SIZE(sp)
   ret
 
+.global pop_fp
 pop_fp:
   FLDR    f0,  0  * FP_REG_SIZE(sp)
   FLDR    f1,  1  * FP_REG_SIZE(sp)
