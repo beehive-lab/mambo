@@ -931,10 +931,10 @@ size_t scan_riscv(dbm_thread *thread_data, uint16_t *read_address,
     assert(write_p == start_address + 3);
   }
 
-#ifdef DBM_TRACES
   branch_type bb_type;
   pass1_riscv(read_address, &bb_type);
 
+#ifdef DBM_TRACES
   if (type == mambo_bb && bb_type != jalr_riscv && bb_type != atomic_memory_riscv && bb_type != unknown) {
     riscv_push(&write_p, 1 << a0 | 1 << a1);
     riscv_push(&write_p, 1 << ra);
@@ -961,8 +961,11 @@ size_t scan_riscv(dbm_thread *thread_data, uint16_t *read_address,
     debug("  instruction word: 0x%x\n", *read_address);
 
 #ifdef PLUGINS_NEW
-    bool skip_inst = riscv_scanner_deliver_callbacks(thread_data, PRE_INST_C, &read_address, inst,
+    bool skip_inst = false;
+    if (bb_type != atomic_memory_riscv) {
+      skip_inst = riscv_scanner_deliver_callbacks(thread_data, PRE_INST_C, &read_address, inst,
                                                    &write_p, &data_p, basic_block, type, true, &stop);
+    }
     if (!skip_inst) {
 #endif
       switch (inst) {
@@ -1320,8 +1323,9 @@ size_t scan_riscv(dbm_thread *thread_data, uint16_t *read_address,
     if (!stop) {
       riscv_check_free_space(thread_data, &write_p, &data_p, MIN_FSPACE, basic_block);
     }
-
-    riscv_scanner_deliver_callbacks(thread_data, POST_INST_C, &read_address, inst, &write_p, &data_p, basic_block, type, !stop, &stop);
+    if (bb_type != atomic_memory_riscv) {
+      riscv_scanner_deliver_callbacks(thread_data, POST_INST_C, &read_address, inst, &write_p, &data_p, basic_block, type, !stop, &stop);
+    }
 
     next_instruction(inst, &read_address);
   } // while (!stop)

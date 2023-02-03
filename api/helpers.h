@@ -3,7 +3,7 @@
       https://github.com/beehive-lab/mambo
 
   Copyright 2013-2016 Cosmin Gorgovan <cosmin at linux-geek dot org>
-  Copyright 2017-2020 The University of Manchester
+  Copyright 2017-2021 The University of Manchester
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -28,10 +28,13 @@ typedef struct {
 #define LSL 0
 #define LSR 1
 #define ASR 2
+#define ROR 3
 
 #ifdef __arm__
   #define MAX_FCALL_ARGS 4
 #elif __aarch64__
+  #define MAX_FCALL_ARGS 8
+#elif __riscv
   #define MAX_FCALL_ARGS 8
 #endif
 
@@ -101,6 +104,10 @@ static inline int emit_a64_add_sub_shift(mambo_context *ctx, int rd, int rn, int
                                    unsigned int shift_type, unsigned int shift);
 static inline int emit_a64_add_sub(mambo_context *ctx, int rd, int rn, int rm);
 int emit_a64_add_sub_ext(mambo_context *ctx, int rd, int rn, int rm, int ext_option, int shift);
+#endif
+
+#ifdef __riscv
+int emit_riscv_cond_branch(mambo_context *ctx, void *target, int rs1, int rs2, int branch_condition);
 #endif
 
 #endif
