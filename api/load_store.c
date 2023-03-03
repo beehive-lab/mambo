@@ -30,6 +30,9 @@
 #elif __aarch64__
   #include "../pie/pie-a64-field-decoder.h"
   #include "../pie/pie-a64-decoder.h"
+#elif __riscv
+  #include "../pie/pie-riscv-field-decoder.h"
+  #include "../pie/pie-riscv-decoder.h"
 #endif
 
 #ifdef __arm__
@@ -91,6 +94,80 @@ void _a64_is_load_or_store(mambo_context *ctx, bool *is_load, bool *is_store) {
       *is_store = true;
       break;
   }
+}
+#endif
+
+#ifdef __riscv
+void _riscv_is_load_or_store(mambo_context *ctx, bool *is_load, bool *is_store) {
+  *is_load = false;
+  *is_store = false;
+
+  switch (ctx->code.inst) {
+    case RISCV_C_FSD:
+    case RISCV_C_SW:
+    case RISCV_C_SD:
+    case RISCV_C_FSDSP:
+    case RISCV_C_SWSP:
+    case RISCV_C_SDSP:
+    case RISCV_SB:
+    case RISCV_SH:
+    case RISCV_SW:
+    case RISCV_SD:
+    case RISCV_SC_W:
+    case RISCV_SC_D:
+    case RISCV_FSW:
+    case RISCV_FSD: {
+      *is_store = true;
+      break;
+    }
+
+    case RISCV_C_FLD:
+    case RISCV_C_LW:
+    case RISCV_C_LD:
+    case RISCV_C_FLDSP:
+    case RISCV_C_FLWSP:
+    case RISCV_C_LWSP:
+    case RISCV_C_LDSP:
+    case RISCV_LB:
+    case RISCV_LH:
+    case RISCV_LW:
+    case RISCV_LD:
+    case RISCV_LR_W:
+    case RISCV_LR_D:
+    case RISCV_FLW:
+    case RISCV_FLD:
+    case RISCV_LBU:
+    case RISCV_LHU:
+    case RISCV_LWU: {
+      *is_load = true;
+      break;
+    }
+
+    case RISCV_AMOSWAP_W:
+    case RISCV_AMOADD_W:
+    case RISCV_AMOXOR_W:
+    case RISCV_AMOAND_W:
+    case RISCV_AMOOR_W:
+    case RISCV_AMOMIN_W:
+    case RISCV_AMOMAX_W:
+    case RISCV_AMOMINU_W:
+    case RISCV_AMOMAXU_W:
+    case RISCV_AMOSWAP_D:
+    case RISCV_AMOADD_D:
+    case RISCV_AMOXOR_D:
+    case RISCV_AMOAND_D:
+    case RISCV_AMOOR_D:
+    case RISCV_AMOMIN_D:
+    case RISCV_AMOMAX_D:
+    case RISCV_AMOMINU_D:
+    case RISCV_AMOMAXU_D: {
+      *is_load = true;
+      *is_store = true;
+      break;
+    }
+
+  }
+
 }
 #endif
 
@@ -190,6 +267,10 @@ bool mambo_is_load(mambo_context *ctx) {
   bool is_load, is_store;
   _a64_is_load_or_store(ctx, &is_load, &is_store);
   return is_load;
+#elif __riscv
+  bool is_load, is_store;
+  _riscv_is_load_or_store(ctx, &is_load, &is_store);
+  return is_load;
 #endif
   return false;
 }
@@ -268,6 +349,10 @@ bool mambo_is_store(mambo_context *ctx) {
   bool is_load, is_store;
   _a64_is_load_or_store(ctx, &is_load, &is_store);
   return is_store;
+#elif __riscv
+  bool is_load, is_store;
+  _riscv_is_load_or_store(ctx, &is_load, &is_store);
+  return is_store;
 #endif
   return false;
 }
@@ -278,6 +363,10 @@ bool mambo_is_load_or_store(mambo_context *ctx) {
 #elif __aarch64__
   bool is_load, is_store;
   _a64_is_load_or_store(ctx, &is_load, &is_store);
+  return is_load || is_store;
+#elif __riscv
+  bool is_load, is_store;
+  _riscv_is_load_or_store(ctx, &is_load, &is_store);
   return is_load || is_store;
 #endif
 }
@@ -793,6 +882,582 @@ int _a64_calc_ld_st_addr(mambo_context *ctx, enum reg reg) {
 }
 #endif
 
+#ifdef __riscv
+
+
+/*
+* Taken from riscv spec, the encoding for compressed word load and store instructions:
+* immhi (12:10) -> offset[5:3]
+* immlo (6:5) -> offset[2|6]
+*/
+unsigned int __riscv_c_word_offset(unsigned int uimmhi, unsigned int uimmlo) {
+	return ((uimmhi << 3) | ((uimmlo & 0x1) << 6) | ((uimmlo & 0x2) << 1));
+}
+
+
+/*
+* Taken from riscv spec, the encoding for compressed doubleword load and store instructions:
+* immhi (12:10) -> offset[5:3]
+* immlo (6:5) -> offset[7:6]
+*/
+unsigned int __riscv_c_doubleword_offset(unsigned int uimmhi, unsigned int uimmlo) {
+	return ((uimmhi << 3) | ((uimmlo) << 6));
+}
+
+/*
+* Taken from riscv spec, the encoding for compressed sp word load instructions:
+* immhi (12) -> offset[5]
+* immlo (6:2) -> offset[4:2|7:6]
+*/
+unsigned int __riscv_c_spword_load_offset(unsigned int uimmhi, unsigned int uimmlo) {
+	return ((uimmhi << 5) | ((uimmlo & 0x3) << 6) | ((uimmlo & 0x1C)));
+}
+
+
+/*
+* Taken from riscv spec, the encoding for compressed sp doubleword load instructions:
+* immhi (12) -> offset[5]
+* immlo (6:2) -> offset[4:3|8:6]
+*/
+unsigned int __riscv_c_spdoubleword_load_offset(unsigned int uimmhi, unsigned int uimmlo) {
+  return ((uimmhi << 5) | ((uimmlo & 0x7) << 6) | ((uimmlo & 0x18)));
+}
+
+
+/*
+* Taken from riscv spec, the encoding for compressed sp word store instructions:
+* imm (12:7) -> offset[5:2|7:6]
+*/
+unsigned int __riscv_c_spword_store_offset(unsigned int uimm) {
+	return (((uimm & 0x3) << 6) | ((uimm & 0x1C)));
+}
+
+
+/*
+* Taken from riscv spec, the encoding for compressed sp doubleword store instructions:
+* immhi (12:7) -> offset[5:3|8:6]
+*/
+unsigned int __riscv_c_spdoubleword_store_offset(unsigned int uimm) {
+  return (((uimm & 0x7) << 6) | ((uimm & 0x18)));
+}
+
+
+/*
+* Taken from riscv spec, the encoding for store instructions:
+* immhi (31:25) -> offset[11:5]
+* immlo (11:7) -> offset[4:0]
+* offset is sign extended
+*/
+unsigned int __riscv_store_offset(unsigned int immhi, unsigned int immlo) {
+  return sign_extend64(12, (((immhi) << 5) | ((immlo))));
+}
+
+/*
+* Taken from riscv spec, the encoding for load instructions:
+* immhi (31:20) -> offset[11:0]
+* offset is sign extended
+*/
+unsigned int __riscv_load_offset(unsigned int imm) {
+  return sign_extend64(12, ((imm)));
+}
+
+//TO-DO: need 128bit instructions are not yet supported
+int _riscv_calc_ld_st_addr(mambo_context *ctx, enum reg reg) {
+  uint16_t *inst = (uint16_t *)ctx->code.read_address;
+  switch (ctx->code.inst) {
+    case RISCV_C_SW: {
+      unsigned int rs2;
+	    unsigned int rs1;
+	    unsigned int uimmhi;
+	    unsigned int uimmlo;
+      riscv_c_sw_decode_fields(inst, &rs2, &rs1, &uimmhi, &uimmlo);
+      unsigned int offset = __riscv_c_word_offset(uimmhi, uimmlo);
+      _generate_addr(ctx, reg, rs1, reg_invalid, offset);
+      break;
+    }
+    case RISCV_C_LW: {
+      unsigned int rd;
+	    unsigned int rs1;
+	    unsigned int uimmhi;
+	    unsigned int uimmlo;
+      riscv_c_lw_decode_fields(inst, &rd, &rs1, &uimmhi, &uimmlo);
+      unsigned int offset = __riscv_c_word_offset(uimmhi, uimmlo);
+      _generate_addr(ctx, reg, rs1, reg_invalid, offset);
+      break;
+    }
+    case RISCV_C_FSD: {
+      unsigned int rs2;
+	    unsigned int rs1;
+	    unsigned int uimmhi;
+	    unsigned int uimmlo;
+      riscv_c_fsd_decode_fields(inst, &rs2, &rs1, &uimmhi, &uimmlo);
+      unsigned int offset = __riscv_c_doubleword_offset(uimmhi, uimmlo);
+      _generate_addr(ctx, reg, rs1, reg_invalid, offset);
+      break;
+    }
+    case RISCV_C_FLD: {
+      unsigned int rd;
+	    unsigned int rs1;
+	    unsigned int uimmhi;
+	    unsigned int uimmlo;
+      riscv_c_fld_decode_fields(inst, &rd, &rs1, &uimmhi, &uimmlo);
+      unsigned int offset = __riscv_c_doubleword_offset(uimmhi, uimmlo);
+      _generate_addr(ctx, reg, rs1, reg_invalid, offset);
+      break;
+    }
+
+    case RISCV_C_SD: {
+      unsigned int rs2;
+	    unsigned int rs1;
+	    unsigned int uimmhi;
+	    unsigned int uimmlo;
+      riscv_c_sd_decode_fields(inst, &rs2, &rs1, &uimmhi, &uimmlo);
+      unsigned int offset = __riscv_c_doubleword_offset(uimmhi, uimmlo);
+      _generate_addr(ctx, reg, rs1, reg_invalid, offset);
+      break;
+    }
+    case RISCV_C_LD: {
+      unsigned int rd;
+	    unsigned int rs1;
+	    unsigned int uimmhi;
+	    unsigned int uimmlo;
+      riscv_c_ld_decode_fields(inst, &rd, &rs1, &uimmhi, &uimmlo);
+      unsigned int offset = __riscv_c_doubleword_offset(uimmhi, uimmlo);
+      _generate_addr(ctx, reg, rs1, reg_invalid, offset);
+      break;
+    }
+    case RISCV_C_LWSP: {
+      unsigned int rd;
+	    unsigned int uimmhi;
+	    unsigned int uimmlo;
+      riscv_c_lwsp_decode_fields(inst, &rd, &uimmhi, &uimmlo);
+      unsigned int offset = __riscv_c_spword_load_offset(uimmhi, uimmlo);
+      _generate_addr(ctx, reg, sp, reg_invalid, offset);
+      break;
+    }
+    case RISCV_C_FLWSP: {
+      unsigned int rd;
+	    unsigned int uimmhi;
+	    unsigned int uimmlo;
+      riscv_c_flwsp_decode_fields(inst, &rd, &uimmhi, &uimmlo);
+      unsigned int offset = __riscv_c_spword_load_offset(uimmhi, uimmlo);
+      _generate_addr(ctx, reg, sp, reg_invalid, offset);
+      break;
+    }
+    case RISCV_C_SWSP: {
+      unsigned int rs2;
+	    unsigned int uimm;
+      riscv_c_swsp_decode_fields(inst, &rs2, &uimm);
+      unsigned int offset = __riscv_c_spword_store_offset(uimm);
+      _generate_addr(ctx, reg, sp, reg_invalid, offset);
+      break;
+    }
+    case RISCV_C_LDSP: {
+      unsigned int rd;
+	    unsigned int uimmhi;
+	    unsigned int uimmlo;
+      riscv_c_ldsp_decode_fields(inst, &rd, &uimmhi, &uimmlo);
+      unsigned int offset = __riscv_c_spdoubleword_load_offset(uimmhi, uimmlo);
+      _generate_addr(ctx, reg, sp, reg_invalid, offset);
+      break;
+    }
+    case RISCV_C_FLDSP: {
+      unsigned int rd;
+	    unsigned int uimmhi;
+	    unsigned int uimmlo;
+      riscv_c_fldsp_decode_fields(inst, &rd, &uimmhi, &uimmlo);
+      unsigned int offset = __riscv_c_spdoubleword_load_offset(uimmhi, uimmlo);
+      _generate_addr(ctx, reg, sp, reg_invalid, offset);
+      break;
+    }
+    case RISCV_C_SDSP: {
+      unsigned int rs2;
+	    unsigned int uimm;
+      riscv_c_sdsp_decode_fields(inst, &rs2, &uimm);
+      unsigned int offset = __riscv_c_spdoubleword_store_offset(uimm);
+      _generate_addr(ctx, reg, sp, reg_invalid, offset);
+      break;
+    }
+    case RISCV_C_FSDSP: {
+      unsigned int rs2;
+	    unsigned int uimm;
+      riscv_c_fsdsp_decode_fields(inst, &rs2, &uimm);
+      unsigned int offset = __riscv_c_spdoubleword_store_offset(uimm);
+      _generate_addr(ctx, reg, sp, reg_invalid, offset);
+      break;
+    }
+
+
+    case RISCV_SB: {
+      unsigned int rs2;
+	    unsigned int rs1;
+	    unsigned int uimmhi;
+	    unsigned int uimmlo;
+      riscv_sb_decode_fields(inst, &rs2, &rs1, &uimmhi, &uimmlo);
+      int offset = __riscv_store_offset(uimmhi, uimmlo);
+      _generate_addr(ctx, reg, rs1, reg_invalid, offset);
+      break;
+    }
+    case RISCV_SH: {
+      unsigned int rs2;
+	    unsigned int rs1;
+	    unsigned int uimmhi;
+	    unsigned int uimmlo;
+      riscv_sh_decode_fields(inst, &rs2, &rs1, &uimmhi, &uimmlo);
+      int offset = __riscv_store_offset(uimmhi, uimmlo);
+      _generate_addr(ctx, reg, rs1, reg_invalid, offset);
+      break;
+    }
+    case RISCV_SW: {
+      unsigned int rs2;
+	    unsigned int rs1;
+	    unsigned int uimmhi;
+	    unsigned int uimmlo;
+      riscv_sw_decode_fields(inst, &rs2, &rs1, &uimmhi, &uimmlo);
+      int offset = __riscv_store_offset(uimmhi, uimmlo);
+      _generate_addr(ctx, reg, rs1, reg_invalid, offset);
+      break;
+    }
+    case RISCV_SD: {
+      unsigned int rs2;
+	    unsigned int rs1;
+	    unsigned int uimmhi;
+	    unsigned int uimmlo;
+      riscv_sd_decode_fields(inst, &rs2, &rs1, &uimmhi, &uimmlo);
+      int offset = __riscv_store_offset(uimmhi, uimmlo);
+      _generate_addr(ctx, reg, rs1, reg_invalid, offset);
+      break;
+    }
+    case RISCV_SC_W: {
+      unsigned int rd;
+	    unsigned int rs1;
+      unsigned int rs2;
+	    unsigned int aq;
+      unsigned int rl;
+      riscv_sc_w_decode_fields(inst, &aq, &rl, &rd, &rs2, &rs1);
+      _generate_addr(ctx, reg, rs1, reg_invalid, 0);
+      break;
+    }
+    case RISCV_SC_D: {
+      unsigned int rd;
+	    unsigned int rs1;
+      unsigned int rs2;
+	    unsigned int aq;
+      unsigned int rl;
+      riscv_sc_d_decode_fields(inst, &aq, &rl, &rd, &rs2, &rs1);
+      _generate_addr(ctx, reg, rs1, reg_invalid, 0);
+      break;
+    }
+    case RISCV_FSW: {
+      unsigned int rs2;
+	    unsigned int rs1;
+	    unsigned int uimmhi;
+	    unsigned int uimmlo;
+      riscv_fsw_decode_fields(inst, &rs2, &rs1, &uimmhi, &uimmlo);
+      int offset = __riscv_store_offset(uimmhi, uimmlo);
+      _generate_addr(ctx, reg, rs1, reg_invalid, offset);
+      break;
+    }
+    case RISCV_FSD: {
+      unsigned int rs2;
+	    unsigned int rs1;
+	    unsigned int uimmhi;
+	    unsigned int uimmlo;
+      riscv_fsd_decode_fields(inst, &rs2, &rs1, &uimmhi, &uimmlo);
+      int offset = __riscv_store_offset(uimmhi, uimmlo);
+      _generate_addr(ctx, reg, rs1, reg_invalid, offset);
+      break;
+    }
+
+
+    case RISCV_LB: {
+      unsigned int rd;
+	    unsigned int rs1;
+	    unsigned int imm;
+      riscv_lb_decode_fields(inst, &rd, &rs1, &imm);
+      int offset = __riscv_load_offset(imm);
+      _generate_addr(ctx, reg, rs1, reg_invalid, offset);
+      break;
+    }
+    case RISCV_LH: {
+      unsigned int rd;
+	    unsigned int rs1;
+	    unsigned int imm;
+      riscv_lh_decode_fields(inst, &rd, &rs1, &imm);
+      int offset = __riscv_load_offset(imm);
+      _generate_addr(ctx, reg, rs1, reg_invalid, offset);
+      break;
+    }
+    case RISCV_LW: {
+      unsigned int rd;
+	    unsigned int rs1;
+	    unsigned int imm;
+      riscv_lw_decode_fields(inst, &rd, &rs1, &imm);
+      int offset = __riscv_load_offset(imm);
+      _generate_addr(ctx, reg, rs1, reg_invalid, offset);
+      break;
+    }
+    case RISCV_LD: {
+      unsigned int rd;
+	    unsigned int rs1;
+	    unsigned int imm;
+      riscv_ld_decode_fields(inst, &rd, &rs1, &imm);
+      int offset = __riscv_load_offset(imm);
+      _generate_addr(ctx, reg, rs1, reg_invalid, offset);
+      break;
+    }
+    case RISCV_LR_W: {
+      unsigned int rd;
+	    unsigned int rs1;
+	    unsigned int aq;
+      unsigned int rl;
+      riscv_lr_w_decode_fields(inst, &aq, &rl, &rd, &rs1);
+      _generate_addr(ctx, reg, rs1, reg_invalid, 0);
+      break;
+    }
+    case RISCV_LR_D: {
+      unsigned int rd;
+	    unsigned int rs1;
+	    unsigned int aq;
+      unsigned int rl;
+      riscv_lr_d_decode_fields(inst, &aq, &rl, &rd, &rs1);
+      _generate_addr(ctx, reg, rs1, reg_invalid, 0);
+      break;
+    }
+    case RISCV_FLW: {
+      unsigned int rd;
+	    unsigned int rs1;
+	    unsigned int imm;
+      riscv_flw_decode_fields(inst, &rd, &rs1, &imm);
+      int offset = __riscv_load_offset(imm);
+      _generate_addr(ctx, reg, rs1, reg_invalid, offset);
+      break;
+    }
+    case RISCV_FLD: {
+      unsigned int rd;
+	    unsigned int rs1;
+	    unsigned int imm;
+      riscv_fld_decode_fields(inst, &rd, &rs1, &imm);
+      int offset = __riscv_load_offset(imm);
+      _generate_addr(ctx, reg, rs1, reg_invalid, offset);
+      break;
+    }
+    case RISCV_LBU: {
+      unsigned int rd;
+	    unsigned int rs1;
+	    unsigned int imm;
+      riscv_lbu_decode_fields(inst, &rd, &rs1, &imm);
+      int offset = __riscv_load_offset(imm);
+      _generate_addr(ctx, reg, rs1, reg_invalid, offset);
+      break;
+    }
+    case RISCV_LHU: {
+      unsigned int rd;
+	    unsigned int rs1;
+	    unsigned int imm;
+      riscv_lhu_decode_fields(inst, &rd, &rs1, &imm);
+      int offset = __riscv_load_offset(imm);
+      _generate_addr(ctx, reg, rs1, reg_invalid, offset);
+      break;
+    }
+    case RISCV_LWU: {
+      unsigned int rd;
+	    unsigned int rs1;
+	    unsigned int imm;
+      riscv_lwu_decode_fields(inst, &rd, &rs1, &imm);
+      int offset = __riscv_load_offset(imm);
+      _generate_addr(ctx, reg, rs1, reg_invalid, offset);
+      break;
+    }
+
+
+
+    case RISCV_AMOSWAP_W: {
+      unsigned int rd;
+	    unsigned int rs1;
+      unsigned int rs2;
+	    unsigned int aq;
+      unsigned int rl;
+      riscv_amoswap_w_decode_fields(inst, &aq, &rl, &rd, &rs2, &rs1);
+      _generate_addr(ctx, reg, rs1, reg_invalid, 0);
+      break;
+    }
+    case RISCV_AMOADD_W: {
+      unsigned int rd;
+	    unsigned int rs1;
+      unsigned int rs2;
+	    unsigned int aq;
+      unsigned int rl;
+      riscv_amoadd_w_decode_fields(inst, &aq, &rl, &rd, &rs2, &rs1);
+      _generate_addr(ctx, reg, rs1, reg_invalid, 0);
+      break;
+    }
+    case RISCV_AMOXOR_W: {
+      unsigned int rd;
+	    unsigned int rs1;
+      unsigned int rs2;
+	    unsigned int aq;
+      unsigned int rl;
+      riscv_amoxor_w_decode_fields(inst, &aq, &rl, &rd, &rs2, &rs1);
+      _generate_addr(ctx, reg, rs1, reg_invalid, 0);
+      break;
+    }
+    case RISCV_AMOAND_W: {
+      unsigned int rd;
+	    unsigned int rs1;
+      unsigned int rs2;
+	    unsigned int aq;
+      unsigned int rl;
+      riscv_amoand_w_decode_fields(inst, &aq, &rl, &rd, &rs2, &rs1);
+      _generate_addr(ctx, reg, rs1, reg_invalid, 0);
+      break;
+    }
+    case RISCV_AMOOR_W: {
+      unsigned int rd;
+	    unsigned int rs1;
+      unsigned int rs2;
+	    unsigned int aq;
+      unsigned int rl;
+      riscv_amoor_w_decode_fields(inst, &aq, &rl, &rd, &rs2, &rs1);
+      _generate_addr(ctx, reg, rs1, reg_invalid, 0);
+      break;
+    }
+    case RISCV_AMOMIN_W: {
+      unsigned int rd;
+	    unsigned int rs1;
+      unsigned int rs2;
+	    unsigned int aq;
+      unsigned int rl;
+      riscv_amomin_w_decode_fields(inst, &aq, &rl, &rd, &rs2, &rs1);
+      _generate_addr(ctx, reg, rs1, reg_invalid, 0);
+      break;
+    }
+    case RISCV_AMOMAX_W: {
+      unsigned int rd;
+	    unsigned int rs1;
+      unsigned int rs2;
+	    unsigned int aq;
+      unsigned int rl;
+      riscv_amomax_w_decode_fields(inst, &aq, &rl, &rd, &rs2, &rs1);
+      _generate_addr(ctx, reg, rs1, reg_invalid, 0);
+      break;
+    }
+    case RISCV_AMOMINU_W: {
+      unsigned int rd;
+	    unsigned int rs1;
+      unsigned int rs2;
+	    unsigned int aq;
+      unsigned int rl;
+      riscv_amominu_w_decode_fields(inst, &aq, &rl, &rd, &rs2, &rs1);
+      _generate_addr(ctx, reg, rs1, reg_invalid, 0);
+      break;
+    }
+    case RISCV_AMOMAXU_W: {
+      unsigned int rd;
+	    unsigned int rs1;
+      unsigned int rs2;
+	    unsigned int aq;
+      unsigned int rl;
+      riscv_amomaxu_w_decode_fields(inst, &aq, &rl, &rd, &rs2, &rs1);
+      _generate_addr(ctx, reg, rs1, reg_invalid, 0);
+      break;
+    }
+    case RISCV_AMOSWAP_D: {
+      unsigned int rd;
+	    unsigned int rs1;
+      unsigned int rs2;
+	    unsigned int aq;
+      unsigned int rl;
+      riscv_amoswap_d_decode_fields(inst, &aq, &rl, &rd, &rs2, &rs1);
+      _generate_addr(ctx, reg, rs1, reg_invalid, 0);
+      break;
+    }
+    case RISCV_AMOADD_D: {
+      unsigned int rd;
+	    unsigned int rs1;
+      unsigned int rs2;
+	    unsigned int aq;
+      unsigned int rl;
+      riscv_amoadd_d_decode_fields(inst, &aq, &rl, &rd, &rs2, &rs1);
+      _generate_addr(ctx, reg, rs1, reg_invalid, 0);
+      break;
+    }
+    case RISCV_AMOXOR_D: {
+      unsigned int rd;
+	    unsigned int rs1;
+      unsigned int rs2;
+	    unsigned int aq;
+      unsigned int rl;
+      riscv_amoxor_d_decode_fields(inst, &aq, &rl, &rd, &rs2, &rs1);
+      _generate_addr(ctx, reg, rs1, reg_invalid, 0);
+      break;
+    }
+    case RISCV_AMOAND_D: {
+      unsigned int rd;
+	    unsigned int rs1;
+      unsigned int rs2;
+	    unsigned int aq;
+      unsigned int rl;
+      riscv_amoand_d_decode_fields(inst, &aq, &rl, &rd, &rs2, &rs1);
+      _generate_addr(ctx, reg, rs1, reg_invalid, 0);
+      break;
+    }
+    case RISCV_AMOOR_D: {
+      unsigned int rd;
+	    unsigned int rs1;
+      unsigned int rs2;
+	    unsigned int aq;
+      unsigned int rl;
+      riscv_amoor_d_decode_fields(inst, &aq, &rl, &rd, &rs2, &rs1);
+      _generate_addr(ctx, reg, rs1, reg_invalid, 0);
+      break;
+    }
+    case RISCV_AMOMIN_D: {
+      unsigned int rd;
+	    unsigned int rs1;
+      unsigned int rs2;
+	    unsigned int aq;
+      unsigned int rl;
+      riscv_amomin_d_decode_fields(inst, &aq, &rl, &rd, &rs2, &rs1);
+      _generate_addr(ctx, reg, rs1, reg_invalid, 0);
+      break;
+    }
+    case RISCV_AMOMAX_D: {
+      unsigned int rd;
+	    unsigned int rs1;
+      unsigned int rs2;
+	    unsigned int aq;
+      unsigned int rl;
+      riscv_amomax_d_decode_fields(inst, &aq, &rl, &rd, &rs2, &rs1);
+      _generate_addr(ctx, reg, rs1, reg_invalid, 0);
+      break;
+    }
+    case RISCV_AMOMINU_D: {
+      unsigned int rd;
+	    unsigned int rs1;
+      unsigned int rs2;
+	    unsigned int aq;
+      unsigned int rl;
+      riscv_amominu_d_decode_fields(inst, &aq, &rl, &rd, &rs2, &rs1);
+      _generate_addr(ctx, reg, rs1, reg_invalid, 0);
+      break;
+    }
+    case RISCV_AMOMAXU_D: {
+      unsigned int rd;
+	    unsigned int rs1;
+      unsigned int rs2;
+	    unsigned int aq;
+      unsigned int rl;
+      riscv_amomaxu_d_decode_fields(inst, &aq, &rl, &rd, &rs2, &rs1);
+      _generate_addr(ctx, reg, rs1, reg_invalid, 0);
+      break;
+    }
+
+  }
+}
+
+#endif
+
 
 int mambo_calc_ld_st_addr(mambo_context *ctx, enum reg reg) {
 #ifdef __arm__
@@ -804,6 +1469,8 @@ int mambo_calc_ld_st_addr(mambo_context *ctx, enum reg reg) {
   return -1;
 #elif __aarch64__
   return _a64_calc_ld_st_addr(ctx, reg);
+#elif __riscv
+  return _riscv_calc_ld_st_addr(ctx, reg);
 #endif
 }
 
@@ -1197,6 +1864,81 @@ int _arm_get_ld_st_size(mambo_context *ctx) {
 }
 #endif
 
+#ifdef __riscv
+int _riscv_get_ld_st_size(mambo_context *ctx) {
+  int size = -1;
+
+  switch (ctx->code.inst) {
+    case RISCV_SB:
+    case RISCV_LB:
+    case RISCV_LBU: {
+      size = 1;
+      break;
+    }
+
+    case RISCV_SH:
+    case RISCV_LH:
+    case RISCV_LHU: {
+      size = 2;
+      break;
+    }
+
+    case RISCV_AMOSWAP_W:
+    case RISCV_AMOADD_W:
+    case RISCV_AMOXOR_W:
+    case RISCV_AMOAND_W:
+    case RISCV_AMOOR_W:
+    case RISCV_AMOMIN_W:
+    case RISCV_AMOMAX_W:
+    case RISCV_AMOMINU_W:
+    case RISCV_AMOMAXU_W:
+    case RISCV_LWU:
+    case RISCV_FLW:
+    case RISCV_LR_W:
+    case RISCV_LW:
+    case RISCV_FSW:
+    case RISCV_SC_W:
+    case RISCV_C_FLWSP:
+    case RISCV_C_LWSP:
+    case RISCV_C_LW:
+    case RISCV_SW:
+    case RISCV_C_SWSP:
+    case RISCV_C_SW: {
+      size = 4;
+      break;
+    }
+
+    case RISCV_AMOSWAP_D:
+    case RISCV_AMOADD_D:
+    case RISCV_AMOXOR_D:
+    case RISCV_AMOAND_D:
+    case RISCV_AMOOR_D:
+    case RISCV_AMOMIN_D:
+    case RISCV_AMOMAX_D:
+    case RISCV_AMOMINU_D:
+    case RISCV_AMOMAXU_D:
+    case RISCV_LD:
+    case RISCV_LR_D:
+    case RISCV_FLD:
+    case RISCV_SD:
+    case RISCV_SC_D:
+    case RISCV_FSD:
+    case RISCV_C_FLD:
+    case RISCV_C_LD:
+    case RISCV_C_FLDSP:
+    case RISCV_C_LDSP:
+    case RISCV_C_FSD:
+    case RISCV_C_SD:
+    case RISCV_C_FSDSP:
+    case RISCV_C_SDSP: {
+      size = 8;
+      break;
+    }
+  }
+  return size;
+}
+#endif
+
 int mambo_get_ld_st_size(mambo_context *ctx) {
 #ifdef __arm__
   if (ctx->code.inst_type == THUMB_INST) {
@@ -1206,6 +1948,8 @@ int mambo_get_ld_st_size(mambo_context *ctx) {
   }
 #elif __aarch64__
   return _a64_get_ld_st_size(ctx);
+#elif __riscv
+  return _riscv_get_ld_st_size(ctx);
 #endif
   return -1;
 }
