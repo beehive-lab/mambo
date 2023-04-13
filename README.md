@@ -1,5 +1,5 @@
-MAMBO: A Low-Overhead Dynamic Binary Modification Tool for ARM
-==============================================================
+MAMBO: A Low-Overhead Dynamic Binary Modification Tool for RISC architectures
+=============================================================================
 
 News
 ----
