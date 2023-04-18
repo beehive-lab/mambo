@@ -35,6 +35,7 @@ void dispatcher_aarch64(dbm_thread *thread_data, uint32_t source_index,
 #ifdef __riscv
 void dispatcher_riscv(dbm_thread *thread_data, uint32_t source_index, branch_type exit_type,
                       uintptr_t target, uintptr_t block_address);
+#include "arch/riscv/riscv_traces.h"
 #endif
 
 #ifdef DEBUG

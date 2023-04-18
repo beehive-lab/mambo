@@ -3,7 +3,7 @@
       https://github.com/beehive-lab/mambo
 
   Copyright 2020 Guillermo Callaghan <guillermocallaghan at hotmail dot com>
-  Copyright 2020-2021 The University of Manchester
+  Copyright 2020-2022 The University of Manchester
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@
 
 #include "dbm.h"
 #include "scanner_common.h"
+#include "pie/pie-riscv-encoder.h"
 
 /*
       Algorithm for linking:
@@ -78,12 +79,22 @@
          JALR zero, a0, translation fallthrough offset from a0
 */
 
-int riscv_link_to(uint16_t **o_write_p, uintptr_t target) {
-  int ret = riscv_jal_helper(o_write_p, target+6, zero);
+int riscv_link_to(dbm_thread *thread_data, uint16_t **o_write_p, uintptr_t target) {
+  uint16_t *write_p = *o_write_p;
+  int ret = riscv_jal_helper(&write_p, target+6, zero);
   if (ret != 0) {
-    riscv_push(o_write_p, (1 << a0) | (1 << a1));
-    ret = riscv_jalr_helper(o_write_p, target, zero, a0);
+    riscv_push(&write_p, (1 << a0) | (1 << a1));
+    ret = riscv_jalr_helper(&write_p, target, zero, a0);
+  } else {
+#ifdef DBM_TRACES
+    for (int i = 0; i < 4; i++) {
+      riscv_addi(&write_p, zero, zero, 0); // NOP
+      write_p += 2;
+    }
+#endif
   }
+  record_cc_link(thread_data, (uintptr_t)*o_write_p, target);
+  *o_write_p = write_p;
   return ret;
 }
 
@@ -100,15 +111,17 @@ void riscv_link_branch(dbm_thread *thread_data, int bb_id, uintptr_t target) {
   if (target_in_cc &&
       riscv_branch_helper(&write_p, target_tpc+6, bb_meta->rs1, bb_meta->rs2,
       bb_meta->branch_condition) == 0) {
+    record_cc_link(thread_data, (uintptr_t)(write_p-2), target_tpc+6);
     if (fallthrough_in_cc) {
-      int ret = riscv_link_to(&write_p, fallthrough_tpc);
+      int ret = riscv_link_to(thread_data, &write_p, fallthrough_tpc);
       assert(ret == 0);
     }
   } else if (fallthrough_in_cc &&
       riscv_branch_helper(&write_p, target_tpc+6, bb_meta->rs1, bb_meta->rs2,
       invert_cond(bb_meta->branch_condition)) == 0) {
+    record_cc_link(thread_data, (uintptr_t)(write_p-2), target_tpc+6);
     if (target_in_cc) {
-      int ret = riscv_link_to(&write_p, target_tpc);
+      int ret = riscv_link_to(thread_data, &write_p, target_tpc);
       assert(ret == 0);
     }
   } else {
@@ -120,13 +133,13 @@ void riscv_link_branch(dbm_thread *thread_data, int bb_id, uintptr_t target) {
       cond = invert_cond(cond);
       fallthrough_in_cc = 0;
     }
-    int ret = riscv_link_to(&write_p, target_tpc);
+    int ret = riscv_link_to(thread_data, &write_p, target_tpc);
     assert(ret == 0);
     ret = riscv_branch_helper(&branch, (uintptr_t)write_p, bb_meta->rs1, bb_meta->rs2, cond);
     assert(ret == 0);
 
     if (fallthrough_in_cc) {
-      int ret = riscv_link_to(&write_p, fallthrough_tpc);
+      int ret = riscv_link_to(thread_data, &write_p, fallthrough_tpc);
       assert(ret == 0);
     }
   }
@@ -144,9 +157,8 @@ void dispatcher_riscv(dbm_thread *thread_data, uint32_t source_index, branch_typ
 #ifdef DBM_LINK_UNCOND_IMM
     case jal_riscv: {
       dbm_code_cache_meta *bb_meta = &thread_data->code_cache_meta[source_index];
-
       uint16_t *branch_addr = bb_meta->exit_branch_addr;
-      int ret = riscv_link_to(&branch_addr, block_address);
+      int ret = riscv_link_to(thread_data, &branch_addr, block_address);
       assert(ret == 0);
       __clear_cache(bb_meta->exit_branch_addr, branch_addr);
       break;

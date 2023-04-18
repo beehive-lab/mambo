@@ -438,6 +438,9 @@ void init_thread(dbm_thread *thread_data) {
   #ifdef __aarch64__
   uint32_t *write_p = (uint32_t *)(thread_data->trace_head_incr_addr + 4);
   a64_copy_to_reg_64bits(&write_p, x2, (uintptr_t)thread_data->exec_count);
+  #elif __riscv
+  uint16_t *write_p = (uint16_t *)(thread_data->trace_head_incr_addr + 6);
+  riscv_copy_to_reg(&write_p, a2, (uintptr_t)(thread_data->exec_count));
   #endif
 
   info("Traces start at: %p\n", &thread_data->code_cache->traces);
