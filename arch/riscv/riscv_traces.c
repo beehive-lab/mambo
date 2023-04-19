@@ -34,16 +34,24 @@
   #define debug(...)
 #endif
 
+#define WHOLE_TRACE 4000
+#define TRACE_PADDING 200
+#define TRACE_EXIT 32
+
 #ifdef DBM_TRACES
 #ifdef __riscv
 
-int trace_record_exit(dbm_thread *thread_data, uintptr_t from, uintptr_t to) {
+int trace_record_exit(dbm_thread *thread_data, uintptr_t from, uintptr_t to,
+                     uint32_t cond, int fragment_id) {
   int record = thread_data->active_trace.free_exit_rec++;
   if (record >= MAX_TRACE_REC_EXITS) {
     return -1;
   }
-  thread_data->active_trace.exits[record].from = from;
-  thread_data->active_trace.exits[record].to = to;
+  struct trace_exits *trace_exit = &thread_data->active_trace.exits[record];
+  trace_exit->from = from;
+  trace_exit->to = to;
+  trace_exit->exit_condition = cond;
+  trace_exit->fragment_id = fragment_id;
 
   return 0;
 }
@@ -55,6 +63,21 @@ int riscv_jump_to(uint16_t **o_write_p, uintptr_t target) {
     ret = riscv_jalr_helper((uint16_t **)o_write_p, target, zero, a0);
   }
   return ret;
+}
+
+void set_up_trace_exit(dbm_thread *thread_data, uint16_t **o_write_p, uintptr_t target) {
+  uint16_t *write_p = *o_write_p;
+  uint16_t *write_start = *o_write_p;
+  if (riscv_jal_helper(&write_p, target + 6, zero) != 0) {
+    riscv_push((uint16_t **)&write_p, (1 << a0) | (1 << a1));
+    assert(riscv_jalr_helper((uint16_t **)&write_p, target, zero, a0) == 0);
+  } else {
+    target += 6;
+  }
+  record_cc_link(thread_data, (uintptr_t)write_start, target);
+  __clear_cache(*o_write_p, (write_p));
+
+  *o_write_p = write_p;
 }
 
 void patch_trace_branches(dbm_thread *thread_data, uint16_t *orig_branch, uintptr_t tpc) {
@@ -90,9 +113,9 @@ void install_trace(dbm_thread *thread_data) {
       branch_type exit_type = current_bb_meta->exit_branch_type;
       if (exit_type == branch_riscv) {
         uintptr_t taken_trace = active_trace_lookup(thread_data,
-		       	current_bb_meta->branch_taken_addr);
+                    current_bb_meta->branch_taken_addr);
         uintptr_t trace_fallthrough = active_trace_lookup(thread_data,
-		       	current_bb_meta->branch_skipped_addr);
+                    current_bb_meta->branch_skipped_addr);
         uintptr_t not_taken = UINTPTR_MAX;
         uintptr_t taken = UINTPTR_MAX;
         int cond = -1;
@@ -101,26 +124,26 @@ void install_trace(dbm_thread *thread_data) {
         orig_branch = (uintptr_t)(((uint16_t *)orig_branch) + 2);
         if (taken_trace != UINT_MAX) {
           not_taken = active_trace_lookup_or_scan(thread_data,
-			  current_bb_meta->branch_skipped_addr);
+                        current_bb_meta->branch_skipped_addr);
           taken = active_trace_lookup(thread_data, current_bb_meta->branch_taken_addr);
           cond = current_bb_meta->branch_condition;
-        } 
+        }
         else if (trace_fallthrough != UINT_MAX) {
           not_taken = active_trace_lookup_or_scan(thread_data,
-			  current_bb_meta->branch_taken_addr);
+                          current_bb_meta->branch_taken_addr);
           taken = active_trace_lookup(thread_data,
-			  current_bb_meta->branch_skipped_addr);
-          cond = current_bb_meta->branch_condition^1;
+                          current_bb_meta->branch_skipped_addr);
+          cond = current_bb_meta->branch_condition ^ 1;
         }
 
         assert(cond != -1 && (taken != UINTPTR_MAX || not_taken != UINTPTR_MAX));
         int ret = riscv_jump_to((uint16_t **)&orig_branch, not_taken);
-	assert(ret == 0);
+        assert(ret == 0);
         ret = riscv_branch_helper((uint16_t **)&br_start, orig_branch,
-		       	current_bb_meta->rs1, current_bb_meta->rs2, cond);
-	assert(ret == 0);
+                                 current_bb_meta->rs1, current_bb_meta->rs2, cond);
+        assert(ret == 0);
         ret = riscv_jump_to((uint16_t **)&orig_branch, taken);
-	assert(ret == 0);
+        assert(ret == 0);
 
         if (not_taken < (uintptr_t)thread_data->code_cache->traces) {
           record_cc_link(thread_data, (uintptr_t)orig_branch, not_taken);
@@ -137,13 +160,22 @@ void install_trace(dbm_thread *thread_data) {
 
   hash_add(&thread_data->entry_address, spc, tpc);
 
+  for (int i = 0; i < thread_data->active_trace.free_exit_rec; i++) {
+    struct trace_exits *trace_exit = &thread_data->active_trace.exits[i];
+    uint16_t *write_p = (uint16_t *)(trace_exit->from);
+    dbm_code_cache_meta *bb_meta = &thread_data->code_cache_meta[trace_exit->fragment_id];
+    int ret = riscv_branch_helper(&write_p, (uintptr_t)thread_data->active_trace.write_p, bb_meta->rs1,
+                                   bb_meta->rs2, trace_exit->exit_condition ^ 1);
+    assert(ret == 0);
+    write_p = thread_data->active_trace.write_p;
+    set_up_trace_exit(thread_data, &write_p, trace_exit->to);
+    thread_data->active_trace.write_p = write_p;
+
+  }
+
   thread_data->trace_id = thread_data->active_trace.id;
   thread_data->trace_cache_next = thread_data->active_trace.write_p;
 
-  for (int i = 0; i < thread_data->active_trace.free_exit_rec; i++) {
-    record_cc_link(thread_data, thread_data->active_trace.exits[i].from,
-                   thread_data->active_trace.exits[i].to);
-  }
 
   /* Add traps to the source basic block to detect if it remains reachable */
   uint16_t *write_p = (uint16_t *)(thread_data->code_cache_meta[bb_source].tpc + 6);
@@ -151,31 +183,25 @@ void install_trace(dbm_thread *thread_data) {
   __clear_cache(write_p, write_p + 2);
 }
 
-void set_up_trace_exit(dbm_thread *thread_data, uint16_t **o_write_p, int fragment_id, bool is_taken) {
+void set_up_trace_exit_branch_placeholder(dbm_thread *thread_data,
+              uint16_t **o_write_p, int fragment_id, bool is_taken) {
   dbm_code_cache_meta *bb_meta = &thread_data->code_cache_meta[fragment_id];
-  uint16_t *write_p = *o_write_p;
   uint32_t condition = bb_meta->branch_condition;
   uint32_t new_condition = is_taken ? condition : (condition ^ 1);
+  uint16_t *write_p = *o_write_p;
+  uint16_t *write_start = *o_write_p;
   uintptr_t addr = is_taken ? bb_meta->branch_skipped_addr : bb_meta->branch_taken_addr;
   uintptr_t tpc;
-
-  uint16_t *br_write_p = write_p;
+  riscv_addi(&write_p, zero, zero, 0); //nop
   write_p += 2;
-  if (riscv_jal_helper(&write_p, active_trace_lookup_or_scan(thread_data, addr) + 6, zero) != 0) {
-    riscv_push((uint16_t **)&write_p, (1 << a0) | (1 << a1));
-    assert(riscv_jalr_helper((uint16_t **)&write_p,
-			    active_trace_lookup_or_scan(thread_data, addr), zero, a0) == 0);
-    tpc = active_trace_lookup_or_scan(thread_data, addr);
-  } else {
-    tpc = active_trace_lookup_or_scan(thread_data, addr) + 6;
+  tpc = active_trace_lookup(thread_data, addr);
+  if (tpc == UINT_MAX) {
+    tpc = lookup_or_scan(thread_data, addr);
   }
-
-  assert(riscv_branch_helper(&br_write_p, (uintptr_t)write_p, bb_meta->rs1, bb_meta->rs2, new_condition) == 0);
-  int ret = trace_record_exit(thread_data, (uintptr_t)br_write_p, tpc);
-  assert(ret == 0);
-  __clear_cache(*o_write_p, (write_p));
-
   *o_write_p = write_p;
+  int ret = trace_record_exit(thread_data, (uintptr_t)write_start,
+                              tpc, new_condition, fragment_id);
+  assert(ret == 0);
 }
 
 size_t scan_trace(dbm_thread *thread_data, uint16_t *address, cc_type type, int *set_trace_id) {
@@ -194,6 +220,12 @@ size_t scan_trace(dbm_thread *thread_data, uint16_t *address, cc_type type, int 
 
   fragment_len = scan_riscv(thread_data, address, trace_id, type, (uint16_t *)write_p);
 
+  if (((write_p - (uint8_t *)thread_data->active_trace.entry_addr) +
+      (uint8_t)((thread_data->trace_fragment_count + 1) * TRACE_EXIT))
+                            >= (uint8_t)(WHOLE_TRACE - TRACE_PADDING)) {
+    return 0;
+  }
+
   __clear_cache(thread_data->code_cache_meta[trace_id].tpc, write_p + 4);
 
   thread_data->trace_fragment_count++;
@@ -201,7 +233,8 @@ size_t scan_trace(dbm_thread *thread_data, uint16_t *address, cc_type type, int 
   return fragment_len;
 }
 
-void early_trace_exit(dbm_thread *thread_data, dbm_code_cache_meta *bb_meta, void *write_p, uintptr_t spc, uintptr_t tpc) {
+void early_trace_exit(dbm_thread *thread_data, dbm_code_cache_meta *bb_meta,
+                      void *write_p, uintptr_t spc, uintptr_t tpc) {
   uint16_t *c_write_p = write_p;
   riscv_jump_to((uint16_t **)&write_p, tpc);
   __clear_cache(c_write_p, write_p);
@@ -228,11 +261,11 @@ void create_trace(dbm_thread *thread_data, uint16_t bb_source, uintptr_t *ret_ad
     source_addr = thread_data->code_cache_meta[bb_source].source_addr;
 
     //align trace head
-    thread_data->trace_cache_next += (TRACE_ALIGN - 
-		    ((uintptr_t)thread_data->trace_cache_next & TRACE_ALIGN_MASK)) & TRACE_ALIGN_MASK;
+    thread_data->trace_cache_next += (TRACE_ALIGN -
+               ((uintptr_t)thread_data->trace_cache_next & TRACE_ALIGN_MASK)) & TRACE_ALIGN_MASK;
 
     if ((uintptr_t)thread_data->trace_cache_next >=
-		    (uintptr_t)thread_data->code_cache + MAX_BRANCH_RANGE - TRACE_LIMIT_OFFSET
+                     (uintptr_t)thread_data->code_cache + MAX_BRANCH_RANGE - TRACE_LIMIT_OFFSET
          || thread_data->trace_id >= (CODE_CACHE_SIZE + TRACE_FRAGMENT_NO - TRACE_FRAGMENT_OVERP)) {
       fprintf(stderr, "trace cache full, flushing the CC\n");
       flush_code_cache(thread_data);
@@ -270,7 +303,7 @@ void create_trace(dbm_thread *thread_data, uint16_t bb_source, uintptr_t *ret_ad
     }
   } else {
     fprintf(stderr, "\nUnknown exit branch type in trace head: %d\n",
-		    thread_data->code_cache_meta[bb_source].exit_branch_type);
+                      thread_data->code_cache_meta[bb_source].exit_branch_type);
     while(1);
   }
 }
@@ -289,7 +322,7 @@ void trace_dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_in
 
   switch(bb_meta->exit_branch_type) {
     case branch_riscv:
-      set_up_trace_exit(thread_data, &write_p, source_index, is_taken);
+      set_up_trace_exit_branch_placeholder(thread_data, &write_p, source_index, is_taken);
       bb_meta->branch_cache_status = is_taken ? BRANCH_LINKED : FALLTHROUGH_LINKED;
       break;
     case jal_riscv:
@@ -339,13 +372,24 @@ void trace_dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_in
   fragment_len = scan_trace(thread_data, (uint16_t *)target, mambo_trace, &fragment_id);
   debug("len: %d\n\n", fragment_len);
 
+  if (fragment_len == 0) {
+    thread_data->active_trace.write_p = start_addr;
+    addr = active_trace_lookup(thread_data, target);
+    if (addr == UINT_MAX) {
+      addr = active_trace_lookup_or_scan(thread_data, target);
+      record_cc_link(thread_data, (uintptr_t)write_p, addr);
+    }
+    early_trace_exit(thread_data, bb_meta, write_p, target, addr);
+    *next_addr = addr;
+    return;
+  }
+
   thread_data->active_trace.write_p += 2 * fragment_len;
   switch(thread_data->code_cache_meta[fragment_id].exit_branch_type) {
     case jalr_riscv:
       install_trace(thread_data);
       break;
   }
-
 
   // Insert pop a0 and a1 and jump to start of fragment
   //overwritten by next fragment. We only need it for returning

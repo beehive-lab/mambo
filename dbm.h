@@ -187,6 +187,10 @@ struct trace_exits {
 #ifdef __aarch64__
   int fragment_id;
 #endif
+#ifdef __riscv
+  int fragment_id;
+  uint32_t exit_condition;
+#endif
 };
 
 #ifdef __riscv
