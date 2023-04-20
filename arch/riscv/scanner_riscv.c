@@ -29,6 +29,11 @@
 
 #define MIN_FSPACE 56
 #define BRANCH_FSPACE 152
+#define REG_JUMP_FSPACE 176
+
+#ifdef DBM_TRIBI
+#define PREDICTION_FSPACE 13
+#endif
 
 //#define DEBUG
 #ifdef DEBUG
@@ -408,7 +413,7 @@ void riscv_jump(dbm_thread *thread_data, uint16_t *read_address,
   *o_write_p = write_p;
 }
 
-#define CALC_RET_ADDR() ((uintptr_t)read_address + ((inst >= RISCV_LUI) ? 4 : 2))
+#define CALC_RET_ADDR() ((uintptr_t)read_address + ((thread_data->code_cache_meta[basic_block].inst >= RISCV_LUI) ? 4 : 2))
 #define IS_CONTEXT_REG(reg) ((reg) == s1 || (reg) == a0 || (reg) == a1)
 
 
@@ -416,7 +421,7 @@ void riscv_jump(dbm_thread *thread_data, uint16_t *read_address,
 * First, push a0 and a1
 * addi    sp,sp,-8/-16
 * sw/sd   a0,0(sp)
-* sw/sd	  a1,8(sp)
+* sw/sd   a1,8(sp)
 *
 * If rs1 is one of a0, a1 or ra and we're linking, then:
 *   reg_spc = a1
@@ -427,7 +432,7 @@ void riscv_jump(dbm_thread *thread_data, uint16_t *read_address,
 *
 *
 * If a2 is used:
-*   addi    sp,sp,-4/-8
+*   addi   sp,sp,-4/-8
 *   sw/sd  a2,0(sp)
 *   If rs1 != reg_spc:
 *     addi reg_spc,rs1,imm
@@ -438,7 +443,7 @@ void riscv_jump(dbm_thread *thread_data, uint16_t *read_address,
 *
 * srli  reg_tmp,reg_spc,HT_SHIFT
 * and   reg_tmp,reg_tmp,a0
-* 
+*
 * LOAD hash table base address into a0
 *
 * slli  reg_tmp,reg_tmp,3/4(32-bit/64-bit)
@@ -452,7 +457,7 @@ void riscv_jump(dbm_thread *thread_data, uint16_t *read_address,
 * sub   reg_tmp,reg_tmp,reg_spc
 * bne   START_OF_LOOP
 *
-* 
+*
 * ########### Once an entry has been found and we are out of the loop:
 *
 * lw/ld  a0,-4/-8(a0)
@@ -475,16 +480,16 @@ void riscv_jump(dbm_thread *thread_data, uint16_t *read_address,
 * If rd is not zero:
 *   copy return address to rd
 *
-* addi	 sp,sp,-4/-8
+* addi   sp,sp,-4/-8
 * sw/sd  s1,0(sp)
 * GO TO DISPATCHER using s1
-* 
-* 
-* 
+*
+*
+*
 */
 void riscv_inline_hash_lookup(dbm_thread *thread_data, int basic_block, uint16_t **o_write_p,
                               uint16_t *read_address, enum reg rs1, uint32_t imm, bool link,
-                              enum reg rd, riscv_instruction inst) {
+                              bool set_meta, bool tribi) {
   uint16_t *write_p = *o_write_p;
   uint16_t *loop;
   uint16_t *branch_to_not_found;
@@ -499,9 +504,19 @@ void riscv_inline_hash_lookup(dbm_thread *thread_data, int basic_block, uint16_t
     reg_spc = rs1;
     reg_tmp = a1;
   }
-  thread_data->code_cache_meta[basic_block].rs1 = reg_spc;
 
-  riscv_push(&write_p, (1 << a0) | (1 << a1));
+  if (set_meta)
+    thread_data->code_cache_meta[basic_block].rs1 = reg_spc;
+
+#if defined DBM_TRACES && DBM_TRIBI
+  if (!tribi) {
+#endif
+    riscv_push(&write_p, (1 << a0) | (1 << a1));
+#if defined DBM_TRACES && DBM_TRIBI
+  } else {
+    thread_data->code_cache_meta[basic_block].ihlu_address = (uintptr_t *)write_p;
+  }
+#endif
   if (use_a2) {
     riscv_push(&write_p, 1 << a2);
     if (rs1 != reg_spc) {
@@ -551,11 +566,22 @@ void riscv_inline_hash_lookup(dbm_thread *thread_data, int basic_block, uint16_t
 #endif
   write_p += 2;
 
+#if defined DBM_TRACES && DBM_TRIBI
+  uint16_t *tribi_branch = NULL;
+  if (tribi) {
+    thread_data->code_cache_meta[basic_block].rs1 = rs1;
+    thread_data->code_cache_meta[basic_block].imm = imm;
+    riscv_copy_to_reg(&write_p, reg_tmp, (uintptr_t)thread_data->code_cache->traces);
+    tribi_branch = write_p;
+    write_p += 2;
+  }
+#endif
+
   if (use_a2)
     riscv_pop(&write_p, 1 << a2);
 
-  if (rd != zero) {
-    riscv_copy_to_reg(&write_p, rd, CALC_RET_ADDR());
+  if (thread_data->code_cache_meta[basic_block].rd != zero) {
+    riscv_copy_to_reg(&write_p, thread_data->code_cache_meta[basic_block].rd, CALC_RET_ADDR());
   }
 
   riscv_c_jr(&write_p, a0);
@@ -563,21 +589,57 @@ void riscv_inline_hash_lookup(dbm_thread *thread_data, int basic_block, uint16_t
 
   riscv_c_beqz_helper(&branch_to_not_found, (uintptr_t)write_p, reg_tmp);
 
+#if defined DBM_TRACES && DBM_TRIBI
+  if (tribi) {
+    riscv_branch_helper(&tribi_branch, (uintptr_t)write_p, a0, reg_tmp, BGE);
+  }
+#endif
+
   riscv_add(&write_p, a0, reg_spc, zero);
   write_p += 2;
+  if (thread_data->code_cache_meta[basic_block].rd != zero) {
+    riscv_copy_to_reg(&write_p, thread_data->code_cache_meta[basic_block].rd, CALC_RET_ADDR());
+  }
+
   riscv_copy_to_reg(&write_p, a1, basic_block);
 
   if (use_a2) {
     riscv_pop(&write_p, 1 << a2);
   }
-  if (rd != zero) {
-    riscv_copy_to_reg(&write_p, rd, CALC_RET_ADDR());
+  if (thread_data->code_cache_meta[basic_block].rd != zero) {
+    riscv_copy_to_reg(&write_p, thread_data->code_cache_meta[basic_block].rd, CALC_RET_ADDR());
   }
   riscv_push(&write_p, (1 << s1));
   riscv_go_to_dispatcher(thread_data, &write_p);
   *o_write_p = write_p;
-  
 }
+
+#ifdef DBM_TRIBI
+void insert_tribi_header(dbm_thread *thread_data, const int basic_block, uint16_t *read_address,
+uint16_t **o_write_p, enum reg rs1, uint32_t imm, bool link) {
+  uint16_t *write_p = *o_write_p;
+  dbm_code_cache_meta *bb_meta = &thread_data->code_cache_meta[basic_block];
+  bb_meta->link = link;
+
+  if (link) {
+    bb_meta->branch_skipped_addr = (uintptr_t)read_address;
+  }
+
+  riscv_push(&write_p, 1 << a0 | 1 << a1);
+  bb_meta->next_prediction_slot = (uintptr_t *)write_p;
+
+  uint16_t *ihl_jal = write_p;
+  write_p += 2;
+
+
+  write_p += PREDICTION_FSPACE* 2 * TRIBI_SLOTS;
+
+  riscv_inline_hash_lookup(thread_data, basic_block, &write_p, read_address, rs1, imm, false, false, true);
+
+  riscv_jal_helper(&ihl_jal, (uintptr_t)bb_meta->ihlu_address, zero);
+  *o_write_p = write_p;
+}
+#endif
 
 void riscv_jump_register(dbm_thread *thread_data, uint16_t *read_address,
                          riscv_instruction inst, const int basic_block, uint16_t **o_write_p,
@@ -586,18 +648,28 @@ void riscv_jump_register(dbm_thread *thread_data, uint16_t *read_address,
 
   thread_data->code_cache_meta[basic_block].exit_branch_type = jalr_riscv;
   thread_data->code_cache_meta[basic_block].exit_branch_addr = write_p;
+  thread_data->code_cache_meta[basic_block].rd = rd;
+  thread_data->code_cache_meta[basic_block].read_addr = read_address;
+  thread_data->code_cache_meta[basic_block].inst = inst;
 
 #ifdef DBM_INLINE_HASH
 
   /*
   * If the return register is set, we need to ensure that it will not correspond to a0, a1 or s1
-  * This should not be the case as per the RISC-V spec, the only registers we should see are 
-  * ra or t0. 
+  * This should not be the case as per the RISC-V spec, the only registers we should see are
+  * ra or t0.
   */
   if (rd != zero) {
     assert(rd != s1 && rd != a0 && rd != a1);
   }
-  riscv_inline_hash_lookup(thread_data, basic_block, &write_p, read_address, rs1, imm, rd == ra, rd, inst);
+#if defined DBM_TRACES && DBM_TRIBI
+  if (basic_block >= CODE_CACHE_SIZE) {
+    insert_tribi_header(thread_data, basic_block, read_address, &write_p, rs1, imm, rd == ra);
+    *o_write_p = write_p;
+    return;
+  }
+#endif
+  riscv_inline_hash_lookup(thread_data, basic_block, &write_p, read_address, rs1, imm, rd == ra, true, false);
 #else
 
   if (rd != zero && rd != rs1) {
@@ -922,7 +994,7 @@ size_t scan_riscv(dbm_thread *thread_data, uint16_t *read_address,
         case RISCV_C_JR: {          // Expands to: jalr    x0,  0(rs1)
           uint32_t rs1;
           riscv_c_jr_decode_fields(read_address, &rs1);
-          riscv_check_free_space(thread_data, &write_p, &data_p, BRANCH_FSPACE, basic_block);
+          riscv_check_free_space(thread_data, &write_p, &data_p, REG_JUMP_FSPACE, basic_block);
           riscv_jump_register(thread_data, read_address, inst, basic_block,
                               &write_p, zero, rs1, 0);
           stop = true;
@@ -931,7 +1003,7 @@ size_t scan_riscv(dbm_thread *thread_data, uint16_t *read_address,
         case RISCV_C_JALR: {       // Expands to: jalr    x1,  0(rs1)
           uint32_t rs1;
           riscv_c_jalr_decode_fields(read_address, &rs1);
-          riscv_check_free_space(thread_data, &write_p, &data_p, BRANCH_FSPACE, basic_block);
+          riscv_check_free_space(thread_data, &write_p, &data_p, REG_JUMP_FSPACE, basic_block);
           riscv_jump_register(thread_data, read_address, inst, basic_block,
                               &write_p, ra, rs1, 0);
           stop = true;
@@ -994,7 +1066,7 @@ size_t scan_riscv(dbm_thread *thread_data, uint16_t *read_address,
         case RISCV_JALR: {   // Jump and Link Register
           uint32_t rd, rs1, imm;
           riscv_jalr_decode_fields(read_address, &rd, &rs1, &imm);
-          riscv_check_free_space(thread_data, &write_p, &data_p, BRANCH_FSPACE, basic_block);
+          riscv_check_free_space(thread_data, &write_p, &data_p, REG_JUMP_FSPACE, basic_block);
           riscv_jump_register(thread_data, read_address, inst, basic_block,
                               &write_p, rd, rs1, imm);
 
