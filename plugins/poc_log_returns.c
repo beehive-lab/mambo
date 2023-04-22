@@ -32,9 +32,9 @@ void log_returns_print(void *return_from, void *return_to) {
 /* Proof of concept. Note that only a subset of returns are currently instrumented by this code */
 int log_returns_pre_inst(mambo_context *ctx) {
   bool instrument = false;
+  int inst = mambo_get_inst(ctx);
 #ifdef __arm__
   inst_set isa = mambo_get_inst_type(ctx);
-  int inst = mambo_get_inst(ctx);
   if (isa == ARM_INST) {
     if (inst == ARM_BX) {
       uint32_t rn;
@@ -45,6 +45,22 @@ int log_returns_pre_inst(mambo_context *ctx) {
     }
   } else if (isa == THUMB_INST) {
     fprintf(stderr, "poc_log_returns: Thumb support not implemented yet\n");
+  }
+#elif __riscv
+  if (inst == RISCV_JALR) {
+    unsigned int rd;
+    unsigned int rs1;
+    unsigned int imm;
+    riscv_jalr_decode_fields(mambo_get_source_addr(ctx), &rd, &rs1, &imm);
+    if (rd == x0 && rs1 == x1) {
+      instrument = true;
+    }
+  } else if (inst == RISCV_C_JR) {
+    unsigned int rs1;
+    riscv_c_jalr_decode_fields(mambo_get_source_addr(ctx), &rs1);
+    if (rs1 == x1) {
+      instrument = true;
+    }
   }
 #else
   #error "Current ISA not supported yet"
