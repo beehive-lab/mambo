@@ -7,16 +7,13 @@ RISC-V port
 This branch is used for the ongoing development of MAMBO's RISC-V port. Current status (may be out of date):
 
 The base system is mostly functional
-  * it can run fairly big applications such as gcc, openssl-dgst
+  * it can run fairly big applications such as gcc, openssl-dgst, SPEC CPU2006 and more.
+  * optimizations have been ported from the ARM and AArch64 versions of MAMBO
   * most of the low level API (callbacks and instrumentation using native RISC-V instructions) is available
-  * early partial support for the high level API (for writing portable instrumentation across AArch32, AArch64 and RISC-V)
+  * early support for the high level API (for writing portable instrumentation across AArch32, AArch64 and RISC-V)
 
 The main limitations
-  * we've only tested it on emulated VMs, not on real hardware
-    * some cache coherence bugs may have slipped through
-    * for now we can't characterize or do much work on tweaking performance
-  * many performance optimizations from Arm not ported yet
-  * multithreading and signal support not implemented yet
+  * multithreading and signal support not implemented yet (these are actively in development and will be available soon)
 
 Authors:
 Guillermo Callaghan,
@@ -26,6 +23,7 @@ John Kressel
 News
 ----
 
+* 2023/04/24 We presented in ISPASS 2023 our paper "Evaluating the Impact of Optimizations for Dynamic Binary Modification on 64-bit RISC-V".
 * 2021-09-21: We've released a partial port of MAMBO to RISC-V in the [riscv branch](https://github.com/beehive-lab/mambo/tree/riscv), where development is continuing. The initial porting was done by Guillermo Callaghan and Cosmin Gorgovan.
 * 2021-02-24: PhD opportunities related to MAMBO and security available. If interested, contact mikel.lujan at manchester.ac.uk with the subject *APT MAMBO PhD \[your surname\]*
 * 2020-03-16: We've presented (virtually) our VEE paper about AArch64 optimizations in MAMBO. The talk is [available on youtube](https://www.youtube.com/watch?v=3jxLu1zGpV0).
@@ -46,6 +44,8 @@ Publications
 * [Cosmin Gorgovan, Guillermo Callaghan, and Mikel Luján. Balancing Performance and Productivity for the Development of Dynamic Binary Instrumentation Tools - A Case Study on Arm Systems. In Proceedings of the 29th International Conference on Compiler Construction (CC '20)](https://dl.acm.org/doi/abs/10.1145/3377555.3377895) **Free download** [via research.manchester.ac.uk](https://www.research.manchester.ac.uk/portal/en/publications/balancing-performance-and-productivity-for-the-development-of-dynamic-binary-instrumentation-tools--a-case-study-on-arm-systems(80e57c1b-9e38-4a15-942d-eb240888b12b).html).
 
 * [Guillermo Callaghan, Cosmin  Gorgovan and Mikel Luján. Optimising dynamic binary modification across 64-bit Arm microarchitectures. In Proceedings of the 16th ACM SIGPLAN/SIGOPS International Conference on Virtual Execution Environments (VEE '20)](https://dl.acm.org/doi/abs/10.1145/3381052.3381322) **Free download** [via research.manchester.ac.uk](https://www.research.manchester.ac.uk/portal/en/publications/optimising-dynamic-binary-modification-across-64bit-arm-microarchitectures(f8e4680f-9410-46c0-960a-8d8a932b974d).html).
+
+* John Alistair Kressel, Guillermo Callaghan, Cosmin Gorgovan, and Mikel Luja ́n. (2023). Evaluating the Impact of Optimizations for Dynamic Binary Modification on 64-bit RISC-V. In 2023 IEEE International Symposium on Performance Analysis of Systems and Software (ISPASS) IEEE. **Free download** [via research.manchester.ac.uk](https://research.manchester.ac.uk/en/publications/evaluating-the-impact-of-optimizations-for-dynamic-binary-modific).
 
 
 MAMBO was created as part of Cosmin's [EPSRC](https://www.epsrc.ac.uk)-funded PhD in the [School of Computer Science](http://www.cs.manchester.ac.uk/) at the [University of Manchester](http://www.manchester.ac.uk/). MAMBO is currently being developed as part of the [PAMELA EP/K008730/1](http://apt.cs.manchester.ac.uk/projects/PAMELA/) and DOME EP/J016330/1 EPSRC projects.
