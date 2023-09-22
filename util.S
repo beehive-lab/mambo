@@ -97,6 +97,41 @@ th_enter:
 
   BR X1
 #endif
+
+#ifdef __riscv
+th_enter:
+  mv sp, a0
+  ld a2,  0(sp)
+  ld a3,  8(sp)
+  ld a4,  16(sp)
+  ld a5,  24(sp)
+  ld a6,  32(sp)
+  ld a7,  40(sp)
+  ld t0,  48(sp)
+  ld t1,  56(sp)
+  ld t2,  64(sp)
+  ld t3,  72(sp)
+  ld t4,  80(sp)
+  ld t5,  88(sp)
+  ld t6,  96(sp)
+  ld s2,  104(sp)
+  ld s3,  112(sp)
+  ld s4,  120(sp)
+  ld gp,  136(sp)
+  ld s5,  144(sp)
+  ld s6,  152(sp)
+  ld s7,  160(sp)
+  ld s8,  168(sp)
+  ld s9,  176(sp)
+  ld s10, 184(sp)
+  ld s11, 192(sp)
+  ld ra,  200(sp)
+  ld s0,  208(sp)
+  ld s1,  216(sp)
+  addi sp, sp, 224
+  mv tp, a3 // a3 contains the pointer to tls which is needed by tp
+  jr a1
+#endif
 .endfunc
 
 .global new_thread_trampoline
@@ -114,9 +149,13 @@ new_thread_trampoline:
   STP X27, X28, [SP, #64]
   STP X29, X30, [SP, #80]
   MOV X1, SP
+#elif __riscv
+  mv a1,  sp
 #endif
 #if defined(__arm__) || defined(__aarch64__)
   B dbm_start_thread_pth
+#elif defined(__riscv)
+  j dbm_start_thread_pth
 #endif
 .endfunc
 

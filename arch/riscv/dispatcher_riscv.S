@@ -392,22 +392,38 @@ syscall_wrapper:
    * 16/136 |  s4    |   stores fflags
    * 24/144 |  tp    |
    * 32/152 |  gp    |
+   * 40/160 |  s5    |
+   * 48/168 |  s6    |
+   * 56/176 |  s7    |
+   * 64/184 |  s8    |
+   * 72/192 |  s9    |
+   * 80/200 |  s10   |
+   * 88/208 |  s11   |
    *        +--------+   <-- saved by the CC code below this
-   * 40/160 |  ra    |   TPC on entry, overwritten
-   * 48/168 |  s0    |   used for SPC
-   * 56/176 |  s1    |   copied TPC from ra
-   * 64/184 | empty  |
-   * 72/192 | empty  |
+   * 96/216 |  ra    |   TPC on entry, overwritten
+   * 104/224|  s0    |   used for SPC
+   * 112/232|  s1    |   copied TPC from ra
+   * 120/240| empty  |
+   * 128/248| empty  |
    *        +--------+
    */
 
-  // Spill values of callee-saved registers which will store some temporary values
-  addi sp, sp, -40
+
+// Spill values of callee-saved registers which will store some temporary values
+  addi sp, sp, -96
   sd s2,  0(sp)
   sd s3,  8(sp)
   sd s4, 16(sp)
   sd tp, 24(sp)
   sd gp, 32(sp)
+  sd s5, 40(sp)
+  sd s6, 48(sp)
+  sd s7, 56(sp)
+  sd s8, 64(sp)
+  sd s9, 72(sp)
+  sd s10, 80(sp)
+  sd s11, 88(sp)
+
 
   frcsr   s2
   frrm    s3
@@ -476,8 +492,8 @@ skip_syscall:
   // store a0 and a1 at the bottom of the stack frame
   ld a0, 0(sp)
   ld a1, 8(sp)
-  sd a0, 184(sp)
-  sd a1, 192(sp)
+  sd a0, 240(sp)
+  sd a1, 248(sp)
 
   // restore the remaining general purpose registers
   ld a2, 16(sp)
@@ -498,14 +514,18 @@ skip_syscall:
   ld s4, 16(sp)
   ld tp, 24(sp)
   ld gp, 32(sp)
-  ld ra, 40(sp)
-  ld s0, 48(sp)
-  ld s1, 56(sp)
-  addi sp, sp, 64
-
-  // return to the CC
+  ld s5, 40(sp)
+  ld s6, 48(sp)
+  ld s7, 56(sp)
+  ld s8, 64(sp)
+  ld s9, 72(sp)
+  ld s10, 80(sp)
+  ld s11, 88(sp)
+  ld ra, 96(sp)
+  ld s0, 104(sp)
+  ld s1, 112(sp)
+  addi sp, sp, 120
   jr a0
-
 syscall_handler_pre_addr: .quad syscall_handler_pre
 syscall_handler_post_addr: .quad syscall_handler_post
 
