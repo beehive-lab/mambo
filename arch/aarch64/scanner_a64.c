@@ -1000,13 +1000,13 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
       case A64_SVE_EXT_CON:
       case A64_SVE_EXT_DES:
       case A64_SVE_ZIP:
-      case A64_SVE_UZP:
-      case A64_SVE_TRN:
       case A64_SVE_INT_CMP:
       case A64_SVE_INT_CMP_UIMM:
       case A64_SVE_INT_CMP_SIMM:
       case A64_SVE_PRED_LOG:
       case A64_SVE_PROP_BREAK:
+      case A64_SVE_UZP:
+      case A64_SVE_TRN:
       case A64_SVE_PART_BREAK:
       case A64_SVE_PTEST:
       case A64_SVE_PFIRST:
@@ -1029,6 +1029,7 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
       case A64_SVE_INT_MULT_ADD_UNPRED:
       case A64_SVE2_INT_PRED:
       case A64_SVE2_INT_CLAMP:
+      case A64_SVE2_MLA_CPA:
       case A64_SVE2_PERMUTE_ELEM_QUAD:
       case A64_SVE_MULT_INDEXED:
       case A64_SVE2_TWO_DOT_VEC:
@@ -1056,12 +1057,14 @@ size_t scan_a64(dbm_thread *thread_data, uint32_t *read_address,
       case A64_SVE2_FCLAMP:
       case A64_SVE_WIDE_FMLA_INDEX:
       case A64_SVE_WIDE_FMLA:
+      case A64_SVE2_FP8_MLA_INDEX:
       case A64_SVE_FMMLA:
+      case A64_SVE2_FP8_WIDE_MLA:
       case A64_SVE_FCM:
       case A64_SVE_FTSMUL:
       case A64_SVE_FRECPS:
-      case A64_SVE_FRSQRTS:
       case A64_SVE_FARITH_UNPRED:
+      case A64_SVE_FRSQRTS:
       case A64_SVE_FARITH_PRED:
       case A64_SVE_FTMAD:
       case A64_SVE_FARITH_IMM:

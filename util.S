@@ -349,11 +349,11 @@ safe_fcall_trampoline:
   MRS X20, FPCR
   MRS X21, FPSR
 
-  BL push_neon
+  BL push_simd
 
   BLR X8
 
-  BL pop_neon
+  BL pop_simd
 
   MSR NZCV, X19
   MSR FPCR, X20
