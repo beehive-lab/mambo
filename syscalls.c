@@ -50,15 +50,9 @@
 #endif
 
 void *dbm_start_thread_pth(void *ptr) {
-#ifdef __riscv
-  #warning dbm_start_thread_pth() not implemented for RISCV
-  fprintf(stderr, "dbm_start_thread_pth() not implementd for RISCV\n");
-  while(1);
-#else
   dbm_thread *thread_data = (dbm_thread *)ptr;
   assert(thread_data->clone_args->child_stack);
   current_thread = thread_data;
-
   pid_t tid = syscall(__NR_gettid);
   thread_data->tid = tid;
   if (thread_data->clone_args->flags & CLONE_PARENT_SETTID) {
@@ -71,7 +65,6 @@ void *dbm_start_thread_pth(void *ptr) {
 		syscall(__NR_set_tid_address, thread_data->clone_args->ctid);
   }
   thread_data->tls = thread_data->clone_args->tls;
-
   // Copy the parent's saved register values to the child's stack
 #ifdef __arm__
   uint32_t *child_stack = thread_data->clone_args->child_stack;
@@ -88,18 +81,31 @@ void *dbm_start_thread_pth(void *ptr) {
   child_stack[33] = child_stack[1]; // X1
   child_stack += 2;
 #endif
+#ifdef __riscv
+  uint64_t *child_stack = thread_data->clone_args->child_stack;
+
+  child_stack -= 32;
+  mambo_memcpy(child_stack, (void *)thread_data->clone_args, sizeof(uintptr_t) * 32);
+  // move the values for a0 and a1 to the bottom of the stack
+  child_stack[30] = 0; // a0
+  child_stack[31] = child_stack[1]; // a1
+  child_stack += 2;
+#endif
+
+  #if defined (__arm__) || (__aarch64__)
+  asm volatile("DMB SY" ::: "memory");
+#else
+  asm volatile("fence\n" ::: "memory");
+#endif
 
   // Release the lock
-  asm volatile("DMB SY" ::: "memory");
   *(thread_data->set_tid) = tid;
-
   assert(register_thread(thread_data, false) == 0);
 
   uintptr_t addr = scan(thread_data, thread_data->clone_ret_addr, ALLOCATE_BB);
   th_enter(child_stack, addr);
 
   return NULL;
-#endif
 }
 
 dbm_thread *dbm_create_thread(dbm_thread *thread_data, void *next_inst, sys_clone_args *args, volatile pid_t *set_tid) {
@@ -260,7 +266,7 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
       assert(free_thread_data(thread_data) == 0);
 
       syscall(__NR_exit); // this should never return
-      while(1); 
+      while(1);
       break;
 #ifdef __arm__
     case __NR_sigaction:
