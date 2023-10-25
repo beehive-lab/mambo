@@ -309,7 +309,15 @@ syscall_wrapper:
   MRS X21, FPSR
 
   MOV X0, X8
-  ADD X1, SP, #512
+#if defined(__ARM_FEATURE_SVE) || defined(__ARM_FEATURE_SVE2)
+  MOV X1, #0
+  ADDVL X1, X1, #31
+  ADDVL X1, X1, #1
+  ADDPL X1, X1, #16
+#else // defined(__ARM_NEON)
+  MOV X1, #512
+#endif
+  ADD X1, SP, X1
   MOV X2, X29
   LDR X3, disp_thread_data
   LDR X4, syscall_handler_pre_addr
@@ -318,7 +326,15 @@ syscall_wrapper:
 
   CBZ X0, s_w_r
 
-  ADD X9, SP, #512
+#if defined(__ARM_FEATURE_SVE) || defined(__ARM_FEATURE_SVE2)
+  MOV X9, #0
+  ADDVL X9, X9, #31
+  ADDVL X9, X9, #1
+  ADDPL X9, X9, #16
+#else // defined(__ARM_NEON)
+  MOV X9, #512
+#endif
+  ADD X9, SP, X9
   LDP X0, X1, [X9, #0]
   LDP X2, X3, [X9, #16]
   LDP X4, X5, [X9, #32]
@@ -328,11 +344,27 @@ syscall_wrapper:
   // Balance the stack on rt_sigreturn, which doesn't return here
   CMP X8, #0x8b
   BNE svc
+
+#if defined(__ARM_FEATURE_SVE) || defined(__ARM_FEATURE_SVE2)
+  ADD SP, SP, #(64 + 144)
+  ADDVL SP, SP, #31
+  ADDVL SP, SP, #1
+  ADDPL SP, SP, #16
+#else // defined(__ARM_NEON)
   ADD SP, SP, #(64 + 144 + 512)
+#endif
 
 svc: SVC 0
 syscall_wrapper_svc:
-  ADD X1, SP, #512
+#if defined(__ARM_FEATURE_SVE) || defined(__ARM_FEATURE_SVE2)
+  MOV X1, #0
+  ADDVL X1, X1, #31
+  ADDVL X1, X1, #1
+  ADDPL X1, X1, #16
+#else // defined(__ARM_NEON)
+  MOV X1, #512
+#endif
+  ADD X1, SP, X1
   STR X0, [X1, #0]
   MOV X0, X8
   MOV X2, X29
