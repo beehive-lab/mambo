@@ -1,19 +1,24 @@
 MAMBO: A Low-Overhead Dynamic Binary Modification Tool for RISC architectures
 =============================================================================
 
-RISC-V port
------------
+RISC-V
+------
 
-This branch is used for the ongoing development of MAMBO's RISC-V port. Current status (may be out of date):
+This branch is used for the ongoing development of MAMBO for RISC-V.
 
-The base system is mostly functional
-  * it can run fairly big applications such as gcc, openssl-dgst, SPEC CPU2006 and more.
-  * optimizations have been ported from the ARM and AArch64 versions of MAMBO
-  * most of the low level API (callbacks and instrumentation using native RISC-V instructions) is available
-  * early support for the high level API (for writing portable instrumentation across AArch32, AArch64 and RISC-V)
+### Current status
 
-The main limitations
-  * multithreading and signal support not implemented yet (these are actively in development and will be available soon)
+Already implemented:
+* Support for complex applications, such as gcc, openssl-dgst, SPEC CPU2006, and more.
+* Support for multithreading
+* Port of optimizations from the ARM and AArch64 versions of MAMBO
+* Majority of low-level API (callbacks and instrumentation using native RISC-V instructions)
+
+Work in progress:
+* Support for the high-level API (for writing portable instrumentation across AArch32, AArch64 and RISC-V)
+
+Not yet supported:
+* Signals
 
 Authors:
 Guillermo Callaghan,
