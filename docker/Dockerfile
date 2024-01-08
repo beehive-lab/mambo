@@ -3,7 +3,7 @@ FROM ubuntu:latest
 RUN apt-get update
 RUN apt-get install -y qemu-system-misc opensbi u-boot-qemu
 RUN apt-get install -y qemu-system-aarch64 qemu-efi
-RUN apt-get install -y wget xz-utils git build-essential libelf-dev ruby
+RUN apt-get install -y wget xz-utils git build-essential libelf-dev ruby gdb
 
 #create new user
 RUN useradd -ms /bin/bash mambo
