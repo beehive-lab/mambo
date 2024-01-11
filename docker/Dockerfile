@@ -32,6 +32,8 @@ RUN chown mambo run-qemu-riscv.sh
 
 
 USER mambo
+ENV ARM64='/home/mambo/aarch64'
+ENV RISCV='/home/mambo/riscv'
 WORKDIR /home/mambo
 RUN chmod u+x aarch64/run-qemu-arm64.sh
 RUN chmod u+w aarch64/flash1.img
