@@ -18,10 +18,11 @@ Here, a prebuilt server image for ubuntu will be run under QEMU.
 
 1. Run `cd $ARM64`
 2. Run QEMU with the script `run-qemu-arm64.sh` and login with the username `ubuntu` and password `ubuntu`
-3. Install dependencies: `sudo apt-get install build-essential libelf-dev ruby`
+3. Install dependencies: `sudo apt-get update && sudo apt-get install build-essential libelf-dev ruby`
 4. Clone MAMBO using the following command: `git clone --recurse-submodules https://github.com/beehive-lab/mambo.git`
-5. Change to the cloned directory: `cd mambo`
-6. Build MAMBO: `make`
+5. Set an environment variable for mambo `export MAMBO_ROOT=/home/ubuntu/mambo`
+6. Change to the cloned directory: `cd $MAMBO_ROOT`
+7. Build MAMBO: `make`
 
 
 
@@ -29,7 +30,8 @@ Here, a prebuilt server image for ubuntu will be run under QEMU.
 
 1. Run `cd $ARM64`
 2. Clone MAMBO using the following command: `git clone --recurse-submodules https://github.com/beehive-lab/mambo.git`
-3. Change to the cloned directory: `cd mambo`
+3. Set an environment variable for mambo `export MAMBO_ROOT=$ARM64/mambo`
+3. Change to the cloned directory: `cd $MAMBO_ROOT`
 4. Build MAMBO: `make`
 
 ## MAMBO on RISCV
@@ -38,8 +40,10 @@ Here, a prebuilt server image for ubuntu will be run under QEMU.
 
 1. Run `cd $RISCV`
 2. Run QEMU with the script `run-qemu-riscv.sh` and login with the username `ubuntu` and password `ubuntu`
-3. Install dependencies: `sudo apt-get install build-essential libelf-dev ruby`
+3. Install dependencies: `sudo apt-get update && sudo apt-get install build-essential libelf-dev ruby`
 4. Clone MAMBO using the following command: `git clone --recurse-submodules https://github.com/beehive-lab/mambo.git`
-5. Change to the cloned directory: `cd mambo`
-6. Run the following commands `cd pie && git checkout master && cd .. && git checkout riscv`
-7. Build MAMBO: `make`
+5. Set an environment variable for mambo `export MAMBO_ROOT=/home/ubuntu/mambo`
+6. Change to the cloned directory: `cd $MAMBO_ROOT`
+7. Run the following commands `cd pie && git checkout master && cd .. && git checkout riscv`
+8. Change line 30 of the makefile to: `LIBS=-lelf -lpthread -lz -lzstd`
+9. Build MAMBO: `make`
