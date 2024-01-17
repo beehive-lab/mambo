@@ -6,7 +6,7 @@ The following guide will walk you through getting MAMBO for ARM64 or RISC-V 64-b
 Docker is required. Please see the following instructions to install docker on your machine: https://docs.docker.com/get-docker/
 
 ## Common Setup
-1. Clone MAMBO repository or copy the Dockerfile into your local filesystem
+1. Clone MAMBO repository or copy the [Dockerfile](https://github.com/beehive-lab/mambo/blob/master/docker/Dockerfile) into your local filesystem
 2. Run the Dockerfile using the following command: `docker build --tag "mambo:latest" .` Note the `.` at the end is the current directory where the Dockerfile is
 3. Run the docker image we just created using the following command: `docker run -t -i mambo`
 4. You will now be in the home directory of the docker container. Two directories are available `aarch64` for those wishing to use MAMBO on ARM64, and `riscv` for those wishing to use MAMBO on RISC-V. Navigate to the desired directory and follow the instructions for each architecure in the relevant section below.
