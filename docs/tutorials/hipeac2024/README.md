@@ -1,5 +1,7 @@
 # MAMBO - Dynamic Binary Instrumentation on ARM and RISC-V 💻 Welcome!!
 
+Access the slides [here](presentation.pdf).
+
 ## Getting Started
 
 - Install Docker
