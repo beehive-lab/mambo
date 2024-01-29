@@ -2,7 +2,7 @@
   This file is part of MAMBO, a low-overhead dynamic binary modification tool:
       https://github.com/beehive-lab/mambo
 
-  Copyright 2017 The University of Manchester
+  Copyright 2017-2020 The University of Manchester
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -38,6 +38,11 @@
 #include "pie/pie-a64-encoder.h"
 #include "pie/pie-a64-decoder.h"
 #include "pie/pie-a64-field-decoder.h"
+#endif
+#ifdef __riscv
+#include "pie/pie-riscv-encoder.h"
+#include "pie/pie-riscv-decoder.h"
+#include "pie/pie-riscv-field-decoder.h"
 #endif
 
 #define self_send_signal_offset        ((uintptr_t)send_self_signal - (uintptr_t)&start_of_dispatcher_s)
@@ -108,6 +113,11 @@ typedef int (*inst_decoder)(void *);
   #define inst_size(inst, is_thumb) (4)
   #define write_trap(code) a64_HVC((uint32_t **)&write_p, (code)); write_p += 4;
   #define TRAP_INST_TYPE (A64_HVC)
+#elif __riscv
+  #warning signals: not implemented for RISCV yet
+  #define inst_size(inst, is_thumb) (4)
+  #define write_trap(code)
+  #define TRAP_INST_TYPE (RISCV_INVALID)
 #endif
 
 bool unlink_indirect_branch(dbm_code_cache_meta *bb_meta, void **o_write_p) {

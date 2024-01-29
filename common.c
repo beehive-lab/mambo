@@ -3,7 +3,7 @@
       https://github.com/beehive-lab/mambo
 
   Copyright 2013-2016 Cosmin Gorgovan <cosmin at linux-geek dot org>
-  Copyright 2017 The University of Manchester
+  Copyright 2017-2020 The University of Manchester
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -341,6 +341,10 @@ ssize_t interval_map_delete(interval_map *imap, uintptr_t start, uintptr_t end) 
   #define first_reg x0
   #define last_reg sp
 #endif
+#ifdef __riscv
+  #define first_reg x0
+  #define last_reg x31
+#endif
 
 uint32_t next_reg_in_list(uint32_t reglist, uint32_t start) {
   for (; start <= last_reg; start++) {
@@ -416,13 +420,27 @@ extern void __try_memcpy_error();
 #elif __aarch64__
   #define pc_reg uc_mcontext.pc
 #endif
+#ifdef __riscv
+// TODO: (riscv) riscv-glibc/sysdeps/unix/sysv/linux/riscv/sys/ucontext.h has the
+// following warning:
+// Don't rely on this, the interface is currently messed up and may need to
+//  be broken to be fixed.
+  #define pc_reg uc_mcontext.__gregs[REG_PC]
+#endif
+#ifndef __riscv
 void memcpy_fault(int i, siginfo_t *info, void *ctx_ptr) {
   ucontext_t *ctx = (ucontext_t *)ctx_ptr;
   ctx->pc_reg = (uintptr_t)__try_memcpy_error;
 }
+#endif
 #undef pc_reg
 
 int try_memcpy(void *dst, void *src, size_t n) {
+#ifdef __riscv
+  #warning try_memcpy() not implemented for RISCV
+  fprintf(stderr, "try_memcpy() not yet implemented\n");
+  while(1);
+#else
   struct sigaction act, oldact;
   act.sa_sigaction = memcpy_fault;
   sigemptyset(&act.sa_mask);
@@ -436,4 +454,5 @@ int try_memcpy(void *dst, void *src, size_t n) {
   assert(ret == 0);
 
   return status;
+#endif
 }

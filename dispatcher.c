@@ -32,6 +32,11 @@ void dispatcher_aarch64(dbm_thread *thread_data, uint32_t source_index,
                         branch_type exit_type, uintptr_t target,
                         uintptr_t block_address);
 #endif
+#ifdef __riscv
+void dispatcher_riscv(dbm_thread *thread_data, uint32_t source_index, branch_type exit_type,
+                      uintptr_t target, uintptr_t block_address);
+#include "arch/riscv/riscv_traces.h"
+#endif
 
 #ifdef DEBUG
   #define debug(...) fprintf(stderr, __VA_ARGS__)
@@ -87,5 +92,9 @@ void dispatcher(const uintptr_t target, const uint32_t source_index,
 #ifdef __aarch64__
   dispatcher_aarch64(thread_data, source_index, source_branch_type, target,
                      *next_addr);
+#endif
+#ifdef __riscv
+  dispatcher_riscv(thread_data, source_index, source_branch_type, target,
+                   *next_addr);
 #endif
 }

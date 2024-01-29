@@ -123,6 +123,8 @@ void _function_callback_wrapper(mambo_context *ctx, watched_func_t *func) {
     ctx->code.plugin_pushed_reg_count += 2;
 #ifdef __aarch64__
     emit_pop(ctx, (1 << x0) | (1 << x1));
+#elif __riscv
+    emit_pop(ctx, (1 << a0) | (1 << a1));
 #elif __arm__
     emit_pop(ctx, (1 << r5) | (1 << r6));
 #endif

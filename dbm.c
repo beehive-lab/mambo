@@ -3,7 +3,7 @@
       https://github.com/beehive-lab/mambo
 
   Copyright 2013-2016 Cosmin Gorgovan <cosmin at linux-geek dot org>
-  Copyright 2017 The University of Manchester
+  Copyright 2017-2020 The University of Manchester
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -68,6 +68,9 @@
 uintptr_t page_size;
 dbm_global global_data;
 __thread dbm_thread *current_thread;
+#ifdef __riscv
+uintptr_t mambo_gp;
+#endif
 
 void flush_code_cache(dbm_thread *thread_data) {
   thread_data->was_flushed = true;
@@ -86,6 +89,10 @@ void flush_code_cache(dbm_thread *thread_data) {
     thread_data->code_cache_meta[i].actual_id = 0;
 #ifdef DBM_TRACES
     thread_data->exec_count[i] = 0;
+#endif
+#if defined DBM_TRACES && DBM_TRIBI
+    thread_data->code_cache_meta[i].next_prediction_slot = NULL;
+    thread_data->code_cache_meta[i].number_of_predictions = 0;
 #endif
   }
 
@@ -154,15 +161,18 @@ int allocate_bb(dbm_thread *thread_data) {
 uintptr_t stub_bb(dbm_thread *thread_data, uintptr_t target) {
   unsigned int basic_block;
   uintptr_t block_address;
-  uintptr_t thumb = target & THUMB;
   
   basic_block = allocate_bb(thread_data);
   block_address = (uintptr_t)&thread_data->code_cache->blocks[basic_block];
-  
-  debug("Stub BB: 0x%" PRIxPTR "\n", block_address + thumb);
+
+#ifdef __arm__
+  uintptr_t thumb = target & THUMB;
+  block_address += thumb;
+#endif
+  debug("Stub BB: 0x%" PRIxPTR "\n", block_address);
   
   thread_data->code_cache_meta[basic_block].exit_branch_type = stub;
-  if (!hash_add(&thread_data->entry_address, target, block_address + thumb)) {
+  if (!hash_add(&thread_data->entry_address, target, block_address)) {
     fprintf(stderr, "Failed to add hash table entry for newly created stub basic block\n");
     while(1);
   }
@@ -178,7 +188,7 @@ uintptr_t stub_bb(dbm_thread *thread_data, uintptr_t target) {
   assert(0); // TODO
 #endif
   
-  return adjust_cc_entry(block_address + thumb);
+  return adjust_cc_entry(block_address);
 }
 
 uintptr_t lookup_or_stub(dbm_thread *thread_data, uintptr_t target) {
@@ -197,7 +207,9 @@ uintptr_t lookup_or_stub(dbm_thread *thread_data, uintptr_t target) {
 }
 
 uintptr_t scan(dbm_thread *thread_data, uint16_t *address, int basic_block) {
+#ifdef __arm__
   uintptr_t thumb = (uintptr_t)address & THUMB;
+#endif
   uintptr_t block_address;
   size_t block_size;
   bool stub = false;
@@ -218,7 +230,9 @@ uintptr_t scan(dbm_thread *thread_data, uint16_t *address, int basic_block) {
   // Add entry into the code cache hash table
   // It must be added before scan_ is called, otherwise a call for scan
   // from scan_x could result in duplicate BBS or an infinite recursive call
+#ifdef __arm__
   block_address |= thumb;
+#endif
   if (!stub) {
     if (!hash_add(&thread_data->entry_address, (uintptr_t)address, block_address)) {
       fprintf(stderr, "Failed to add hash table entry for newly created basic block\n");
@@ -238,6 +252,9 @@ uintptr_t scan(dbm_thread *thread_data, uint16_t *address, int basic_block) {
 #endif
 #ifdef __aarch64__
   block_size = scan_a64(thread_data, (uint32_t *)address, basic_block, mambo_bb, NULL);
+#endif
+#ifdef __riscv
+  block_size = scan_riscv(thread_data, address, basic_block, mambo_bb, NULL);
 #endif
 
   // Flush modified instructions from caches
@@ -425,6 +442,9 @@ void init_thread(dbm_thread *thread_data) {
   #ifdef __aarch64__
   uint32_t *write_p = (uint32_t *)(thread_data->trace_head_incr_addr + 4);
   a64_copy_to_reg_64bits(&write_p, x2, (uintptr_t)thread_data->exec_count);
+  #elif __riscv
+  uint16_t *write_p = (uint16_t *)(thread_data->trace_head_incr_addr + 6);
+  riscv_copy_to_reg(&write_p, a2, (uintptr_t)(thread_data->exec_count));
   #endif
 
   info("Traces start at: %p\n", &thread_data->code_cache->traces);
@@ -438,6 +458,13 @@ void init_thread(dbm_thread *thread_data) {
   thread_data->status = THREAD_RUNNING;
                         
   debug("Syscall wrapper addr: 0x%" PRIxPTR "\n", thread_data->syscall_wrapper_addr);
+
+// Save MAMBO's thread pointer so we can restore it on context switches
+#ifdef __riscv
+  uintptr_t tp;
+  asm("\t mv %0, tp" : "=r"(tp));
+  thread_data->mambo_tp = tp;
+#endif
 }
 
 void free_all_other_threads(dbm_thread *thread_data) {
@@ -610,6 +637,11 @@ void notify_vm_op(vm_op_t op, uintptr_t addr, size_t size, int prot, int flags, 
 }
 
 void main(int argc, char **argv, char **envp) {
+// Save MAMBO's global pointer so we can restore it on context switches
+#ifdef __riscv
+  asm("\t mv %0, gp" : "=r"(mambo_gp));
+#endif
+
   Elf *elf = NULL;
   
   if (argc < 2) {
@@ -633,7 +665,12 @@ void main(int argc, char **argv, char **envp) {
   ret = pthread_mutex_init(&global_data.signal_handlers_mutex, NULL);
   assert(ret == 0);
 
+// TODO: implement for RISCV
+#if __riscv
+  #warning signal handling not implemented for RISCV
+#else
   install_system_sig_handlers();
+#endif
 
   global_data.brk = 0;
   struct elf_loader_auxv auxv;
@@ -641,14 +678,26 @@ void main(int argc, char **argv, char **envp) {
   load_elf(argv[1], &elf, &auxv, &entry_address, false);
   debug("entry address: 0x%" PRIxPTR "\n", entry_address);
 
-  // Set up brk emulation
+  /*
+    Set up brk emulation
+
+    The initial data segment for the application is allocated in a block
+    of RESERVED_BRK_SPACE size, then remapped down to a single page size
+    The application should then be able to expand the data segment with
+    emulated brk syscalls up to at least RESERVED_BRK_SPACE size.
+
+    We use this because the kernel will sometimes map our area immediately
+    before another allocation, which will prevent it from growing past the
+    size of the initial allocation. Libc initialization may fail if brk
+    is unsuccesful, so need to be able to allocate at least a few pages
+  */
   ret = pthread_mutex_init(&global_data.brk_mutex, NULL);
   assert(ret == 0);
-  void *map = mmap((void *)global_data.brk, PAGE_SIZE, PROT_READ | PROT_WRITE,
+  void *map = mmap((void *)global_data.brk, RESERVED_BRK_SPACE, PROT_READ | PROT_WRITE,
                      MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
   assert(map != MAP_FAILED);
+  assert(mremap(map, RESERVED_BRK_SPACE, PAGE_SIZE, 0) == map);
   global_data.initial_brk = global_data.brk = (uintptr_t)map;
-  global_data.brk += PAGE_SIZE;
   
   dbm_thread *thread_data;
   if (!allocate_thread_data(&thread_data)) {

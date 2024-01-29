@@ -32,7 +32,7 @@ MAMBO was created as part of Cosmin's [EPSRC](https://www.epsrc.ac.uk)-funded Ph
 Status
 ------
 
-MAMBO's compatibility with applications is continuously being improved as needed. We are using it on ARMv7 and ARMv8 systems. Our systems run the *armhf* / *arm64* builds of Debian, Ubuntu and Arch Linux ARM. Most GNU/Linux applications work correctly. The following more complex applications and benchmark suites are working correctly under MAMBO on our systems (this is not an exhaustive list):
+MAMBO's compatibility with applications is continuously being improved as needed. We are using it on ARMv7 and ARMv8 and RISC-V64GC systems. Our ARM systems run the *armhf* / *arm64* builds of Debian, Ubuntu and Arch Linux ARM. Our RISC-V systems use Ubuntu 22.04 for RISC-V 64-bit. Most GNU/Linux applications work correctly. The following more complex applications and benchmark suites are working correctly under MAMBO on ARM systems (this is not an exhaustive list):
 
 * [SPEC CPU2006](https://www.spec.org/cpu2006/)
 * [PARSEC 3.0](http://parsec.cs.princeton.edu/)
@@ -49,7 +49,7 @@ Also read the *Known issues* section below.
 Build
 -----
 
-Prerequisites: an ARM system (physical or virtual) to build and run MAMBO on; dependencies: gcc toolchain, libelf(-dev), ruby (>=1.9.1). Debian or Ubuntu users can install the required packages with `sudo apt-get install build-essential libelf-dev ruby`.
+Prerequisites: an ARM or RISC-V64GC system (physical or virtual) to build and run MAMBO on; dependencies: gcc toolchain, libelf(-dev), ruby (>=1.9.1). Debian or Ubuntu users can install the required packages with `sudo apt-get install build-essential libelf-dev ruby`.
 
     git clone --recurse-submodules https://github.com/beehive-lab/mambo.git
     cd mambo
@@ -83,6 +83,7 @@ Known issues
 
 * There are two limitations related to signal handling: the data in the `siginfo_t` structure passed to `SA_SIGINFO` signal handlers is incorrect: most signals will appear to have been sent via `kill()` from the application itself; and synchronous signal (SIGSEGV, SIGBUS, SIGFPE, SIGTRAP, SIGILL, SIGSYS) handlers cannot `sigreturn()`, but can `(sig)longjmp()`.
 * At the moment, code cache invalidation in response to the `munmap` and `__cache_flush` system calls are only done in the thread in which the system call is executed. This can potentially lead to execution of stale cached code in other threads.
+* MAMBO on RISC-V systems does not have have full signal handing capabilities. This will cause complex applications such as GIMP to experience issues.
 
 
 Reporting bugs
