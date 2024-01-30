@@ -3,7 +3,8 @@ MAMBO: A Low-Overhead Dynamic Binary Modification Tool for RISC architectures
 
 News
 ----
-* 2023/04/24 We presented in ISPASS 2023 our paper "Evaluating the Impact of Optimizations for Dynamic Binary Modification on 64-bit RISC-V".
+* 2024-01-17: We presented a MAMBO tutorial at HiPEAC 2024 in Munich, Germany. All materials are available [here](docs/tutorials/hipeac2024).
+* 2023-04-24: We presented in ISPASS 2023 our paper "Evaluating the Impact of Optimizations for Dynamic Binary Modification on 64-bit RISC-V".
 * 2021-09-21: We've released a partial port of MAMBO to RISC-V in the [riscv branch](https://github.com/beehive-lab/mambo/tree/riscv), where development is continuing. The initial porting was done by Guillermo Callaghan and Cosmin Gorgovan.
 * 2021-02-24: PhD opportunities related to MAMBO and security available. If interested, contact mikel.lujan at manchester.ac.uk with the subject *APT MAMBO PhD \[your surname\]*
 * 2020-03-16: We've presented (virtually) our VEE paper about AArch64 optimizations in MAMBO. The talk is [available on youtube](https://www.youtube.com/watch?v=3jxLu1zGpV0).
@@ -25,9 +26,9 @@ Publications
 
 * [Guillermo Callaghan, Cosmin  Gorgovan and Mikel Luján. Optimising dynamic binary modification across 64-bit Arm microarchitectures. In Proceedings of the 16th ACM SIGPLAN/SIGOPS International Conference on Virtual Execution Environments (VEE '20)](https://dl.acm.org/doi/abs/10.1145/3381052.3381322) **Free download** [via research.manchester.ac.uk](https://www.research.manchester.ac.uk/portal/en/publications/optimising-dynamic-binary-modification-across-64bit-arm-microarchitectures(f8e4680f-9410-46c0-960a-8d8a932b974d).html).
 
-* John Alistair Kressel, Guillermo Callaghan, Cosmin Gorgovan, and Mikel Luja ́n. (2023). Evaluating the Impact of Optimizations for Dynamic Binary Modification on 64-bit RISC-V. In 2023 IEEE International Symposium on Performance Analysis of Systems and Software (ISPASS) IEEE. **Free download** [via research.manchester.ac.uk](https://research.manchester.ac.uk/en/publications/evaluating-the-impact-of-optimizations-for-dynamic-binary-modific).
+* [John Alistair Kressel, Guillermo Callaghan, Cosmin Gorgovan, and Mikel Luján. (2023). Evaluating the Impact of Optimizations for Dynamic Binary Modification on 64-bit RISC-V. In 2023 IEEE International Symposium on Performance Analysis of Systems and Software (ISPASS) IEEE](https://ieeexplore.ieee.org/document/10158157). **Free download** [via research.manchester.ac.uk](https://research.manchester.ac.uk/en/publications/evaluating-the-impact-of-optimizations-for-dynamic-binary-modific).
 
-MAMBO was created as part of Cosmin's [EPSRC](https://www.epsrc.ac.uk)-funded PhD in the [School of Computer Science](http://www.cs.manchester.ac.uk/) at the [University of Manchester](http://www.manchester.ac.uk/). MAMBO is currently being developed as part of the [PAMELA EP/K008730/1](http://apt.cs.manchester.ac.uk/projects/PAMELA/) and DOME EP/J016330/1 EPSRC projects.
+MAMBO was created as part of Cosmin's [EPSRC](https://www.epsrc.ac.uk)-funded PhD in the [School of Computer Science](http://www.cs.manchester.ac.uk/) at the [University of Manchester](http://www.manchester.ac.uk/). MAMBO has been previosly developed as part of the [PAMELA EP/K008730/1](http://apt.cs.manchester.ac.uk/projects/PAMELA/) and DOME EP/J016330/1 EPSRC projects. MAMBO is currently supported by the UK Industrial Strategy Challenge Fund (ISCF) under the Digital Security by Design (DSbD) Programme delivered by UKRI as part of the MoatE (10017512) and Soteria (75243) projects.
 
 Status
 ------
@@ -44,7 +45,6 @@ MAMBO's compatibility with applications is continuously being improved as needed
 * [XMoto](https://xmoto.tuxfamily.org/)
 
 Also read the *Known issues* section below.
-
 
 Build
 -----
@@ -83,7 +83,7 @@ Known issues
 
 * There are two limitations related to signal handling: the data in the `siginfo_t` structure passed to `SA_SIGINFO` signal handlers is incorrect: most signals will appear to have been sent via `kill()` from the application itself; and synchronous signal (SIGSEGV, SIGBUS, SIGFPE, SIGTRAP, SIGILL, SIGSYS) handlers cannot `sigreturn()`, but can `(sig)longjmp()`.
 * At the moment, code cache invalidation in response to the `munmap` and `__cache_flush` system calls are only done in the thread in which the system call is executed. This can potentially lead to execution of stale cached code in other threads.
-* MAMBO on RISC-V systems does not have have full signal handing capabilities. This will cause complex applications such as GIMP to experience issues.
+* MAMBO on RISC-V systems does not have full signal handling capabilities. This will cause complex applications, such as GIMP, to experience issues.
 
 
 Reporting bugs
