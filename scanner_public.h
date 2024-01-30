@@ -3,8 +3,8 @@
       https://github.com/beehive-lab/mambo
 
   Copyright 2013-2016 Cosmin Gorgovan <cosmin at linux-geek dot org>
-  Copyright 2015-2017 Guillermo Callaghan <guillermocallaghan at hotmail dot com>
-  Copyright 2017 The University of Manchester
+  Copyright 2015-2020 Guillermo Callaghan <guillermocallaghan at hotmail dot com>
+  Copyright 2017-2020 The University of Manchester
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -75,43 +75,47 @@ enum reg_alt {
 #define m_r15 (1 << r15)
 #endif // __arm__
 
-#ifdef __aarch64__
-enum reg {      // +--------------+
-  x0   =   0,   // | X0           |
-  x1   =   1,   // | X1           |
-  x2   =   2,   // | X2           |
-  x3   =   3,   // | X3           |
-  x4   =   4,   // | X4           |
-  x5   =   5,   // | X5           |
-  x6   =   6,   // | X6           |
-  x7   =   7,   // | X7           |
-  x8   =   8,   // | X8 (XR)      |
-  x9   =   9,   // | X9           |
-  x10  =  10,   // | X10          |
-  x11  =  11,   // | X11          |
-  x12  =  12,   // | X12          |
-  x13  =  13,   // | X13          |
-  x14  =  14,   // | X14          |
-  x15  =  15,   // | X15          |
-  x16  =  16,   // | X16 (IP0)    |
-  x17  =  17,   // | X17 (IP1)    |
-  x18  =  18,   // | X18 (PR)     |
-  x19  =  19,   // | X19          |
-  x20  =  20,   // | X20          |
-  x21  =  21,   // | X21          |
-  x22  =  22,   // | X22          |
-  x23  =  23,   // | X23          |
-  x24  =  24,   // | X24          |
-  x25  =  25,   // | X25          |
-  x26  =  26,   // | X26          |
-  x27  =  27,   // | X27          |
-  x28  =  28,   // | X28          |
-  x29  =  29,   // | X29 (FP)     |
-  x30  =  30,   // | X30 (LR)     |
-  x31  =  31,   // | X31 (SP/XZR) |
-  reg_invalid = 32
-};              // +--------------+
+#if defined(__aarch64__) || defined(__riscv)
+                    // +--------------+--------------+
+                    // |   AArch64    |    RISC-V    |
+enum reg {          // +--------------+--------------+
+  x0   =   0,       // | X0           |  x0  (zero)  |
+  x1   =   1,       // | X1           |  x1  (ra)    |
+  x2   =   2,       // | X2           |  x2  (sp)    |
+  x3   =   3,       // | X3           |  x3  (gp)    |
+  x4   =   4,       // | X4           |  x4  (tp)    |
+  x5   =   5,       // | X5           |  x5  (t0)    |
+  x6   =   6,       // | X6           |  x6  (t1)    |
+  x7   =   7,       // | X7           |  x7  (t2)    |
+  x8   =   8,       // | X8 (XR)      |  x8  (s0/fp) |
+  x9   =   9,       // | X9           |  x9  (s1)    |
+  x10  =  10,       // | X10          |  x10 (a0)    |
+  x11  =  11,       // | X11          |  x11 (a1)    |
+  x12  =  12,       // | X12          |  x12 (a2)    |
+  x13  =  13,       // | X13          |  x13 (a3)    |
+  x14  =  14,       // | X14          |  x14 (a4)    |
+  x15  =  15,       // | X15          |  x15 (a5)    |
+  x16  =  16,       // | X16 (IP0)    |  x16 (a6)    |
+  x17  =  17,       // | X17 (IP1)    |  x17 (a7)    |
+  x18  =  18,       // | X18 (PR)     |  x18 (s2)    |
+  x19  =  19,       // | X19          |  x19 (s3)    |
+  x20  =  20,       // | X20          |  x20 (s4)    |
+  x21  =  21,       // | X21          |  x21 (s5)    |
+  x22  =  22,       // | X22          |  x22 (s6)    |
+  x23  =  23,       // | X23          |  x23 (s7)    |
+  x24  =  24,       // | X24          |  x24 (s8)    |
+  x25  =  25,       // | X25          |  x25 (s9)    |
+  x26  =  26,       // | X26          |  x26 (s10)   |
+  x27  =  27,       // | X27          |  x27 (s11)   |
+  x28  =  28,       // | X28          |  x28 (t3)    |
+  x29  =  29,       // | X29 (FP)     |  x29 (t4)    |
+  x30  =  30,       // | X30 (LR)     |  x30 (t5)    |
+  x31  =  31,       // | X31 (SP/XZR) |  x31 (t6)    |
+  reg_invalid = 32  // +--------------+--------------+
+};
+#endif
 
+#ifdef __aarch64__
 enum reg_alt {
   xr   =  x8,   // Designated Indirect Result Location Parameter
   ip0  =  x16,  // Intra-Procedure Call temporary registers
@@ -123,7 +127,9 @@ enum reg_alt {
   sp   =  x31,  // Stack Pointer
   xzr  =  x31,  // Zero Register
 };
+#endif
 
+#if defined(__aarch64__) || defined(__riscv)
 #define m_x0 (1 << x0)
 #define m_x1 (1 << x1)
 #define m_x2 (1 << x2)
@@ -156,7 +162,9 @@ enum reg_alt {
 #define m_x29 (1 << x29)
 #define m_x30 (1 << x30)
 #define m_x31 (1 << x31)
+#endif
 
+#ifdef __aarch64__
 #define m_xr  (1 << xr)
 #define m_ip0 (1 << ip0)
 #define m_ip1 (1 << ip1)
@@ -164,7 +172,172 @@ enum reg_alt {
 #define m_xzr (1 << xzr)
 #endif
 
-enum reg_portable {
+#ifdef __riscv
+enum gp_reg_abi_name {
+  zero =   x0,   // Hard-wired Zero
+  ra   =   x1,   // Return Address (link register)
+  sp   =   x2,   // Stack Pointer
+  gp   =   x3,   // Global Pointer
+  tp   =   x4,   // Thread Pointer
+
+  t0   =   x5,   // Temporary 0/Alternate Link Register
+  t1   =   x6,   // Temporary 1
+  t2   =   x7,   // Temporary 2
+  t3   =  x28,   // Temporary 3
+  t4   =  x29,   // Temporary 4
+  t5   =  x30,   // Temporary 5
+  t6   =  x31,   // Temporary 6
+
+  a0   =  x10,   // Function Argument/Return Value 0
+  a1   =  x11,   // Function Argument/Return Value 1
+  a2   =  x12,   // Function Argument 2
+  a3   =  x13,   // Function Argument 3
+  a4   =  x14,   // Function Argument 4
+  a5   =  x15,   // Function Argument 5
+  a6   =  x16,   // Function Argument 6
+  a7   =  x17,   // Function Argument 7
+
+  s0   =   x8,   // Saved Register  0
+  s1   =   x9,   // Saved Register  1
+  s2   =  x18,   // Saved Register  2
+  s3   =  x19,   // Saved Register  3
+  s4   =  x20,   // Saved Register  4
+  s5   =  x21,   // Saved Register  5
+  s6   =  x22,   // Saved Register  6
+  s7   =  x23,   // Saved Register  7
+  s8   =  x24,   // Saved Register  8
+  s9   =  x25,   // Saved Register  9
+  s10  =  x26,   // Saved Register 10
+  s11  =  x27,   // Saved Register 11
+};
+
+enum gp_reg_abi_name_alt {
+  fp   =   x8,    // Frame Pointer
+  lr   =   ra,
+  es   =   s0,
+};
+
+#ifdef __riscv_fdiv
+enum fp_reg {
+  f0   =   0,    //  f0 (ft0)
+  f1   =   1,    //  f1 (ft1)
+  f2   =   2,    //  f2 (ft2)
+  f3   =   3,    //  f3 (ft3)
+  f4   =   4,    //  f4 (ft4)
+  f5   =   5,    //  f5 (ft5)
+  f6   =   6,    //  f6 (ft6)
+  f7   =   7,    //  f7 (ft7)
+  f8   =   8,    //  f8 (fs0)
+  f9   =   9,    //  f9 (fs1)
+  f10  =  10,    // f10 (fa0)
+  f11  =  11,    // f11 (fa1)
+  f12  =  12,    // f12 (fa2)
+  f13  =  13,    // f13 (fa3)
+  f14  =  14,    // f14 (fa4)
+  f15  =  15,    // f15 (fa5)
+  f16  =  16,    // f16 (fa6)
+  f17  =  17,    // f17 (fa7)
+  f18  =  18,    // f18 (fs2)
+  f19  =  19,    // f19 (fs3)
+  f20  =  20,    // f20 (fs4)
+  f21  =  21,    // f21 (fs5)
+  f22  =  22,    // f22 (fs6)
+  f23  =  23,    // f23 (fs7)
+  f24  =  24,    // f24 (fs8)
+  f25  =  25,    // f25 (fs9)
+  f26  =  26,    // f26 (fs10)
+  f27  =  27,    // f27 (fs11)
+  f28  =  28,    // f28 (ft8)
+  f29  =  29,    // f29 (ft9)
+  f30  =  30,    // f30 (ft10)
+  f31  =  31     // f31 (f11)
+};
+
+enum fp_reg_abi_name {
+  ft0  =   f0,   // FP Temporary  0
+  ft1  =   f1,   // FP Temporary  1
+  ft2  =   f2,   // FP Temporary  2
+  ft3  =   f3,   // FP Temporary  3
+  ft4  =   f4,   // FP Temporary  4
+  ft5  =   f5,   // FP Temporary  5
+  ft6  =   f6,   // FP Temporary  6
+  ft7  =   f7,   // FP Temporary  7
+  ft8  =  f28,   // FP Temporary  8
+  ft9  =  f29,   // FP Temporary  9
+  ft10 =  f30,   // FP Temporary 10
+  ft11 =  f31,   // FP Temporary 11
+
+  fa0  =  f10,   // FP Function Argument/Return Value 0
+  fa1  =  f11,   // FP Function Argument/Return Value 1
+  fa2  =  f12,   // FP Function Argument 2
+  fa3  =  f13,   // FP Function Argument 3
+  fa4  =  f14,   // FP Function Argument 4
+  fa5  =  f15,   // FP Function Argument 5
+  fa6  =  f16,   // FP Function Argument 6
+  fa7  =  f17,   // FP Function Argument 7
+
+  fs0  =   f8,   // FP Saved Register  0
+  fs1  =   f9,   // FP Saved Register  1
+  fs2  =  f18,   // FP Saved Register  2
+  fs3  =  f19,   // FP Saved Register  3
+  fs4  =  f20,   // FP Saved Register  4
+  fs5  =  f21,   // FP Saved Register  5
+  fs6  =  f22,   // FP Saved Register  6
+  fs7  =  f23,   // FP Saved Register  7
+  fs8  =  f24,   // FP Saved Register  8
+  fs9  =  f25,   // FP Saved Register  9
+  fs10 =  f26,   // FP Saved Register 10
+  fs11 =  f27,   // FP Saved Register 11
+};
+#endif
+
+enum csr_addresses {
+  // User Trap Setup
+  csr_ustatus       = 0x000,  // (RW)   User status register.
+  csr_uie           = 0x004,  // (RW)   User interrupt-enable register.
+  csr_utvec         = 0x005,  // (RW)   User trap handler base address.
+
+  // User Trap Handling
+  csr_uscratch      = 0x040,  // (RW)   Scratch register for user trap handlers.
+  csr_uepc          = 0x041,  // (RW)   User exception program counter.
+  csr_ucause        = 0x042,  // (RW)   User trap cause.
+  csr_utval         = 0x043,  // (RW)   User bad address or instruction.
+  csr_uip           = 0x044,  // (RW)   User interrupt pending.
+
+  // User Floating-Point CSRs
+  csr_fflags        = 0x001,  // (RW)   Floating-Point Accrued Exceptions.
+  csr_frm           = 0x002,  // (RW)   Floating-Point Dynamic Rounding Mode.
+  csr_fcsr          = 0x003,  // (RW)   Floating-Point Control and Status Register (frm + fflags).
+
+  // User Counter/Timers
+  csr_cycle         = 0xC00,  // (RO)   Cycle counter for RDCYCLE instruction.
+  csr_time          = 0xC01,  // (RO)   Timer for RDTIME instruction.
+  csr_instret       = 0xC02,  // (RO)   Instructions-retired counter for RDINSTRET instruction.
+  csr_hpmcounter3   = 0xC03,  // (RO)   Performance-monitoring counter.
+  csr_hpmcounter4   = 0xC04,  // (RO)   Performance-monitoring counter.
+  // ...
+  csr_hpmcounter31  = 0xC1F,  // (RO)   Performance-monitoring counter.
+  csr_cycleh        = 0xC80,  // (RO)   Upper 32 bits of cycle, RV32I only.
+  csr_timeh         = 0xC81,  // (RO)   Upper 32 bits of time, RV32I only.
+  csr_instreth      = 0xC82,  // (RO)   Upper 32 bits of instret, RV32I only.
+  csr_hpmcounter3h  = 0xC83,  // (RO)   Upper 32 bits of hpmcounter3, RV32I only.
+  csr_hpmcounter4h  = 0xC84,  // (RO)   Upper 32 bits of hpmcounter4, RV32I only.
+  // ...
+  csr_hpmcounter31h = 0xC9F   // (RO) Upper 32 bits of hpmcounter31, RV32I only.
+};
+
+enum branch_condition {
+  BEQ  = 0, // Branch equal
+  BNE  = 1, // Branch NOT equal
+  BLT  = 4, // Branch lower than
+  BGE  = 5, // Branch greater or equal
+  BLTU = 6, // Branch lower than unsigned
+  BGEU = 7  // Branch greater or equal unsinged
+};
+#endif
+
+enum reg_portable { // TODO:(riscv) see how these would map to riscv
+#if defined(__arm__) || defined(__aarch64__)
   reg0 = 0,
   reg1 = 1,
   reg2 = 2,
@@ -178,8 +351,25 @@ enum reg_portable {
   reg10 = 10,
   reg11 = 11,
   reg12 = 12
+#endif
+#ifdef __riscv
+  reg0 = 10,
+  reg1 = 11,
+  reg2 = 12,
+  reg3 = 13,
+  reg4 = 14,
+  reg5 = 15,
+  reg6 = 16,
+  reg7 = 17,
+  reg8 = 18,
+  reg9 = 19,
+  reg10 = 20,
+  reg11 = 21,
+  reg12 = 22
+#endif
 };
 
+#if defined(__arm__) || defined(__aarch64__)
 typedef enum arm_cond_codes {
   EQ = 0,
   NE = 1,
@@ -207,9 +397,17 @@ enum shift_type {
 };
 
 extern enum arm_cond_codes arm_inverse_cond_code[];
+#endif
 
 #define invert_cond(cond) ((cond) ^ 1)
 
+#if defined(__riscv)
+typedef enum riscv_cond_codes {
+  AL = 0,
+} mambo_cond;
+#endif
+
+#ifdef __arm__
 #define arm_cond_push_reg(cond, reg) \
   arm_str_cond(&write_p, cond, IMM_LDR, reg, sp, 4, 1, 0, 1); \
   write_p++;
@@ -237,7 +435,9 @@ extern enum arm_cond_codes arm_inverse_cond_code[];
     arm_ldm(&write_p, sp, regs, 0, 1, 1, 0); \
   } \
   write_p++;
+#endif
 
+#ifdef __aarch64__
 /*
  * PUSH PAIR
  * STP Xt1, Xt2, [SP]!
@@ -270,10 +470,10 @@ extern enum arm_cond_codes arm_inverse_cond_code[];
   a64_LDR_STR_immed(&write_p, 3, 0, 1, 16, 1, sp, reg); \
   write_p++;
 
-void copy_to_reg_16bit(uint16_t **write_p, enum reg reg, uint32_t value);
-void copy_to_reg_32bit(uint16_t **write_p, enum reg reg, uint32_t value);
 void a64_copy_to_reg_64bits(uint32_t **write_p, enum reg reg, uint64_t value);
+#endif
 
+#ifdef __arm__
 void thumb_push_regs(uint16_t **write_p, uint32_t regs);
 void thumb_pop_regs(uint16_t **write_p, uint32_t regs);
 void arm_copy_to_reg_16bit(uint32_t **write_p, enum reg reg, uint32_t value);
@@ -281,6 +481,13 @@ void arm_cond_copy_to_reg_16bit(uint32_t **write_p, enum arm_cond_codes cond, en
 void arm_copy_to_reg_32bit(uint32_t **write_p, enum reg reg, uint32_t value);
 void arm_cond_copy_to_reg_32bit(uint32_t **write_p, enum arm_cond_codes cond, enum reg reg, uint32_t value);
 void arm_add_sub_32_bit(uint32_t **write_p, enum reg rd, enum reg rn, int value);
+void copy_to_reg_16bit(uint16_t **write_p, enum reg reg, uint32_t value);
+void copy_to_reg_32bit(uint16_t **write_p, enum reg reg, uint32_t value);
+#endif
+#ifdef __riscv
+void riscv_push(uint16_t **o_write_p, uint32_t regs);
+void riscv_pop(uint16_t **o_write_p, uint32_t regs);
+#endif
 
 void init_plugin();
 
@@ -296,6 +503,17 @@ static inline int32_t sign_extend32(unsigned int bits, uint32_t value)
 {
   uint32_t C = (-1) << (bits - 1);
   return (int32_t)((value + C) ^ C);
+}
+
+static inline intptr_t sign_extend(unsigned int bits, intptr_t value)
+{
+    intptr_t C = (-1) << (bits - (intptr_t)1);
+    return (value + C) ^ C;
+}
+
+static inline uintptr_t extr(int const bits, int const pos, uintptr_t const from) {
+    uintptr_t const mask = (((uintptr_t)1 << bits) - 1);
+    return (from >> pos) & mask;
 }
 #endif
 

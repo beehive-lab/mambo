@@ -20,6 +20,7 @@ OPTS+=-DLINK_BX_ALT
 OPTS+=-DDBM_INLINE_HASH
 OPTS+=-DDBM_TRACES #-DTB_AS_TRACE_HEAD #-DBLXI_AS_TRACE_HEAD
 #OPTS+=-DCC_HUGETLB -DMETADATA_HUGETLB
+OPTS+=-DDBM_TRIBI
 
 VERSION?=$(shell git describe --abbrev=8 --dirty --always || echo '\<nogit\>')
 CFLAGS+=-D_GNU_SOURCE -g -std=gnu99 -O2 -Wunused-variable
@@ -29,7 +30,7 @@ LDFLAGS+=-static -ldl
 LIBS=-lelf -lpthread -lz
 HEADERS=*.h makefile
 INCLUDES=-I/usr/include/libelf -I.
-SOURCES= common.c dbm.c traces.c syscalls.c dispatcher.c signals.c util.S
+SOURCES= common.c dbm.c traces.c syscalls.c dispatcher.c util.S traces_common.c #signals.c
 SOURCES+=api/helpers.c api/plugin_support.c api/branch_decoder_support.c api/load_store.c api/internal.c api/hash_table.c
 SOURCES+=elf/elf_loader.o elf/symbol_parser.o
 
@@ -51,6 +52,17 @@ ifeq ($(ARCH),aarch64)
 	SOURCES += arch/aarch64/dispatcher_aarch64.S arch/aarch64/dispatcher_aarch64.c
 	SOURCES += arch/aarch64/scanner_a64.c
 	SOURCES += api/emit_a64.c
+endif
+ifeq ($(ARCH), riscv64)
+	HEADERS += api/emit_riscv.h
+	LDFLAGS += -Wl,-Ttext-segment=$(or $(TEXT_SEGMENT),0x7f000000)
+	PIE += pie/pie-riscv-field-decoder.o
+	PIE += pie/pie-riscv-encoder.o
+	PIE += pie/pie-riscv-decoder.o
+	SOURCES += arch/riscv/dispatcher_riscv.S arch/riscv/dispatcher_riscv.c
+	SOURCES += arch/riscv/scanner_riscv.c
+	SOURCES += api/emit_riscv.c
+	SOURCES += arch/riscv/riscv_traces.c
 endif
 
 ifdef PLUGINS

@@ -28,6 +28,7 @@
 #include "dbm.h"
 #include "common.h"
 #include "scanner_common.h"
+#include "traces_common.h"
 
 #ifdef __arm__
 #include "pie/pie-thumb-decoder.h"
@@ -53,6 +54,7 @@
   #define debug(...)
 #endif
 
+#if defined __arm__ || __aarch64__
 #ifdef DBM_TRACES
 uintptr_t get_active_trace_spc(dbm_thread *thread_data) {
   int bb_id = thread_data->active_trace.source_bb;
@@ -84,12 +86,6 @@ uintptr_t active_trace_lookup_or_stub(dbm_thread *thread_data, uintptr_t target)
     return adjust_cc_entry(thread_data->active_trace.entry_addr);
   }
   return lookup_or_stub(thread_data, target);
-}
-
-int allocate_trace_fragment(dbm_thread *thread_data) {
-  int id = thread_data->active_trace.id++;
-  assert(id < (CODE_CACHE_SIZE + TRACE_FRAGMENT_NO));
-  return id;
 }
 
 uint32_t scan_trace(dbm_thread *thread_data, void *address, cc_type type, int *set_trace_id) {
@@ -462,7 +458,7 @@ void set_up_trace_exit(dbm_thread *thread_data, uint32_t **o_write_p, int fragme
   *o_write_p = write_p;
 }
 #endif
-#endif
+
 
 /* This is called from trace_head_incr, which is called by trace heads */
 int hot_bb_cnt = 0;
@@ -780,3 +776,5 @@ void trace_dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_in
 #endif
 #endif // DBM_TRACES
 }
+#endif
+#endif

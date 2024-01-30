@@ -108,6 +108,8 @@ typedef enum {
   BRANCH_CALL = (1 << 9),
   BRANCH_INTERWORKING = (1 << 10), // A32 and T32
   BRANCH_TABLE = (1 << 11),        // T32-only
+  RISCV_BRANCH = (1 << 12), // RISCV only
+  RISCV_JUMP = (1 << 13), //RISCV only
 } mambo_branch_type;
 
 typedef struct {

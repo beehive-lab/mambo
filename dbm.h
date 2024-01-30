@@ -3,7 +3,7 @@
       https://github.com/beehive-lab/mambo
 
   Copyright 2013-2016 Cosmin Gorgovan <cosmin at linux-geek dot org>
-  Copyright 2017 The University of Manchester
+  Copyright 2017-2020 The University of Manchester
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -68,8 +68,13 @@
 
 #define MAX_CC_LINKS 100000
 
+// The size of the initial data segment allocation for brk emulation
+#define RESERVED_BRK_SPACE (128*(PAGE_SIZE))
+
+#ifdef __arm__
 #define THUMB 0x1
 #define FULLADDR 0x2
+#endif
 
 #define MAX_PLUGIN_NO (10)
 
@@ -117,6 +122,12 @@ typedef enum {
   tbz_a64,
   trace_exit
 #endif // __aarch64__
+#ifdef __riscv // TODO: (riscv) decide on the names
+  jal_riscv,
+  jalr_riscv,
+  branch_riscv,
+  atomic_memory_riscv, //TODO maybe shouldn't have this here?
+#endif
 } branch_type;
 
 typedef struct {
@@ -138,17 +149,35 @@ typedef struct {
   uintptr_t tpc;
   branch_type exit_branch_type;
   int actual_id;
-#ifdef __arm__
+#if defined(__arm__) || defined(__riscv)
   uint16_t *exit_branch_addr;
-#endif // __arm__
+#endif // __arm__ || __riscv
 #ifdef __aarch64__
   uint32_t *exit_branch_addr;
 #endif // __arch64__
   uintptr_t branch_taken_addr;
   uintptr_t branch_skipped_addr;
-  uintptr_t branch_condition;
-  uintptr_t branch_cache_status;
-  uint32_t rn;
+#if defined(__arm__) || defined(__aarch64__)
+  uintptr_t branch_condition : 4;
+  uintptr_t branch_cache_status : 3;
+  uintptr_t rn : 6;
+#endif
+#ifdef __riscv
+  uintptr_t branch_condition : 3;
+  uintptr_t branch_cache_status : 3;
+  uintptr_t rs1 : 6;
+  uintptr_t rs2 : 6;
+#if defined DBM_TRACES && DBM_TRIBI
+  uintptr_t *next_prediction_slot;
+  uintptr_t *ihlu_address;
+  int number_of_predictions;
+#endif
+  bool link;
+  uint32_t imm;
+  uint32_t rd;
+  int inst;
+  uint16_t *read_addr;
+#endif
   uint32_t free_b;
   ll_entry *linked_from;
   uint8_t saved_exit[MAX_SAVED_EXIT_SZ];
@@ -168,7 +197,19 @@ struct trace_exits {
 #ifdef __aarch64__
   int fragment_id;
 #endif
+#ifdef __riscv
+  int fragment_id;
+  uint32_t exit_condition;
+#endif
 };
+
+#ifdef __riscv
+struct riscv_imm_pair {
+  int immhi;
+  int immlo;
+};
+typedef struct riscv_imm_pair riscv_imm_pair_t;
+#endif
 
 #define MAX_TRACE_REC_EXITS (MAX_TRACE_FRAGMENTS+1)
 typedef struct {
@@ -189,6 +230,9 @@ enum dbm_thread_status {
 
 typedef struct dbm_thread_s dbm_thread;
 struct dbm_thread_s {
+#ifdef __riscv
+  uintptr_t mambo_tp;
+#endif
   dbm_thread *next_thread;
   enum dbm_thread_status status;
 
@@ -230,6 +274,7 @@ typedef enum {
   ARM_INST,
   THUMB_INST,
   A64_INST,
+  RISCV_INST,
 } inst_set;
 
 typedef enum {
@@ -325,6 +370,7 @@ uintptr_t scan(dbm_thread *thread_data, uint16_t *address, int basic_block);
 uint32_t scan_a32(dbm_thread *thread_data, uint32_t *read_address, int basic_block, cc_type type, uint32_t *write_p);
 uint32_t scan_t32(dbm_thread *thread_data, uint16_t *read_address, int basic_block, cc_type type, uint16_t *write_p);
 size_t   scan_a64(dbm_thread *thread_data, uint32_t *read_address, int basic_block, cc_type type, uint32_t *write_p);
+size_t   scan_riscv(dbm_thread *thread_data, uint16_t *read_address, int basic_block, cc_type type, uint16_t *write_p);
 int allocate_bb(dbm_thread *thread_data);
 void trace_dispatcher(uintptr_t target, uintptr_t *next_addr, uint32_t source_index, dbm_thread *thread_data);
 void flush_code_cache(dbm_thread *thread_data);

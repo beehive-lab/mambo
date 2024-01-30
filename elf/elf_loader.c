@@ -157,7 +157,7 @@ void load_elf(char *filename, Elf **ret_elf, struct elf_loader_auxv *auxv, uintp
   }
 
   if (ehdr->e_machine != EM_MACHINE) {
-    printf("Not compiled for ARM\n");
+    printf("Binary compiled for a different architecture\n");
     exit(EXIT_FAILURE);
   }
 
@@ -411,6 +411,14 @@ void elf_run(uintptr_t entry_address, char *filename, int argc, char **argv, cha
           #define auxv_type "%d"
         #elif __aarch64__
           #define auxv_type "%ld"
+        #elif __riscv
+          #if __riscv_xlen == 32
+            #define auxv_type "%d"
+          #elif __riscv_xlen == 64
+            #define auxv_type "%ld"
+          #else
+            #error "Unexpected __riscv_xlen"
+          #endif
         #endif
         printf("Unhandled auxv entry type: " auxv_type "\n", s_aux->a_type);
         exit(EXIT_FAILURE);

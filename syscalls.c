@@ -3,7 +3,7 @@
       https://github.com/beehive-lab/mambo
 
   Copyright 2013-2016 Cosmin Gorgovan <cosmin at linux-geek dot org>
-  Copyright 2017 The University of Manchester
+  Copyright 2017-2020 The University of Manchester
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -53,7 +53,6 @@ void *dbm_start_thread_pth(void *ptr) {
   dbm_thread *thread_data = (dbm_thread *)ptr;
   assert(thread_data->clone_args->child_stack);
   current_thread = thread_data;
-
   pid_t tid = syscall(__NR_gettid);
   thread_data->tid = tid;
   if (thread_data->clone_args->flags & CLONE_PARENT_SETTID) {
@@ -66,7 +65,6 @@ void *dbm_start_thread_pth(void *ptr) {
 		syscall(__NR_set_tid_address, thread_data->clone_args->ctid);
   }
   thread_data->tls = thread_data->clone_args->tls;
-
   // Copy the parent's saved register values to the child's stack
 #ifdef __arm__
   uint32_t *child_stack = thread_data->clone_args->child_stack;
@@ -83,11 +81,25 @@ void *dbm_start_thread_pth(void *ptr) {
   child_stack[33] = child_stack[1]; // X1
   child_stack += 2;
 #endif
+#ifdef __riscv
+  uint64_t *child_stack = thread_data->clone_args->child_stack;
+
+  child_stack -= 32;
+  mambo_memcpy(child_stack, (void *)thread_data->clone_args, sizeof(uintptr_t) * 32);
+  // move the values for a0 and a1 to the bottom of the stack
+  child_stack[30] = 0; // a0
+  child_stack[31] = child_stack[1]; // a1
+  child_stack += 2;
+#endif
+
+  #if defined (__arm__) || (__aarch64__)
+  asm volatile("DMB SY" ::: "memory");
+#else
+  asm volatile("fence\n" ::: "memory");
+#endif
 
   // Release the lock
-  asm volatile("DMB SY" ::: "memory");
   *(thread_data->set_tid) = tid;
-
   assert(register_thread(thread_data, false) == 0);
 
   uintptr_t addr = scan(thread_data, thread_data->clone_ret_addr, ALLOCATE_BB);
@@ -136,10 +148,11 @@ uintptr_t emulate_brk(uintptr_t addr) {
 
   /* We use mremap for non-overlapping re-allocation, therefore
      we must always always keep at least one allocated page. */
-  if (addr >= (global_data.initial_brk + PAGE_SIZE)) {
-    void *map = mremap((void *)global_data.initial_brk,
-                       global_data.brk - global_data.initial_brk,
-                       addr - global_data.initial_brk, 0);
+  if (addr >= global_data.initial_brk) {
+    const size_t cur_size = max(global_data.brk - global_data.initial_brk, PAGE_SIZE);
+    const size_t new_size = max(addr - global_data.initial_brk, PAGE_SIZE);
+
+    void *map = mremap((void *)global_data.initial_brk, cur_size, new_size, 0);
     if (map != MAP_FAILED) {
       vm_op_t op = VM_MAP;
       size_t size = addr - global_data.brk;
@@ -220,7 +233,7 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
         volatile pid_t child_tid = 0;
         dbm_create_thread(thread_data, next_inst, clone_args, &child_tid);
         while(child_tid == 0);
-        asm volatile("DMB SY" ::: "memory");
+        __sync_synchronize();
         args[0] = child_tid;
 
         do_syscall = 0;
@@ -253,7 +266,7 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
       assert(free_thread_data(thread_data) == 0);
 
       syscall(__NR_exit); // this should never return
-      while(1); 
+      while(1);
       break;
 #ifdef __arm__
     case __NR_sigaction:
@@ -318,10 +331,10 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
     /* Remove the execute permission from application mappings. At this point, this mostly acts
        as a safeguard in case a translation bug causes a branch to unmodified application code.
        Page permissions happen to be passed in the third argument both for mmap and mprotect. */
-#ifdef __arm__
+#if defined(__arm__) || __riscv_xlen == 32
     case __NR_mmap2:
 #endif
-#ifdef __aarch64__
+#if defined(__aarch64__) || __riscv_xlen == 64
     case __NR_mmap:
 #endif
     case __NR_mprotect: {
@@ -336,9 +349,10 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
         args[2] &= ~PROT_EXEC;
       }
 
-#ifdef __arm__
+#if defined(__arm__) || __riscv_xlen == 32
       if (syscall_no == __NR_mmap2) {
-#elif __aarch64__
+#endif
+#if defined(__aarch64__) || __riscv_xlen == 64
       if (syscall_no == __NR_mmap) {
 #endif
         syscall_ret = raw_syscall(syscall_no, args[0], args[1], args[2], args[3], args[4], args[5]);
@@ -428,8 +442,14 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
 #elif __aarch64__
       app_sp += 64 + 144;
 #endif
+#if defined(__arm__) || defined(__aarch64__)
       ucontext_t *cont = (ucontext_t *)(app_sp + sizeof(siginfo_t));
       sigret_dispatcher_call(thread_data, cont, cont->context_pc);
+#endif
+#if defined(__riscv)
+      #warning sigreturn handling not implemented for RISCV
+      fprintf(stderr, "sigreturn handling not implemented for RISCV\n");
+#endif
 
       // Don't mark the thread as executing a syscall
       return 1;
