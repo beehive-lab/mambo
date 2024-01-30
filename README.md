@@ -83,7 +83,7 @@ Known issues
 
 * There are two limitations related to signal handling: the data in the `siginfo_t` structure passed to `SA_SIGINFO` signal handlers is incorrect: most signals will appear to have been sent via `kill()` from the application itself; and synchronous signal (SIGSEGV, SIGBUS, SIGFPE, SIGTRAP, SIGILL, SIGSYS) handlers cannot `sigreturn()`, but can `(sig)longjmp()`.
 * At the moment, code cache invalidation in response to the `munmap` and `__cache_flush` system calls are only done in the thread in which the system call is executed. This can potentially lead to execution of stale cached code in other threads.
-* MAMBO on RISC-V systems does not have full signal handing capabilities. This will cause complex applications, such as GIMP, to experience issues.
+* MAMBO on RISC-V systems does not have full signal handling capabilities. This will cause complex applications, such as GIMP, to experience issues.
 
 
 Reporting bugs
