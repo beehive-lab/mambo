@@ -90,9 +90,11 @@ void flush_code_cache(dbm_thread *thread_data) {
 #ifdef DBM_TRACES
     thread_data->exec_count[i] = 0;
 #endif
+#ifdef __riscv
 #if defined DBM_TRACES && DBM_TRIBI
     thread_data->code_cache_meta[i].next_prediction_slot = NULL;
     thread_data->code_cache_meta[i].number_of_predictions = 0;
+#endif
 #endif
   }
 

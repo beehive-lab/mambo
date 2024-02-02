@@ -71,7 +71,7 @@
 // The size of the initial data segment allocation for brk emulation
 #define RESERVED_BRK_SPACE (128*(PAGE_SIZE))
 
-#ifdef __arm__
+#if defined __arm__ || __aarch64__ 
 #define THUMB 0x1
 #define FULLADDR 0x2
 #endif
@@ -158,9 +158,9 @@ typedef struct {
   uintptr_t branch_taken_addr;
   uintptr_t branch_skipped_addr;
 #if defined(__arm__) || defined(__aarch64__)
-  uintptr_t branch_condition : 4;
-  uintptr_t branch_cache_status : 3;
-  uintptr_t rn : 6;
+  uintptr_t branch_condition;
+  uintptr_t branch_cache_status;
+  uint32_t rn;
 #endif
 #ifdef __riscv
   uintptr_t branch_condition : 3;
