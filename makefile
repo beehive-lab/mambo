@@ -30,7 +30,7 @@ LDFLAGS+=-static -ldl
 LIBS=-lelf -lpthread -lz
 HEADERS=*.h makefile
 INCLUDES=-I/usr/include/libelf -I.
-SOURCES= common.c dbm.c traces.c syscalls.c dispatcher.c util.S traces_common.c signals.c
+SOURCES= common.c dbm.c traces.c syscalls.c dispatcher.c util.S traces_common.c
 SOURCES+=api/helpers.c api/plugin_support.c api/branch_decoder_support.c api/load_store.c api/internal.c api/hash_table.c
 SOURCES+=elf/elf_loader.o elf/symbol_parser.o
 
@@ -44,6 +44,7 @@ ifeq ($(findstring arm, $(ARCH)), arm)
 	SOURCES += arch/aarch32/dispatcher_aarch32.S arch/aarch32/dispatcher_aarch32.c
 	SOURCES += arch/aarch32/scanner_t32.c arch/aarch32/scanner_a32.c
 	SOURCES += api/emit_arm.c api/emit_thumb.c
+	SOURCES += signals.c
 endif
 ifeq ($(ARCH),aarch64)
 	HEADERS += api/emit_a64.h
@@ -52,6 +53,7 @@ ifeq ($(ARCH),aarch64)
 	SOURCES += arch/aarch64/dispatcher_aarch64.S arch/aarch64/dispatcher_aarch64.c
 	SOURCES += arch/aarch64/scanner_a64.c
 	SOURCES += api/emit_a64.c
+	SOURCES += signals.c
 endif
 ifeq ($(ARCH), riscv64)
 	HEADERS += api/emit_riscv.h
