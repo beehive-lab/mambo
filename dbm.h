@@ -232,6 +232,7 @@ typedef struct dbm_thread_s dbm_thread;
 struct dbm_thread_s {
 #ifdef __riscv
   uintptr_t mambo_tp;
+  uintptr_t atomic_scratch_reg;
 #endif
   dbm_thread *next_thread;
   enum dbm_thread_status status;

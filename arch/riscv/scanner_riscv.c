@@ -1192,11 +1192,96 @@ size_t scan_riscv(dbm_thread *thread_data, uint16_t *read_address,
         case RISCV_REMW:
         case RISCV_REMUW:
   #endif
+          copy_riscv();
+          break;
 #endif
 #ifdef __riscv_atomic // (“A” Standard Extension for Atomic Instructions)
         // RV32A
-        case RISCV_LR_W: // LR.W -> load-reserved word
-        case RISCV_SC_W: // SC.W -> store-conditional word
+        case RISCV_LR_W: { // LR.W -> load-reserved word
+          /*
+           * Original instruction
+           *          +-------------------------------+
+           *          |   lr.w    x, (y)              |
+           *          +-------------------------------+
+           * 
+           * Translate to
+           *          +-------------------------------+
+           *          |   lw      x, 0(y)             |
+           *          |   addi    sp, sp, -8          |
+           *          |   sd      tmp_reg, 0(sp)      |
+           *          |   li      tmp_reg, &thread_data
+           *          |   sw      x, 8(tmp_reg)       |   atomic_scratch_reg at
+           *          |   ld      tmp_reg, 0(sp)      |     &thread_data + 8
+           *          |   addi    sp, sp, 8           |
+           *          +-------------------------------+
+           */
+          unsigned int aq, rl, x, y;
+
+          riscv_lr_w_decode_fields(read_address, &aq, &rl, &x, &y);
+          riscv_lw(&write_p, x, y, 0);
+          write_p += 2;
+
+          enum reg tmp_reg = x == t1 ? t2 : t1;
+          riscv_push(&write_p, 1 << tmp_reg);
+          riscv_copy_to_reg(&write_p, tmp_reg, (uintptr_t)thread_data);
+          riscv_sw(&write_p, x, tmp_reg, 0, 8);
+          write_p += 2;
+
+          riscv_pop(&write_p, 1 << tmp_reg);
+          break;
+        }
+        case RISCV_SC_W: { // SC.W -> store-conditional word
+          /*
+           * Original instruction
+           *          +-------------------------------+
+           *          |   sc.w    x, y, (z)           |
+           *          +-------------------------------+
+           * 
+           * Translate to
+           *          +-------------------------------+
+           *          |   addi    sp, sp, -8          |
+           *          |   sd      tmp_reg, 0(sp)      |
+           *          |   li      tmp_reg, &thread_data
+           *          |   lw      tmp_reg, 8(tmp_reg) |   atomic_scratch_reg at
+           *          |   lr.w    x, (z)              |     &thread_data + 8
+           *          |   bne     x, tmp_reg, .+12    |
+           *          |   sc.w    x, y, (z)           |
+           *          |   jal     zero, .+8           |
+           *          |   addi    x, x, 1             |   Non-zero value indicating
+           *          |   ld      tmp_reg, 0(sp)      |     unsuccessful sc
+           *          |   addi    sp, sp, 8           |
+           *          +-------------------------------+
+           */
+          unsigned int aq, rl, x, z, y;
+          enum reg tmp_reg;
+
+          riscv_sc_w_decode_fields(read_address, &aq, &rl, &x, &y, &z);
+          
+          // Find temporary register
+          for (enum reg t = t3; t <= t6; t++) {
+            if (t != x && t != y && t != z) {
+              tmp_reg = t;
+              break;
+            }
+          }
+          
+          riscv_push(&write_p, 1 << tmp_reg);
+          riscv_copy_to_reg(&write_p, tmp_reg, (uintptr_t)thread_data);
+          riscv_lw(&write_p, tmp_reg, tmp_reg, 8);
+          write_p += 2;
+
+          riscv_lr_w(&write_p, 1, 1, x, z);
+          write_p += 2;
+          riscv_bne(&write_p, x, tmp_reg, 0, 12);
+          write_p += 2;
+          copy_riscv();
+          riscv_jal_helper(&write_p, (uintptr_t)write_p + 8, zero);
+          riscv_addi(&write_p, x, zero, 1);
+          write_p += 2;
+
+          riscv_pop(&write_p, 1 << tmp_reg);
+          break;
+        }
         case RISCV_AMOSWAP_W:
         case RISCV_AMOADD_W:
         case RISCV_AMOXOR_W:
@@ -1206,9 +1291,94 @@ size_t scan_riscv(dbm_thread *thread_data, uint16_t *read_address,
         case RISCV_AMOMAX_W:
         case RISCV_AMOMINU_W:
         case RISCV_AMOMAXU_W:
+          copy_riscv();
+          break;
   #if __riscv_xlen == 64 // RV64A
-        case RISCV_LR_D: // LR.D -> load-reserved double word
-        case RISCV_SC_D: // SC.D -> store-conditional double word
+        case RISCV_LR_D: { // LR.D -> load-reserved double word
+          /*
+           * Original instruction
+           *          +-------------------------------+
+           *          |   lr.d    x, (y)              |
+           *          +-------------------------------+
+           * 
+           * Translate to
+           *          +-------------------------------+
+           *          |   ld      x, 0(y)             |
+           *          |   addi    sp, sp, -8          |
+           *          |   sd      tmp_reg, 0(sp)      |
+           *          |   li      tmp_reg, &thread_data
+           *          |   sd      x, 8(tmp_reg)       |   atomic_scratch_reg at
+           *          |   ld      tmp_reg, 0(sp)      |     &thread_data + 8
+           *          |   addi    sp, sp, 8           |
+           *          +-------------------------------+
+           */
+          unsigned int aq, rl, x, y;
+
+          riscv_lr_d_decode_fields(read_address, &aq, &rl, &x, &y);
+          riscv_ld(&write_p, x, y, 0);
+          write_p += 2;
+
+          enum reg tmp_reg = x == t1 ? t2 : t1;
+          riscv_push(&write_p, 1 << tmp_reg);
+          riscv_copy_to_reg(&write_p, tmp_reg, (uintptr_t)thread_data);
+          riscv_sd(&write_p, x, tmp_reg, 0, 8);
+          write_p += 2;
+          
+          riscv_pop(&write_p, 1 << tmp_reg);
+          break;
+        }
+        case RISCV_SC_D: { // SC.D -> store-conditional double word
+          /*
+           * Original instruction
+           *          +-------------------------------+
+           *          |   sc.d    x, y, (z)           |
+           *          +-------------------------------+
+           * 
+           * Translate to
+           *          +-------------------------------+
+           *          |   addi    sp, sp, -8          |
+           *          |   sd      tmp_reg, 0(sp)      |
+           *          |   li      tmp_reg, &thread_data
+           *          |   ld      tmp_reg, 8(tmp_reg) |   atomic_scratch_reg at
+           *          |   lr.d    x, (z)              |     &thread_data + 8
+           *          |   bne     x, tmp_reg, .+12    |
+           *          |   sc.d    x, y, (z)           |
+           *          |   jal     zero, .+8           |
+           *          |   addi    x, x, 1             |   Non-zero value indicating
+           *          |   ld      tmp_reg, 0(sp)      |     unsuccessful sc
+           *          |   addi    sp, sp, 8           |
+           *          +-------------------------------+
+           */
+          unsigned int aq, rl, x, z, y;
+          enum reg tmp_reg;
+
+          riscv_sc_d_decode_fields(read_address, &aq, &rl, &x, &y, &z);
+          
+          // Find temporary register
+          for (enum reg t = t3; t <= t6; t++) {
+            if (t != x && t != y && t != z) {
+              tmp_reg = t;
+              break;
+            }
+          }
+          
+          riscv_push(&write_p, 1 << tmp_reg);
+          riscv_copy_to_reg(&write_p, tmp_reg, (uintptr_t)thread_data);
+          riscv_ld(&write_p, tmp_reg, tmp_reg, 8);
+          write_p += 2;
+
+          riscv_lr_d(&write_p, 1, 1, x, z);
+          write_p += 2;
+          riscv_bne(&write_p, x, tmp_reg, 0, 12);
+          write_p += 2;
+          copy_riscv();
+          riscv_jal_helper(&write_p, (uintptr_t)write_p + 8, zero);
+          riscv_addi(&write_p, x, zero, 1);
+          write_p += 2;
+
+          riscv_pop(&write_p, 1 << tmp_reg);
+          break;
+        }
         case RISCV_AMOSWAP_D:
         case RISCV_AMOADD_D:
         case RISCV_AMOXOR_D:
