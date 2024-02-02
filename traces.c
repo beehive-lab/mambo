@@ -56,29 +56,6 @@
 
 #if defined __arm__ || __aarch64__
 #ifdef DBM_TRACES
-uintptr_t get_active_trace_spc(dbm_thread *thread_data) {
-  int bb_id = thread_data->active_trace.source_bb;
-  return (uintptr_t)thread_data->code_cache_meta[bb_id].source_addr;
-}
-
-uintptr_t active_trace_lookup(dbm_thread *thread_data, uintptr_t target) {
-  uintptr_t spc = get_active_trace_spc(thread_data);
-  if (target == spc) {
-    return adjust_cc_entry(thread_data->active_trace.entry_addr);
-  }
-
-  uintptr_t tpc = hash_lookup(&thread_data->entry_address, target);
-
-  return is_trace(thread_data, tpc) ? adjust_cc_entry(tpc) : UINT_MAX;
-}
-
-uintptr_t active_trace_lookup_or_scan(dbm_thread *thread_data, uintptr_t target) {
-  uintptr_t spc = get_active_trace_spc(thread_data);
-  if (target == spc) {
-    return adjust_cc_entry(thread_data->active_trace.entry_addr);
-  }
-  return lookup_or_scan(thread_data, target);
-}
 
 uintptr_t active_trace_lookup_or_stub(dbm_thread *thread_data, uintptr_t target) {
   uintptr_t spc = get_active_trace_spc(thread_data);
