@@ -22,6 +22,7 @@
 #include <assert.h>
 #include <sys/mman.h>
 #include <stdarg.h>
+#include <string.h>
 
 #include "../dbm.h"
 #include "../common.h"
@@ -175,6 +176,14 @@ void *mambo_get_thread_plugin_data(mambo_context *ctx) {
 /* Memory management */
 void *mambo_alloc(mambo_context *ctx, size_t size) {
   return mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
+}
+
+void *mambo_calloc(mambo_context *ctx, size_t nitems, size_t size) {
+  void* ret = mmap(NULL, nitems*size, PROT_READ | PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
+  if(ret) {
+    memset(ret, 0, nitems*size);
+  }
+  return ret;
 }
 
 void mambo_free(mambo_context *ctx, void *ptr) {
