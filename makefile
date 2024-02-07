@@ -9,6 +9,7 @@
 #PLUGINS+=plugins/symbol_example.c
 #PLUGINS+=plugins/memcheck/memcheck.S plugins/memcheck/memcheck.c plugins/memcheck/naive_stdlib.c
 #PLUGINS+=plugins/follow_exec.c
+#PLUGINS+=plugins/hotspot.c
 
 OPTS= -DDBM_LINK_UNCOND_IMM
 OPTS+=-DDBM_INLINE_UNCOND_IMM
