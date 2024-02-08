@@ -483,6 +483,10 @@ int function_watch_add(watched_functions_t *self, char *name, int plugin_id,
   #define context_pc uc_mcontext.pc
   #define context_sp uc_mcontext.sp
   #define context_reg(reg) uc_mcontext.regs[reg]
+#elif __riscv
+  #define context_pc uc_mcontext.__gregs[REG_PC]
+  #define context_sp uc_mcontext.__gregs[REG_SP]
+  #define context_reg(reg) uc_mcontext.__gregs[reg]
 #endif
 
 #endif

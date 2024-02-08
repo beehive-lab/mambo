@@ -46,7 +46,11 @@
 #endif
 
 #define self_send_signal_offset        ((uintptr_t)send_self_signal - (uintptr_t)&start_of_dispatcher_s)
+#ifdef __riscv
+#define syscall_wrapper_svc_offset     ((uintptr_t)syscall_wrapper - (uintptr_t)&start_of_dispatcher_s)
+#else
 #define syscall_wrapper_svc_offset     ((uintptr_t)syscall_wrapper_svc - (uintptr_t)&start_of_dispatcher_s)
+#endif
 
 #define SIGNAL_TRAP_IB (0x94)
 #define SIGNAL_TRAP_DB (0x95)
@@ -57,6 +61,9 @@
 #elif __aarch64__
   #define pc_field uc_mcontext.pc
   #define sp_field uc_mcontext.sp
+#elif __riscv
+  #define pc_field uc_mcontext.__gregs[REG_PC]
+  #define sp_field uc_mcontext.__gregs[REG_SP]
 #endif
 
 typedef struct {
@@ -114,10 +121,12 @@ typedef int (*inst_decoder)(void *);
   #define write_trap(code) a64_HVC((uint32_t **)&write_p, (code)); write_p += 4;
   #define TRAP_INST_TYPE (A64_HVC)
 #elif __riscv
-  #warning signals: not implemented for RISCV yet
-  #define inst_size(inst, is_thumb) (4)
-  #define write_trap(code)
-  #define TRAP_INST_TYPE (RISCV_INVALID)
+  #define inst_size(inst, not_used) ((inst < RISCV_LUI) ? 2 : 4)
+  #define write_trap(code) riscv_c_illegal((uint16_t **)&write_p); \
+                           write_p += 2; \
+			   *((uint16_t *)write_p) = code; \
+                           write_p += 2;
+  #define TRAP_INST_TYPE (RISCV_C_ILLEGAL)
 #endif
 
 bool unlink_indirect_branch(dbm_code_cache_meta *bb_meta, void **o_write_p) {
@@ -137,6 +146,13 @@ bool unlink_indirect_branch(dbm_code_cache_meta *bb_meta, void **o_write_p) {
 #elif __aarch64__
   br_inst_type = A64_BR;
   decoder = (inst_decoder)a64_decode;
+#elif __riscv
+  if(riscv_decode(bb_meta->exit_branch_addr) < RISCV_LUI) {
+    br_inst_type = RISCV_C_JALR;
+  } else {
+    br_inst_type = RISCV_JALR;
+  }
+  decoder = (inst_decoder)riscv_decode;
 #endif
   trap_inst_type = TRAP_INST_TYPE;
 
@@ -181,6 +197,11 @@ int get_direct_branch_exit_trap_sz(dbm_code_cache_meta *bb_meta, int fragment_id
         sz = (bb_meta->branch_cache_status & BOTH_LINKED) ? 12 : 8;
       }
       break;
+#elif __riscv
+    case jalr_riscv:
+    case jal_riscv:
+      sz = -1;
+      while(1);
 #endif
     default:
       while(1);
@@ -208,6 +229,8 @@ bool unlink_direct_branch(dbm_code_cache_meta *bb_meta, void **o_write_p, int fr
       }
 #elif __aarch64__
       decoder = (inst_decoder)a64_decode;
+#elif __riscv
+      decoder = (inst_decoder)riscv_decode;
 #endif
       int inst = decoder(write_p);
       if (inst == TRAP_INST_TYPE) {
@@ -246,6 +269,8 @@ void unlink_fragment(int fragment_id, uintptr_t pc) {
           type == uncond_blxi_thumb || type == uncond_blxi_arm) &&
   #elif __aarch64__
   while (type == uncond_imm_a64 &&
+  #elif _riscv
+  #error Signals and traces not supported
   #endif
          (bb_meta->branch_cache_status & BOTH_LINKED) == 0 &&
          fragment_id >= CODE_CACHE_SIZE &&
@@ -277,6 +302,8 @@ void unlink_fragment(int fragment_id, uintptr_t pc) {
       bb_meta->exit_branch_type == uncond_reg_arm) {
 #elif __aarch64__
   if (bb_meta->exit_branch_type == uncond_branch_reg) {
+#elif __riscv
+  if (bb_meta->exit_branch_type == jalr_riscv) {
 #endif
     if (!unlink_indirect_branch(bb_meta, &write_p)) {
       return;
@@ -323,6 +350,9 @@ void translate_delayed_signal_frame(ucontext_t *cont) {
   cont->uc_mcontext.regs[x0] = sp[4];
   cont->uc_mcontext.regs[x1] = sp[5];
   sp += 6;
+#elif __riscv
+  #warning translate_svc_frame not implemented
+  while(1); 
 #endif
 
   cont->sp_field = (uintptr_t)sp;
@@ -361,10 +391,14 @@ void translate_svc_frame(ucontext_t *cont) {
   cont->uc_mcontext.regs[x29] = sp[24];
   cont->uc_mcontext.regs[x30] = sp[25];
   sp += 26;
+#elif __riscv
+  #warning translate_svc_frame not implemented
+  while(1); 
 #endif
   cont->sp_field = (uintptr_t)sp;
 }
 
+#if defined(__arm__) || defined(__aarch64__)
 #define PSTATE_N (1 << 31)
 #define PSTATE_Z (1 << 30)
 #define PSTATE_C (1 << 29)
@@ -408,6 +442,7 @@ bool interpret_condition(uint32_t pstate, mambo_cond cond) {
 
   return state;
 }
+#endif
 
 #ifdef __aarch64__
 bool interpret_cbz(ucontext_t *cont, dbm_code_cache_meta *bb_meta) {
@@ -437,11 +472,15 @@ bool interpret_tbz(ucontext_t *cont, dbm_code_cache_meta *bb_meta) {
                                                 }
 #elif __aarch64__
   #define direct_branch(write_p, target, cond)  a64_b_helper((write_p), (target) + 4);
+#elif __riscv
+  #define direct_branch(write_p, targer, cond) riscv_jal_helper((write_p), (target), zero);
 #endif
 
 #ifdef __arm__
 void restore_exit(dbm_thread *thread_data, int fragment_id, void **o_write_p, bool is_thumb) {
 #elif __aarch64__
+void restore_exit(dbm_thread *thread_data, int fragment_id, void **o_write_p) {
+#elif __riscv
 void restore_exit(dbm_thread *thread_data, int fragment_id, void **o_write_p) {
 #endif
   void *write_p = *o_write_p;
@@ -463,6 +502,9 @@ void restore_ihl_regs(ucontext_t *cont) {
 #elif __aarch64__
   cont->context_reg(0) = sp[0];
   cont->context_reg(1) = sp[1];
+#elif __riscv
+  cont->context_reg(1) = sp[0];
+  cont->context_reg(2) = sp[1];
 #endif
   sp += 2;
 
@@ -505,6 +547,9 @@ void sigret_dispatcher_call(dbm_thread *thread_data, ucontext_t *cont, uintptr_t
 
 #elif __aarch64__
   #define restore_ihl_inst(addr) a64_BR((uint32_t **)&addr, x0); \
+                                __clear_cache((void *)addr, (void *)addr + 4);
+#elif __riscv
+  #define restore_ihl_inst(addr) riscv_jalr((uint16_t **)&addr, 0, zero, s1); \
                                 __clear_cache((void *)addr, (void *)addr + 4);
 #endif
 
@@ -571,13 +616,18 @@ uintptr_t signal_dispatcher(int i, siginfo_t *info, void *context) {
         if (imm == SIGNAL_TRAP_IB) {
           restore_ihl_inst(pc);
 
+#if defined(__arm__) || defined(__aarch64__)
           int rn = current_thread->code_cache_meta[fragment_id].rn;
+#endif
           uintptr_t target;
 #ifdef __arm__
           unsigned long *regs = &cont->uc_mcontext.arm_r0;
           target = regs[rn];
 #elif __aarch64__
           target = cont->uc_mcontext.regs[rn];
+#elif __riscv
+          int rs1 = current_thread->code_cache_meta[fragment_id].rs1;
+          target = cont->uc_mcontext.__gregs[rs1];
 #endif
           restore_ihl_regs(cont);
           sigret_dispatcher_call(current_thread, cont, target);

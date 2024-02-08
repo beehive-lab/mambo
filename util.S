@@ -272,6 +272,9 @@ sigret:
   MOV X8, #__NR_rt_sigreturn
   SVC 0
 #endif
+#ifdef __riscv
+  UNIMP
+#endif
 .endfunc
 
 .global atomic_increment_u64

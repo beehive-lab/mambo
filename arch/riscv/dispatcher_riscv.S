@@ -539,5 +539,9 @@ disp_thread_data:  .quad 0
 th_is_pending_ptr: .quad 0
 #endif
 
+.global send_self_signal
+send_self_signal:
+  unimp
+
 .global end_of_dispatcher_s
 end_of_dispatcher_s:
