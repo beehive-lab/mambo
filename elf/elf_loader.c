@@ -377,6 +377,12 @@ void elf_run(uintptr_t entry_address, char *filename, int argc, char **argv, cha
         d_aux->a_un.a_val = s_aux->a_un.a_val;
         break;
 
+      case AT_RSEQ_FEATURE_SIZE:
+      case AT_RSEQ_ALIGN:
+	fprintf(stderr, "[mambo] AT_RSEQ_* found! Repeatable sequences (rseq) are not supported! Exectuion may be unstable!\n");
+        d_aux->a_un.a_val = s_aux->a_un.a_val;
+        break;
+
       case AT_RANDOM: {
         stack_strings -= 15;
         memcpy(stack_strings, (void *)s_aux->a_un.a_val, 16);

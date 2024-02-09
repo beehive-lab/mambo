@@ -11,24 +11,24 @@
 #PLUGINS+=plugins/follow_exec.c
 #PLUGINS+=plugins/hotspot.c
 
-OPTS= -DDBM_LINK_UNCOND_IMM
-OPTS+=-DDBM_INLINE_UNCOND_IMM
-OPTS+=-DDBM_LINK_COND_IMM
-OPTS+=-DDBM_LINK_CBZ
-OPTS+=-DDBM_LINK_TBZ
-OPTS+=-DDBM_TB_DIRECT #-DFAST_BT
-OPTS+=-DLINK_BX_ALT
-OPTS+=-DDBM_INLINE_HASH
-OPTS+=-DDBM_TRACES #-DTB_AS_TRACE_HEAD #-DBLXI_AS_TRACE_HEAD
+#OPTS= -DDBM_LINK_UNCOND_IMM
+#OPTS+=-DDBM_INLINE_UNCOND_IMM
+#OPTS+=-DDBM_LINK_COND_IMM
+#OPTS+=-DDBM_LINK_CBZ
+#OPTS+=-DDBM_LINK_TBZ
+#OPTS+=-DDBM_TB_DIRECT #-DFAST_BT
+#OPTS+=-DLINK_BX_ALT
+#OPTS+=-DDBM_INLINE_HASH
+#OPTS+=-DDBM_TRACES #-DTB_AS_TRACE_HEAD #-DBLXI_AS_TRACE_HEAD
 #OPTS+=-DCC_HUGETLB -DMETADATA_HUGETLB
-OPTS+=-DDBM_TRIBI
+#OPTS+=-DDBM_TRIBI
 
 VERSION?=$(shell git describe --abbrev=8 --dirty --always || echo '\<nogit\>')
 CFLAGS+=-D_GNU_SOURCE -g -std=gnu99 -O2 -Wunused-variable
 CFLAGS+=-DVERSION=\"$(VERSION)\"
 
 LDFLAGS+=-static -ldl
-LIBS=-lelf -lpthread -lz
+LIBS=-lelf -lpthread -lz -lzstd
 HEADERS=*.h makefile
 INCLUDES=-I/usr/include/libelf -I.
 SOURCES= common.c dbm.c traces.c syscalls.c dispatcher.c util.S traces_common.c

@@ -28,6 +28,7 @@
 #include <limits.h>
 #include <string.h>
 #include <errno.h>
+#include <sched.h>
 #include <sys/types.h>
 #include <sys/shm.h>
 #include <inttypes.h>
@@ -219,6 +220,57 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
     case __NR_brk:
       args[0] = emulate_brk(args[0]);
       do_syscall = 0;
+      break;
+    case __NR_clone3:
+      struct clone_args cl_args;
+
+      // Unpack arguments pointed by args[0] with struct size passed in args[1].
+      mambo_memcpy(&cl_args, args[0], args[1]);
+
+      clone_args = (sys_clone_args *)args;
+
+      clone_args->flags = cl_args.flags;
+      clone_args->child_stack = cl_args.stack;
+      clone_args->ptid = cl_args.parent_tid;
+      clone_args->tls = cl_args.tls;
+      clone_args->ctid = cl_args.child_tid; 
+
+      if (clone_args->flags & CLONE_THREAD) {
+        assert(clone_args->flags & CLONE_VM);
+        if (!(clone_args->flags & CLONE_SETTLS)) {
+          clone_args->tls = thread_data->tls;
+        }
+        thread_data->clone_vm = true;
+
+        volatile pid_t child_tid = 0;
+        dbm_create_thread(thread_data, next_inst, clone_args, &child_tid);
+        while(child_tid == 0);
+        __sync_synchronize();
+        args[0] = child_tid;
+
+        do_syscall = 0;
+        break;
+      }
+
+      if (clone_args->flags & CLONE_VFORK) {
+        clone_args->flags &= ~CLONE_VM;
+      }
+      assert((clone_args->flags & CLONE_VM) == 0);
+      thread_data->clone_vm = false;
+
+      thread_data->child_tls = (clone_args->flags & CLONE_SETTLS) ? clone_args->tls : thread_data->tls;
+      clone_args->flags &= ~CLONE_SETTLS;
+
+      if (clone_args->child_stack != NULL) {
+        if (clone_args->child_stack == &args[SYSCALL_WRAPPER_STACK_OFFSET]) {
+          clone_args->child_stack = NULL;
+        } else {
+          const size_t copy_size = SYSCALL_WRAPPER_FRAME_SIZE * sizeof(uintptr_t);
+          clone_args->child_stack -= copy_size;
+          void *source = args + SYSCALL_WRAPPER_STACK_OFFSET - SYSCALL_WRAPPER_FRAME_SIZE;
+          mambo_memcpy(clone_args->child_stack, source, copy_size);
+        }
+      } // if child_stack != NULL
       break;
     case __NR_clone:
       clone_args = (sys_clone_args *)args;
@@ -511,6 +563,7 @@ void syscall_handler_post(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_
   thread_data->status = THREAD_RUNNING;
 
   switch(syscall_no) {
+    case __NR_clone3:
     case __NR_clone:
       debug("r0 (tid): %" PRIdPTR "\n", args[0]);
       if (args[0] == 0) { // the child
