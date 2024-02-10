@@ -100,6 +100,7 @@ th_enter:
 #ifdef __riscv
 th_enter:
   mv sp, a0
+  mv tp, a2 // contains the pointer to tls which is needed by tp
   ld a2,  0(sp)
   ld a3,  8(sp)
   ld a4,  16(sp)
@@ -128,7 +129,6 @@ th_enter:
   ld s0,  208(sp)
   ld s1,  216(sp)
   addi sp, sp, 224
-  mv tp, a3 // a3 contains the pointer to tls which is needed by tp
   jr a1
 #endif
 .endfunc
