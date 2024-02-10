@@ -228,8 +228,8 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
       do_syscall = 0;
       break;
     case __NR_clone3:
-      struct clone_args *cl_args = (struct clone_args*)args[0];
       clone_args = malloc(sizeof(sys_clone_args));
+      struct clone_args *cl_args = (struct clone_args*)args[0];
 
       clone_args->flags = cl_args->flags;
       clone_args->child_stack = cl_args->stack + cl_args->stack_size;
