@@ -69,13 +69,13 @@ void *dbm_start_thread_pth(void *ptr) {
 #ifdef __arm__
   uint32_t *child_stack = thread_data->clone_args->child_stack;
   child_stack -= 15; // reserve 15 words on the child's stack
-  mambo_memcpy(child_stack, thread_data->clone_args, sizeof(uintptr_t) * 14);
+  mambo_memcpy(child_stack, thread_data->pstack, sizeof(uintptr_t) * 14);
   child_stack[r0] = 0; // return 0
 #endif
 #ifdef __aarch64__
   uint64_t *child_stack = thread_data->clone_args->child_stack;
   child_stack -= 34;
-  mambo_memcpy(child_stack, (void *)thread_data->clone_args, sizeof(uintptr_t) * 32);
+  mambo_memcpy(child_stack, (void *)thread_data->pstack, sizeof(uintptr_t) * 32);
   // move the values for X0 and X1 to the bottom of the stack
   child_stack[32] = 0; // X0
   child_stack[33] = child_stack[1]; // X1
@@ -85,7 +85,7 @@ void *dbm_start_thread_pth(void *ptr) {
   uint64_t *child_stack = thread_data->clone_args->child_stack;
 
   child_stack -= 32;
-  mambo_memcpy(child_stack, (void *)thread_data->clone_args, sizeof(uintptr_t) * 32);
+  mambo_memcpy(child_stack, (void *)thread_data->pstack, sizeof(uintptr_t) * 32);
   // move the values for a0 and a1 to the bottom of the stack
   child_stack[30] = 0; // a0
   child_stack[31] = child_stack[1]; // a1
@@ -103,12 +103,16 @@ void *dbm_start_thread_pth(void *ptr) {
   assert(register_thread(thread_data, false) == 0);
 
   uintptr_t addr = scan(thread_data, thread_data->clone_ret_addr, ALLOCATE_BB);
+#ifdef __riscv
+  th_enter(child_stack, addr, thread_data->tls);
+#else
   th_enter(child_stack, addr);
+#endif
 
   return NULL;
 }
 
-dbm_thread *dbm_create_thread(dbm_thread *thread_data, void *next_inst, sys_clone_args *args, volatile pid_t *set_tid) {
+dbm_thread *dbm_create_thread(dbm_thread *thread_data, void *next_inst, sys_clone_args *args, volatile pid_t *set_tid, void *pstack) {
   pthread_t thread;
   dbm_thread *new_thread_data;
 
@@ -121,6 +125,7 @@ dbm_thread *dbm_create_thread(dbm_thread *thread_data, void *next_inst, sys_clon
   new_thread_data->parent_tid = thread_data->tid;
   new_thread_data->set_tid = set_tid;
   new_thread_data->clone_args = args;
+  new_thread_data->pstack = pstack;
 
   pthread_attr_t attr;
   pthread_attr_init(&attr);
@@ -199,7 +204,6 @@ ssize_t readlink_handler(char *sys_path, char *sys_buf, ssize_t bufsize) {
 
 int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_inst, dbm_thread *thread_data) {
   int do_syscall = 1;
-  sys_clone_args *clone_args;
   debug("syscall pre %" PRIdPTR "\n", syscall_no);
 
 #ifdef PLUGINS_NEW
@@ -221,8 +225,57 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
       args[0] = emulate_brk(args[0]);
       do_syscall = 0;
       break;
-    case __NR_clone:
-      clone_args = (sys_clone_args *)args;
+    case __NR_clone3: {
+      struct clone_args *cl_args = (struct clone_args*)args[0];
+      sys_clone_args clone_args;
+
+      clone_args.flags = cl_args->flags;
+      clone_args.child_stack = (void*)cl_args->stack + cl_args->stack_size;
+      clone_args.ptid = (void*)cl_args->parent_tid;
+      clone_args.tls = cl_args->tls;
+      clone_args.ctid = (void*)cl_args->child_tid;
+      
+
+      if (clone_args.flags & CLONE_THREAD) {
+        assert(clone_args.flags & CLONE_VM);
+        if (!(clone_args.flags & CLONE_SETTLS)) {
+          clone_args.tls = thread_data->tls;
+        }
+        thread_data->clone_vm = true;
+
+        volatile pid_t child_tid = 0;
+        dbm_create_thread(thread_data, next_inst, &clone_args, &child_tid, args);
+        while(child_tid == 0);
+        __sync_synchronize();
+        args[0] = child_tid;
+
+        do_syscall = 0;
+        break;
+      }
+
+      if (clone_args.flags & CLONE_VFORK) {
+        clone_args.flags &= ~CLONE_VM;
+      }
+      assert((clone_args.flags & CLONE_VM) == 0);
+      thread_data->clone_vm = false;
+
+      thread_data->child_tls = (clone_args.flags & CLONE_SETTLS) ? clone_args.tls : thread_data->tls;
+      clone_args.flags &= ~CLONE_SETTLS;
+
+      if (clone_args.child_stack != NULL) {
+        if (clone_args.child_stack == &args[SYSCALL_WRAPPER_STACK_OFFSET]) {
+          clone_args.child_stack = NULL;
+        } else {
+          const size_t copy_size = SYSCALL_WRAPPER_FRAME_SIZE * sizeof(uintptr_t);
+          clone_args.child_stack -= copy_size;
+          void *source = args + SYSCALL_WRAPPER_STACK_OFFSET - SYSCALL_WRAPPER_FRAME_SIZE;
+          mambo_memcpy(clone_args.child_stack, source, copy_size);
+        }
+      } // if child_stack != NULL
+      break;
+    }
+    case __NR_clone: {
+      sys_clone_args *clone_args = (sys_clone_args *)args;
 
       if (clone_args->flags & CLONE_THREAD) {
         assert(clone_args->flags & CLONE_VM);
@@ -232,11 +285,10 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
         thread_data->clone_vm = true;
 
         volatile pid_t child_tid = 0;
-        dbm_create_thread(thread_data, next_inst, clone_args, &child_tid);
+        dbm_create_thread(thread_data, next_inst, clone_args, &child_tid, args);
         while(child_tid == 0);
         __sync_synchronize();
         args[0] = child_tid;
-
         do_syscall = 0;
         break;
       }
@@ -261,11 +313,11 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
         }
       } // if child_stack != NULL
       break;
+    }
     case __NR_exit:
       debug("thread exit\n");
       assert(unregister_thread(thread_data, false) == 0);
       assert(free_thread_data(thread_data) == 0);
-
       syscall(__NR_exit); // this should never return
       while(1);
       break;
