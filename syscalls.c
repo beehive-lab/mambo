@@ -70,13 +70,13 @@ void *dbm_start_thread_pth(void *ptr) {
 #ifdef __arm__
   uint32_t *child_stack = thread_data->clone_args->child_stack;
   child_stack -= 15; // reserve 15 words on the child's stack
-  mambo_memcpy(child_stack, thread_data->clone_args, sizeof(uintptr_t) * 14);
+  mambo_memcpy(child_stack, thread_data->pstack, sizeof(uintptr_t) * 14);
   child_stack[r0] = 0; // return 0
 #endif
 #ifdef __aarch64__
   uint64_t *child_stack = thread_data->clone_args->child_stack;
   child_stack -= 34;
-  mambo_memcpy(child_stack, (void *)thread_data->clone_args, sizeof(uintptr_t) * 32);
+  mambo_memcpy(child_stack, (void *)thread_data->pstack, sizeof(uintptr_t) * 32);
   // move the values for X0 and X1 to the bottom of the stack
   child_stack[32] = 0; // X0
   child_stack[33] = child_stack[1]; // X1
@@ -86,7 +86,7 @@ void *dbm_start_thread_pth(void *ptr) {
   uint64_t *child_stack = thread_data->clone_args->child_stack;
 
   child_stack -= 32;
-  mambo_memcpy(child_stack, (void *)thread_data->clone_args, sizeof(uintptr_t) * 32);
+  mambo_memcpy(child_stack, (void *)thread_data->pstack, sizeof(uintptr_t) * 32);
   // move the values for a0 and a1 to the bottom of the stack
   child_stack[30] = 0; // a0
   child_stack[31] = child_stack[1]; // a1
@@ -109,7 +109,7 @@ void *dbm_start_thread_pth(void *ptr) {
   return NULL;
 }
 
-dbm_thread *dbm_create_thread(dbm_thread *thread_data, void *next_inst, sys_clone_args *args, volatile pid_t *set_tid) {
+dbm_thread *dbm_create_thread(dbm_thread *thread_data, void *next_inst, sys_clone_args *args, volatile pid_t *set_tid, void* pstack) {
   pthread_t thread;
   dbm_thread *new_thread_data;
 
@@ -121,6 +121,7 @@ dbm_thread *dbm_create_thread(dbm_thread *thread_data, void *next_inst, sys_clon
   new_thread_data->clone_ret_addr = next_inst;
   new_thread_data->set_tid = set_tid;
   new_thread_data->clone_args = args;
+  new_thread_data->pstack = pstack;
 
   pthread_attr_t attr;
   pthread_attr_init(&attr);
@@ -222,18 +223,15 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
       do_syscall = 0;
       break;
     case __NR_clone3:
-      struct clone_args cl_args;
+      struct clone_args *cl_args = (struct clone_args*)args[0];
+      clone_args = malloc(sizeof(sys_clone_args));
 
-      // Unpack arguments pointed by args[0] with struct size passed in args[1].
-      mambo_memcpy(&cl_args, args[0], args[1]);
-
-      clone_args = (sys_clone_args *)args;
-
-      clone_args->flags = cl_args.flags;
-      clone_args->child_stack = cl_args.stack;
-      clone_args->ptid = cl_args.parent_tid;
-      clone_args->tls = cl_args.tls;
-      clone_args->ctid = cl_args.child_tid; 
+      clone_args->flags = cl_args->flags;
+      clone_args->child_stack = cl_args->stack + cl_args->stack_size;
+      clone_args->ptid = cl_args->parent_tid;
+      clone_args->tls = cl_args->tls;
+      clone_args->ctid = cl_args->child_tid;
+      
 
       if (clone_args->flags & CLONE_THREAD) {
         assert(clone_args->flags & CLONE_VM);
@@ -243,7 +241,7 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
         thread_data->clone_vm = true;
 
         volatile pid_t child_tid = 0;
-        dbm_create_thread(thread_data, next_inst, clone_args, &child_tid);
+        dbm_create_thread(thread_data, next_inst, clone_args, &child_tid, args);
         while(child_tid == 0);
         __sync_synchronize();
         args[0] = child_tid;
@@ -283,11 +281,10 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
         thread_data->clone_vm = true;
 
         volatile pid_t child_tid = 0;
-        dbm_create_thread(thread_data, next_inst, clone_args, &child_tid);
+        dbm_create_thread(thread_data, next_inst, clone_args, &child_tid, args);
         while(child_tid == 0);
         __sync_synchronize();
         args[0] = child_tid;
-
         do_syscall = 0;
         break;
       }
@@ -316,7 +313,6 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
       debug("thread exit\n");
       assert(unregister_thread(thread_data, false) == 0);
       assert(free_thread_data(thread_data) == 0);
-
       syscall(__NR_exit); // this should never return
       while(1);
       break;

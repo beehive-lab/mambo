@@ -94,7 +94,6 @@ th_enter:
   LDR X28,      [SP, #208]
   LDP X29, X30, [SP, #224]
   LDP  X2,  X3, [SP], #240
-
   BR X1
 #endif
 
