@@ -230,6 +230,7 @@ void mambo_set_cc_addr(mambo_context *ctx, void *addr) {
 }
 
 int mambo_get_thread_id(mambo_context *ctx) {
+  assert(ctx->thread_data != NULL);
   return ctx->thread_data->tid;
 }
 
