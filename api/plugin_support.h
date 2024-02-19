@@ -18,6 +18,10 @@
   limitations under the License.
 */
 
+/**
+ * @file plugin_support.h
+ */
+
 #ifndef __PLUGIN_SUPPORT_H__
 #define __PLUGIN_SUPPORT_H__
 
@@ -29,11 +33,11 @@ struct code_ctx {
   int fragment_id;
 
   inst_set inst_type;
-  void *read_address;
-  int inst;
+  void *read_address; ///< The untranslated source address of an instruction.
+  int inst; ///< Enum indicating the decoded instruction's type.
   mambo_cond cond;
 
-  void *write_p;
+  void *write_p; ///< Pointer to the next available address in the code cache.​
   void *data_p;
 
   uint32_t pushed_regs;
@@ -133,17 +137,81 @@ struct stack_frame {
 };
 
 /* Public functions */
+
+/**
+ * @brief Registers a new MAMBO plugin.
+ * 
+ * Registers a new MAMBO plugin and allocates a new MAMBO context. A MAMBO
+ * context holds the current state of the newly registered plugin, MAMBO and
+ * instrumented application.
+ * 
+ * @return The context allocated for the plugin.
+ */
 mambo_context *mambo_register_plugin(void);
 
 int mambo_register_pre_inst_cb(mambo_context *ctx, mambo_callback cb);
 int mambo_register_post_inst_cb(mambo_context *ctx, mambo_callback cb);
+
+/**
+ * @brief Registers a callback function to a MAMBO plugin that is called every
+ * time right before each basic block is scanned.
+ *
+ * Registers a callback function to a MAMBO plugin that is called every time
+ * before each basic block (single-entry - single-exit code region) is scanned.
+ * A basic block is scanned when it is copied to the code cache for the first
+ * time, when a trace is created, and after the code cache is flushed and
+ * the block needs to execute.
+ * 
+ * @param ctx The context that holds the plugin state.
+ * @param cb The callback function to be registered.
+ * @return Error code of the callback registration ( @c 0 for success ).
+ */
 int mambo_register_pre_basic_block_cb(mambo_context *ctx, mambo_callback cb);
+
+/**
+ * @brief Registers a callback function to a MAMBO plugin that is called every
+ * time after each basic block is scanned.
+ *
+ * Registers a callback function to a MAMBO plugin that is called every time
+ * after each basic block (single-entry - single-exit code region) is scanned.
+ * A basic block is scanned when it is copied to the code cache for the first
+ * time, when a trace is created, and after the code cache is flushed and the
+ * block needs to execute.
+ *
+ * @param ctx The context that holds the plugin state.
+ * @param cb The callback function to be registered.
+ * @return Error code of the callback registration ( @c 0 for success ).
+ */
 int mambo_register_post_basic_block_cb(mambo_context *ctx, mambo_callback cb);
 int mambo_register_pre_fragment_cb(mambo_context *ctx, mambo_callback cb);
 int mambo_register_post_fragment_cb(mambo_context *ctx, mambo_callback cb);
 int mambo_register_pre_syscall_cb(mambo_context *ctx, mambo_callback cb);
 int mambo_register_post_syscall_cb(mambo_context *ctx, mambo_callback cb);
+
+/**
+ * @brief Registers a callback function to a MAMBO plugin that is called once
+ * for every thread, right before it executes.
+ *
+ * Registers a callback function to a MAMBO plugin. That function will be called
+ * right before every thread executes, if the plugin is activated in MAMBO.
+ * 
+ * @param ctx The context that holds the plugin state.
+ * @param cb The callback function to be registered.
+ * @return Error code of the callback registration ( @c 0 for success ).
+ */
 int mambo_register_pre_thread_cb(mambo_context *ctx, mambo_callback cb);
+
+/**
+ * @brief Registers a callback function to a MAMBO plugin that is called once
+ * for every thread, right after it terminates.
+ *
+ * Registers a callback function to a MAMBO plugin. That function will be called
+ * right after every thread terminates, if the plugin is activated in MAMBO.
+ * 
+ * @param ctx The context that holds the plugin state.
+ * @param cb The callback function to be registered.
+ * @return Error code of the callback registration ( @c 0 for success ).
+ */
 int mambo_register_post_thread_cb(mambo_context *ctx, mambo_callback cb);
 int mambo_register_exit_cb(mambo_context *ctx, mambo_callback cb);
 int mambo_register_vm_op_cb(mambo_context *ctx, mambo_callback cb);
@@ -188,10 +256,30 @@ inst_set mambo_get_inst_type(mambo_context *ctx);
 int mambo_get_fragment_id(mambo_context *ctx);
 cc_type mambo_get_fragment_type(mambo_context *ctx);
 int mambo_get_inst_len(mambo_context *ctx);
+
+/**
+ * @brief Returns the untranslated address of the application's instruction that
+ * is currently being scanned.
+ *
+ * @param ctx The context that holds the plugin state.
+ * @return The untranslated instruction address.
+ */
 void *mambo_get_source_addr(mambo_context *ctx);
 int mambo_set_source_addr(mambo_context *ctx, void *source_addr);
 void *mambo_get_cc_addr(mambo_context *ctx);
 void mambo_set_cc_addr(mambo_context *ctx, void *addr);
+
+/**
+ * @brief Returns the id of the calling thread.
+ *
+ * Returns the id of the thread currently running using the context of a
+ * plugin.
+ * 
+ * @pre @c ctx->thread_data must not be @c NULL.
+ * 
+ * @param ctx The context that holds the plugin state.
+ * @return The id of the calling thread.
+ */
 int mambo_get_thread_id(mambo_context *ctx);
 int mambo_get_parent_thread_id(mambo_context *ctx);
 bool mambo_is_cond(mambo_context *ctx);
