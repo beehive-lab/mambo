@@ -263,6 +263,7 @@ struct dbm_thread_s {
 #endif
   void *clone_ret_addr;
   pid_t tid;
+  pid_t parent_tid;
   volatile pid_t *set_tid;
   sys_clone_args *clone_args;
   bool clone_vm;

@@ -234,6 +234,11 @@ int mambo_get_thread_id(mambo_context *ctx) {
   return ctx->thread_data->tid;
 }
 
+int mambo_get_parent_thread_id(mambo_context *ctx) {
+  assert(ctx->thread_data != NULL);
+  return ctx->thread_data->parent_tid;
+}
+
 mambo_cond mambo_get_cond(mambo_context *ctx) {
   return ctx->code.cond;
 }
