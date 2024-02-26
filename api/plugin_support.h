@@ -278,6 +278,7 @@ void mambo_set_cc_addr(mambo_context *ctx, void *addr);
  * @return The id of the calling thread.
  */
 int mambo_get_thread_id(mambo_context *ctx);
+int mambo_get_parent_thread_id(mambo_context *ctx);
 bool mambo_is_cond(mambo_context *ctx);
 mambo_cond mambo_get_cond(mambo_context *ctx);
 mambo_cond mambo_get_inverted_cond(mambo_context *ctx, mambo_cond cond);
