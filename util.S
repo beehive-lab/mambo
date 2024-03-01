@@ -377,7 +377,10 @@ retry:
 #elif __riscv
   #ifdef __riscv_atomic
     amoadd.d a2, a1, (a0)
+    mv a0, a2
     jr ra
+  #else
+    #error atomic_increment_u64 requires __riscv_atomic
   #endif
 #endif
 .endfunc
@@ -403,7 +406,14 @@ atomic_increment_u32:
   CBNZ W3, atomic_increment_u32
   MOV W0, W2
   RET
-
+#elif __riscv
+  #ifdef __riscv_atomic
+    amoadd.w a2, a1, (a0)
+    mv a0, a2
+    jr ra
+  #else
+    #error atomic_increment_u64 requires __riscv_atomic
+  #endif
 #endif
 .endfunc
 
@@ -441,6 +451,9 @@ abort:
   MOV W0, #-1
   RET
 
+#elif __riscv
+  #warning atomic_decrement_if_positive_i32 not implemented
+  unimp
 #endif
 .endfunc
 

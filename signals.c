@@ -732,12 +732,8 @@ uintptr_t signal_dispatcher(int i, siginfo_t *info, void *context) {
 
   fprintf(stderr, "Checkpoint five!\n");
 
-  //atomic_increment_int(&current_thread->pending_signals[i], 1);
-  //atomic_increment_u32(&current_thread->is_signal_pending, 1);
-
-  current_thread->pending_signals[i] += 1;
-  current_thread->is_signal_pending += 1;
-
+  atomic_increment_int(&current_thread->pending_signals[i], 1);
+  atomic_increment_u32(&current_thread->is_signal_pending, 1);
 
   fprintf(stderr, "Checkpoint six!\n");
 
