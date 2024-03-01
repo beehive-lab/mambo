@@ -556,6 +556,9 @@ void sigret_dispatcher_call(dbm_thread *thread_data, ucontext_t *cont, uintptr_t
 /* If type == indirect && pc >= exit, read the pc and deliver the signal */
 /* If pc < <type specific>, unlink the fragment and resume execution */
 uintptr_t signal_dispatcher(int i, siginfo_t *info, void *context) {
+	
+  fprintf(stderr, "Entered signal dispatcher!\n");
+
   uintptr_t handler = 0;
   bool deliver_now = false;
 
@@ -579,6 +582,8 @@ uintptr_t signal_dispatcher(int i, siginfo_t *info, void *context) {
     return 0;
   }
 
+  fprintf(stderr, "Checkpoint one!\n");
+
   if (pc == ((uintptr_t)current_thread->code_cache + self_send_signal_offset)) {
     translate_delayed_signal_frame(cont);
     deliver_now = true;
@@ -587,10 +592,14 @@ uintptr_t signal_dispatcher(int i, siginfo_t *info, void *context) {
     deliver_now = true;
   }
 
+  fprintf(stderr, "Checkpoint two!\n");
+
   if (deliver_now) {
     handler = lookup_or_scan(current_thread, global_data.signal_handlers[i]);
     return handler;
   }
+
+  fprintf(stderr, "Checkpoint three!\n");
 
   if (pc >= cc_start && pc < cc_end) {
     int fragment_id = addr_to_fragment_id(current_thread, (uintptr_t)pc);
@@ -686,6 +695,8 @@ uintptr_t signal_dispatcher(int i, siginfo_t *info, void *context) {
     unlink_fragment(fragment_id, pc);
   }
 
+  fprintf(stderr, "Checkpoint four!\n");
+
   /* Call the handlers of synchronous signals immediately
      The SPC of the instruction is unknown, so sigreturning to addresses derived
      from the PC value in the signal frame is not supported.
@@ -719,8 +730,16 @@ uintptr_t signal_dispatcher(int i, siginfo_t *info, void *context) {
     return handler;
   }
 
-  atomic_increment_int(&current_thread->pending_signals[i], 1);
-  atomic_increment_u32(&current_thread->is_signal_pending, 1);
+  fprintf(stderr, "Checkpoint five!\n");
+
+  //atomic_increment_int(&current_thread->pending_signals[i], 1);
+  //atomic_increment_u32(&current_thread->is_signal_pending, 1);
+
+  current_thread->pending_signals[i] += 1;
+  current_thread->is_signal_pending += 1;
+
+
+  fprintf(stderr, "Checkpoint six!\n");
 
   return handler;
 }

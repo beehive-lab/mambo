@@ -239,6 +239,17 @@ sigret:
   SVC 0
 #endif
 #ifdef __aarch64__
+  // x0-x2 should contain sigaction arguments.
+  // We preserve all registers, we start with placing x2, x3 at
+  // the bottom, then x4-x30 above, and on the very top we place
+  // x0 and x1.
+  // 176:
+  // 160: x0, x1
+  // 144: x30, -
+  // ...
+  // 32: x6, x7
+  // 16: x4, x5
+  // 0: x2, x3 <- SP
   STP  X2,  X3, [SP, #-176]!
   STP  X4,  X5, [SP, #16]
   STP  X6,  X7, [SP, #32]
@@ -253,6 +264,9 @@ sigret:
 
   BL signal_dispatcher
 
+  // Restore all registers but x0 and x1 that were place on the very top.
+  // The sigret all the actual translated basic block will take care of
+  // x0 and x1.
   LDP  X4,  X5, [SP, #16]
   LDP  X6,  X7, [SP, #32]
   LDP  X8,  X9, [SP, #48]
@@ -264,16 +278,70 @@ sigret:
   LDR X30,      [SP, #144]
   LDP  X2,  X3, [SP], #160
 
+  // The return address from the signal dispatcher is either 0 if sigret
+  // or addrress of the translated hanlder that was registered by the hosted
+  // application.
   CBZ X0, sigret
 
+  // x0 and x1 are pop'ed at the begining of each translated block
+  // so we don't pop it above. 
   BR X0
 sigret:
+  // We don't call the translated basic block, so we have to discard x0, x1
+  // as they will be never pop'ed.
   ADD SP, SP, #16
   MOV X8, #__NR_rt_sigreturn
   SVC 0
 #endif
 #ifdef __riscv
-  UNIMP
+#if __riscv_xlen == 32
+#error Signal trampoline only support 64-bit ISA
+#endif
+  // x10 and x11 (a0 and a1) have the same purpose as x0 and x1
+  // in AArch64, so we need to put them on top.
+  addi sp, sp, -128
+  sd x1, 0(sp)
+  sd x5, 8(sp)
+  sd x6, 16(sp)
+  sd x7, 24(sp)
+  sd x12, 32(sp)
+  sd x13, 40(sp)
+  sd x14, 48(sp)
+  sd x15, 56(sp)
+  sd x16, 64(sp)
+  sd x17, 72(sp)
+  sd x28, 80(sp)
+  sd x29, 88(sp)
+  sd x30, 96(sp)
+  sd x31, 104(sp)
+  sd x10, 112(sp)
+  sd x11, 120(sp)
+
+  jal ra, signal_dispatcher
+
+  sd x1, 0(sp)
+  sd x5, 8(sp)
+  sd x6, 16(sp)
+  sd x7, 24(sp)
+  sd x12, 32(sp)
+  sd x13, 40(sp)
+  sd x14, 48(sp)
+  sd x15, 56(sp)
+  sd x16, 64(sp)
+  sd x17, 72(sp)
+  sd x28, 80(sp)
+  sd x29, 88(sp)
+  sd x30, 96(sp)
+  sd x31, 104(sp)
+  addi sp, sp, 112
+
+  beq a0, zero, sigret
+ 
+  jalr ra, a0  
+sigret:
+  addi sp, sp, 16
+  li a7, __NR_rt_sigreturn
+  ecall
 #endif
 .endfunc
 

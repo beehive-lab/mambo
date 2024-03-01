@@ -427,7 +427,7 @@ void elf_run(uintptr_t entry_address, char *filename, int argc, char **argv, cha
           #endif
         #endif
         printf("Unhandled auxv entry type: " auxv_type "\n", s_aux->a_type);
-        exit(EXIT_FAILURE);
+        // exit(EXIT_FAILURE);
         break;
     }
     
