@@ -452,8 +452,16 @@ abort:
   RET
 
 #elif __riscv
-  #warning atomic_decrement_if_positive_i32 not implemented
-  unimp
+  lw a2, (a0)
+  blt a2, a1, abort 
+  sub a2, a2, a1
+  sw a2, (a0)
+  mv a0, a2
+  ret
+abort:
+  li a0, -1
+  ret
+  #warning atomic_decrement_if_positive_i32 is not atomic
 #endif
 .endfunc
 

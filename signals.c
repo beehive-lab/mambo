@@ -82,6 +82,8 @@ void install_system_sig_handlers() {
 }
 
 int deliver_signals(uintptr_t spc, self_signal *s) {
+  fprintf(stderr, "Delivering the signal\n");
+  fprintf(stderr, "%ld\n", current_thread->is_signal_pending);
   uint64_t sigmask;
 
   if (global_data.exit_group) {
@@ -94,10 +96,13 @@ int deliver_signals(uintptr_t spc, self_signal *s) {
   for (int i = 0; i < _NSIG; i++) {
     if ((sigmask & (1 << i)) == 0
         && atomic_decrement_if_positive_i32(&current_thread->pending_signals[i], 1) >= 0) {
+      fprintf(stderr, "%ld\n", current_thread->pending_signals[i]);
       s->pid = syscall(__NR_getpid);
       s->tid = syscall(__NR_gettid);
       s->signo = i;
+      fprintf(stderr, "%ld\n", current_thread->is_signal_pending);
       atomic_increment_u32(&current_thread->is_signal_pending, -1);
+      fprintf(stderr, "%ld\n", current_thread->is_signal_pending);
       return 1;
     }
   }
@@ -732,8 +737,14 @@ uintptr_t signal_dispatcher(int i, siginfo_t *info, void *context) {
 
   fprintf(stderr, "Checkpoint five!\n");
 
+  fprintf(stderr, "%d %ld\n", i, current_thread->pending_signals[i]);
+  fprintf(stderr, "%ld\n", current_thread->is_signal_pending);
+
   atomic_increment_int(&current_thread->pending_signals[i], 1);
   atomic_increment_u32(&current_thread->is_signal_pending, 1);
+
+  fprintf(stderr, "%d %ld\n", i, current_thread->pending_signals[i]);
+  fprintf(stderr, "%ld\n", current_thread->is_signal_pending);
 
   fprintf(stderr, "Checkpoint six!\n");
 

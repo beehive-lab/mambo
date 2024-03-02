@@ -236,9 +236,7 @@ dispatcher_trampoline:
   ld      s1, 64(sp)
   addi    sp, sp, 72
 
-  // Once the signal handler is ported this will change to check for signals
-  // pending firts (checked_cc_return)
-  jr a0
+  j checked_cc_return
 
 dispatcher_addr: .quad dispatcher
 mambo_gp_addr: .quad mambo_gp
@@ -290,7 +288,8 @@ return_to_cc:
   LDR     a2, 0 * GP_REG_SIZE(sp)
   LDR     a3, 1 * GP_REG_SIZE(sp)
   addi    sp, sp, (2 * GP_REG_SIZE)
-  ret     #TO-DO need checked-cc-return
+  mv a0, ra
+  j checked_cc_return
 
 create_trace_trampoline:
 
@@ -338,7 +337,7 @@ create_trace_trampoline:
   LDR     a3, 1 * GP_REG_SIZE(sp)
   addi    sp, sp, (3 * GP_REG_SIZE)
 
-  jr a0
+  j checked_cc_return
 
 create_trace_addr: .quad create_trace
 
@@ -525,9 +524,149 @@ skip_syscall:
   ld s0, 104(sp)
   ld s1, 112(sp)
   addi sp, sp, 120
-  jr a0
+  j checked_cc_return
+
 syscall_handler_pre_addr: .quad syscall_handler_pre
 syscall_handler_post_addr: .quad syscall_handler_post
+
+.global send_self_signal
+
+.global checked_cc_return
+
+checked_cc_return:
+  // STR X2, [SP, #-16]!
+  addi sp, sp, -16
+  sd  a2, 0(sp)
+  // LDR X2, th_is_pending_ptr
+  lla a2, th_is_pending_ptr 
+  ld a2, (a2)
+  // LDR W2, [X2]
+  lw a2, (a2)
+  // CBNZ W2, deliver_signals_trampoline
+  bne a2, zero, deliver_signals_trampoline
+  // LDR X2, [SP], #16
+  ld a2, 0(sp)
+  addi sp, sp, 16 
+  // BR X0
+  jr a0
+  
+deliver_signals_trampoline:
+  // STP X0, X1, [SP, #-16]!
+  addi sp, sp, -16
+  sd a0, 0(sp)
+  sd a1, 8(sp)
+  // MOV X0, X1 // set the SPC argument
+  mv a0, a1
+  
+  // STR X3, [SP, #-64]!
+  addi sp, sp, -64
+  sd a3, 0(sp)
+  // STP X29, X30, [SP, #16]
+  sd ra, 16(sp)
+  // Store frame pointer?
+  // ADD X1, SP, #32
+  addi a1, sp, 32
+
+  // BL push_x4_x21
+  jal ra, push_caller_saved_registers
+  // BL push_neon
+  jal ra, push_fp
+
+  // MRS X19, NZCV
+  frcsr s0
+  // MRS X20, FPCR
+  frflags s1
+  // MRS X21, FPSR
+  frrm s2
+
+  // MOV X2, #0xd6db
+  // What's the magic number that causes program to enter
+  // an infinite loop?
+  li a2, 0xd6db
+  // CMP X0, X2
+  // BEQ .
+deliver_signal_trampoline_trap:
+  beq a0, a2, deliver_signal_trampoline_trap
+
+  lla a3, disp_thread_data
+  ld  a3, (a3)
+  ld  tp, 0(a3)
+  lla gp, mambo_gp_addr
+  ld  gp, (gp)
+  ld  gp, (gp)
+
+  // LDR X3, =deliver_signals
+  // Having lla a3, deliver_signals doesn't work and I don't
+  // know why? Hence the indirection.
+  lla a3, deliver_signals_addr
+  ld a3, (a3)
+
+  // BLR X3
+  jalr ra, a3
+
+  // MSR NZCV, X19
+  fscsr s0
+  // MSR FPCR, X20
+  fsflags s1
+  // MSR FPSR, X21
+  fsrm s2
+
+  // BL pop_neon
+  jal ra, pop_fp
+  // BL pop_x4_x21
+  jal ra, pop_caller_saved_registers
+
+  // LDP X29, X30, [SP, #16]
+  ld ra, 16(sp)
+  // Load frame pointer?
+  // LDR X3, [SP], #32
+  ld a3, 0(sp)
+  addi sp, sp, 32
+
+  // CBZ X0, abort_self_signal
+  beq a0, zero, abort_self_signal
+
+  // LDR X2, [SP, #16]
+  ld a2, 16(sp)
+  // LDP X0, X1, [SP], #32
+  ld a0, 0(sp)
+  ld a1, 8(sp)
+  addi sp, sp, 32
+
+  // STR X8, [SP, #24]
+  sd a7, 24(sp)
+
+  /*
+    TPC, SPC
+    X2, X8
+    X0, X1
+  */
+r:
+  // MOV X8, #131
+  li a7, 131
+  // SVC 0
+  ecall
+send_self_signal:
+  // LDP X2, X8, [SP, #16]
+  ld a2, 16(sp)
+  ld a7, 24(sp)
+  // LDR X0, [SP], #32
+  ld a0, 0(sp)
+  // BR X0
+  jr a0
+abort_self_signal:
+  // ADD SP, SP, #32
+  addi sp, sp, 32
+  // LDR X2, [SP, #16]
+  ld a2, 16(sp)
+  // LDR X0, [SP], #32
+  ld a0, 0(sp)
+  addi sp, sp, 32
+  // BR X0
+  jr a0
+
+.global deliver_signals_addr
+deliver_signals_addr: .quad deliver_signals
 
 .global disp_thread_data
 .global th_is_pending_ptr
@@ -538,10 +677,6 @@ th_is_pending_ptr: .word 0
 disp_thread_data:  .quad 0
 th_is_pending_ptr: .quad 0
 #endif
-
-.global send_self_signal
-send_self_signal:
-  unimp
 
 .global end_of_dispatcher_s
 end_of_dispatcher_s:
