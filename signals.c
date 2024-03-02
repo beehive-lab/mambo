@@ -356,8 +356,12 @@ void translate_delayed_signal_frame(ucontext_t *cont) {
   cont->uc_mcontext.regs[x1] = sp[5];
   sp += 6;
 #elif __riscv
-  #warning translate_svc_frame not implemented
-  while(1); 
+  cont->uc_mcontext.__gregs[REG_A0+7] = sp[3];
+  cont->uc_mcontext.__gregs[REG_A0+2] = sp[2];
+  cont->uc_mcontext.__gregs[REG_PC] = sp[1];
+  cont->uc_mcontext.__gregs[REG_A0] = sp[4];
+  cont->uc_mcontext.__gregs[REG_A0+1] = sp[5];
+  sp += 6;
 #endif
 
   cont->sp_field = (uintptr_t)sp;
@@ -600,6 +604,7 @@ uintptr_t signal_dispatcher(int i, siginfo_t *info, void *context) {
   fprintf(stderr, "Checkpoint two!\n");
 
   if (deliver_now) {
+    fprintf(stderr, "Deliver now %p!\n", global_data.signal_handlers[i]);
     handler = lookup_or_scan(current_thread, global_data.signal_handlers[i]);
     return handler;
   }
