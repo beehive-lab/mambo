@@ -356,6 +356,7 @@ void translate_delayed_signal_frame(ucontext_t *cont) {
   cont->uc_mcontext.regs[x1] = sp[5];
   sp += 6;
 #elif __riscv
+  fprintf(stderr, "%lx, %lx, %lx, %lx, %lx\n", sp[3], sp[2], sp[1], sp[4], sp[5]);
   cont->uc_mcontext.__gregs[REG_A0+7] = sp[3];
   cont->uc_mcontext.__gregs[REG_A0+2] = sp[2];
   cont->uc_mcontext.__gregs[REG_PC] = sp[1];
@@ -753,5 +754,6 @@ uintptr_t signal_dispatcher(int i, siginfo_t *info, void *context) {
 
   fprintf(stderr, "Checkpoint six!\n");
 
+  fprintf(stderr, "handler = %ld\n", handler);
   return handler;
 }

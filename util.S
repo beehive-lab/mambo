@@ -319,25 +319,25 @@ sigret:
 
   jal ra, signal_dispatcher
 
-  sd x1, 0(sp)
-  sd x5, 8(sp)
-  sd x6, 16(sp)
-  sd x7, 24(sp)
-  sd x12, 32(sp)
-  sd x13, 40(sp)
-  sd x14, 48(sp)
-  sd x15, 56(sp)
-  sd x16, 64(sp)
-  sd x17, 72(sp)
-  sd x28, 80(sp)
-  sd x29, 88(sp)
-  sd x30, 96(sp)
-  sd x31, 104(sp)
+  ld x1, 0(sp)
+  ld x5, 8(sp)
+  ld x6, 16(sp)
+  ld x7, 24(sp)
+  ld x12, 32(sp)
+  ld x13, 40(sp)
+  ld x14, 48(sp)
+  ld x15, 56(sp)
+  ld x16, 64(sp)
+  ld x17, 72(sp)
+  ld x28, 80(sp)
+  ld x29, 88(sp)
+  ld x30, 96(sp)
+  ld x31, 104(sp)
   addi sp, sp, 112
 
   beq a0, zero, sigret
  
-  jalr ra, a0  
+  jr a0  
 sigret:
   addi sp, sp, 16
   li a7, __NR_rt_sigreturn
