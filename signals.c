@@ -356,12 +356,12 @@ void translate_delayed_signal_frame(ucontext_t *cont) {
   cont->uc_mcontext.regs[x1] = sp[5];
   sp += 6;
 #elif __riscv
-  fprintf(stderr, "%lx, %lx, %lx, %lx, %lx\n", sp[3], sp[2], sp[1], sp[4], sp[5]);
+  fprintf(stderr, "%lx, %lx, %lx, %lx, %lx %lx\n", sp[0], sp[1], sp[2], sp[3], sp[4], sp[5]);
   cont->uc_mcontext.__gregs[REG_A0+7] = sp[3];
   cont->uc_mcontext.__gregs[REG_A0+2] = sp[2];
-  cont->uc_mcontext.__gregs[REG_PC] = sp[1];
-  cont->uc_mcontext.__gregs[REG_A0] = sp[4];
-  cont->uc_mcontext.__gregs[REG_A0+1] = sp[5];
+  cont->uc_mcontext.__gregs[REG_PC] = sp[0];
+  cont->uc_mcontext.__gregs[REG_A0] = sp[5];
+  cont->uc_mcontext.__gregs[REG_A0+1] = sp[4];
   sp += 6;
 #endif
 
@@ -743,13 +743,13 @@ uintptr_t signal_dispatcher(int i, siginfo_t *info, void *context) {
 
   fprintf(stderr, "Checkpoint five!\n");
 
-  fprintf(stderr, "%d %ld\n", i, current_thread->pending_signals[i]);
+  fprintf(stderr, "no=%d pending=%ld\n", i, current_thread->pending_signals[i]);
   fprintf(stderr, "%ld\n", current_thread->is_signal_pending);
 
   atomic_increment_int(&current_thread->pending_signals[i], 1);
   atomic_increment_u32(&current_thread->is_signal_pending, 1);
 
-  fprintf(stderr, "%d %ld\n", i, current_thread->pending_signals[i]);
+  fprintf(stderr, "no=%d pending=%ld\n", i, current_thread->pending_signals[i]);
   fprintf(stderr, "%ld\n", current_thread->is_signal_pending);
 
   fprintf(stderr, "Checkpoint six!\n");

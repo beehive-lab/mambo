@@ -582,6 +582,7 @@ deliver_signals_trampoline:
   // MOV X2, #0xd6db
   // What's the magic number that causes program to enter
   // an infinite loop?
+  // a2 is still value loaded from th_is_pending_ptr and a0 SPC
   li a2, 0xd6db
   // CMP X0, X2
   // BEQ .
@@ -643,8 +644,14 @@ deliver_signal_trampoline_trap:
   */
 r:
   // MOV X8, #131
+  // Call tgkill. deliver_signals returns pid, tid and signo on the stack pointed by a1
+  // at the time of the call.
   li a7, 131
   // SVC 0
+  // Sending tgkill signal makes signal_dispatcher to fire.
+  // And hit pc == ((uintptr_t)current_thread->code_cache + self_send_signal_offset
+  // The pc is at the time of ecall is addr_of(ecall) + size_of(ecall), so the code
+  // above basically checks if the signal came from here.
   ecall
 send_self_signal:
   // LDP X2, X8, [SP, #16]
@@ -652,6 +659,7 @@ send_self_signal:
   ld a7, 24(sp)
   // LDR X0, [SP], #32
   ld a0, 0(sp)
+  addi sp, sp, 32
   // BR X0
   jr a0
 abort_self_signal:
