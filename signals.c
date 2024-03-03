@@ -359,9 +359,9 @@ void translate_delayed_signal_frame(ucontext_t *cont) {
   fprintf(stderr, "%lx, %lx, %lx, %lx, %lx %lx\n", sp[0], sp[1], sp[2], sp[3], sp[4], sp[5]);
   cont->uc_mcontext.__gregs[REG_A0+7] = sp[3];
   cont->uc_mcontext.__gregs[REG_A0+2] = sp[2];
-  cont->uc_mcontext.__gregs[REG_PC] = sp[0];
-  cont->uc_mcontext.__gregs[REG_A0] = sp[5];
-  cont->uc_mcontext.__gregs[REG_A0+1] = sp[4];
+  cont->uc_mcontext.__gregs[REG_PC] = sp[1];
+  cont->uc_mcontext.__gregs[REG_A0] = sp[4];
+  cont->uc_mcontext.__gregs[REG_A0+1] = sp[5];
   sp += 6;
 #endif
 

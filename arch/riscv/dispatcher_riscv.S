@@ -239,6 +239,7 @@ dispatcher_trampoline:
   j checked_cc_return
 
 dispatcher_addr: .quad dispatcher
+.global mambo_gp_addr
 mambo_gp_addr: .quad mambo_gp
 
 #ifdef DBM_TRACES
@@ -529,6 +530,64 @@ skip_syscall:
 syscall_handler_pre_addr: .quad syscall_handler_pre
 syscall_handler_post_addr: .quad syscall_handler_post
 
+.global signal_trampoline
+signal_trampoline:
+  addi sp, sp, -144
+  sd x1, 0(sp)
+  sd x5, 8(sp)
+  sd x6, 16(sp)
+  sd x7, 24(sp)
+  sd x12, 32(sp)
+  sd x13, 40(sp)
+  sd x14, 48(sp)
+  sd x15, 56(sp)
+  sd x16, 64(sp)
+  sd x17, 72(sp)
+  sd x28, 80(sp)
+  sd x29, 88(sp)
+  sd x30, 96(sp)
+  sd x31, 104(sp)
+  sd tp, 112(sp)
+  sd gp, 120(sp)
+  sd x10, 128(sp)
+  sd x11, 136(sp)
+
+  lla ra, disp_thread_data
+  ld  ra, (ra)
+  ld  tp, (ra)
+  lla gp, mambo_gp_addr
+  ld  gp, (gp)
+  ld  gp, (gp)
+
+  jal ra, signal_dispatcher
+
+  ld x1, 0(sp)
+  ld x5, 8(sp)
+  ld x6, 16(sp)
+  ld x7, 24(sp)
+  ld x12, 32(sp)
+  ld x13, 40(sp)
+  ld x14, 48(sp)
+  ld x15, 56(sp)
+  ld x16, 64(sp)
+  ld x17, 72(sp)
+  ld x28, 80(sp)
+  ld x29, 88(sp)
+  ld x30, 96(sp)
+  ld x31, 104(sp)
+  ld tp, 112(sp)
+  ld gp, 120(sp)
+  addi sp, sp, 128
+
+  beq a0, zero, sigret
+
+  jr a0  
+sigret:
+  addi sp, sp, 16
+  // li a7, __NR_rt_sigreturn
+  li a7, 139
+  ecall
+
 .global send_self_signal
 
 .global checked_cc_return
@@ -572,6 +631,10 @@ deliver_signals_trampoline:
   // BL push_neon
   jal ra, push_fp
 
+  addi sp, sp, -16
+  sd tp, 0(sp)
+  sd gp, 8(sp)
+
   // MRS X19, NZCV
   frcsr s0
   // MRS X20, FPCR
@@ -611,6 +674,10 @@ deliver_signal_trampoline_trap:
   fsflags s1
   // MSR FPSR, X21
   fsrm s2
+
+  ld tp, 0(sp)
+  ld gp, 8(sp)
+  addi sp, sp, 16
 
   // BL pop_neon
   jal ra, pop_fp

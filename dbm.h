@@ -414,7 +414,8 @@ inline static uintptr_t adjust_cc_entry(uintptr_t addr) {
 
 extern dbm_global global_data;
 extern uintptr_t page_size;
-extern dbm_thread *disp_thread_data;
+extern volatile dbm_thread *disp_thread_data;
+extern uintptr_t mambo_gp_addr;
 extern uint32_t *th_is_pending_ptr;
 extern __thread dbm_thread *current_thread;
 

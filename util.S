@@ -220,7 +220,7 @@ raw_syscall:
 #endif
 .endfunc
 
-.global signal_trampoline
+/*.global signal_trampoline
 .func signal_trampoline
 .type signal_trampoline, %function
 
@@ -299,7 +299,7 @@ sigret:
 #endif
   // x10 and x11 (a0 and a1) have the same purpose as x0 and x1
   // in AArch64, so we need to put them on top.
-  addi sp, sp, -128
+  addi sp, sp, -144
   sd x1, 0(sp)
   sd x5, 8(sp)
   sd x6, 16(sp)
@@ -314,8 +314,19 @@ sigret:
   sd x29, 88(sp)
   sd x30, 96(sp)
   sd x31, 104(sp)
-  sd x10, 112(sp)
-  sd x11, 120(sp)
+  sd tp, 112(sp)
+  sd gp, 120(sp)
+  sd x10, 128(sp)
+  sd x11, 136(sp)
+
+  ebreak
+
+  lla ra, disp_thread_data
+  ld  ra, (ra)
+  ld  tp, 0(ra)
+  lla gp, mambo_gp_addr
+  ld  gp, (gp)
+  ld  gp, (gp)
 
   jal ra, signal_dispatcher
 
@@ -333,17 +344,19 @@ sigret:
   ld x29, 88(sp)
   ld x30, 96(sp)
   ld x31, 104(sp)
-  addi sp, sp, 112
+  ld tp, 112(sp)
+  ld gp, 120(sp)
+  addi sp, sp, 128
 
   beq a0, zero, sigret
- 
+
   jr a0  
 sigret:
   addi sp, sp, 16
   li a7, __NR_rt_sigreturn
   ecall
 #endif
-.endfunc
+.endfunc*/
 
 .global atomic_increment_u64
 .func atomic_increment_u64

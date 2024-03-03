@@ -562,6 +562,8 @@ void syscall_handler_post(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_
   }
   thread_data->status = THREAD_RUNNING;
 
+  fprintf(stderr, "syscall %d\n", syscall_no);
+
   switch(syscall_no) {
     case __NR_clone3:
     case __NR_clone:
