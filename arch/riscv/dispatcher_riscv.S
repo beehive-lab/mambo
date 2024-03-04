@@ -552,13 +552,20 @@ signal_trampoline:
   sd x10, 128(sp)
   sd x11, 136(sp)
 
-  lla ra, disp_thread_data
-  ld  ra, (ra)
-  ld  tp, (ra)
-  lla gp, mambo_gp_addr
-  ld  gp, (gp)
-  ld  gp, (gp)
+  // dbm_thread second field stores MAMBO original tp.
+  // We need to check if signal came from MAMBO or from
+  // the kernel. If it came from MAMBO tgkill in signal
+  // delivery. Very hacky way to check where the signal
+  // came from is to check address of the $tp. Original
+  // MAMBO tp will be in the memory region where MAMBO
+  // lives. MAMBO addresses are 0x7f000000 and application
+  // 0x7f..(many f)..f..0..0
+  srli ra, tp, 32
+  beq ra, zero, skip_tp
+  ld ra, 8(tp)
+  mv tp, ra
 
+skip_tp:
   jal ra, signal_dispatcher
 
   ld x1, 0(sp)
@@ -719,6 +726,12 @@ r:
   // And hit pc == ((uintptr_t)current_thread->code_cache + self_send_signal_offset
   // The pc is at the time of ecall is addr_of(ecall) + size_of(ecall), so the code
   // above basically checks if the signal came from here.
+  lla a3, disp_thread_data
+  ld  a3, (a3)
+  ld  a3, (a3)
+
+  sd  a3, 8(tp)
+
   ecall
 send_self_signal:
   // LDP X2, X8, [SP, #16]

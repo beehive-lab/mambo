@@ -466,6 +466,7 @@ void init_thread(dbm_thread *thread_data) {
   uintptr_t tp;
   asm("\t mv %0, tp" : "=r"(tp));
   thread_data->mambo_tp = tp;
+  thread_data->signal_store = 0;
 #endif
 }
 

@@ -567,7 +567,7 @@ void sigret_dispatcher_call(dbm_thread *thread_data, ucontext_t *cont, uintptr_t
 /* If pc < <type specific>, unlink the fragment and resume execution */
 uintptr_t signal_dispatcher(int i, siginfo_t *info, void *context) {
 	
-  fprintf(stderr, "Entered signal dispatcher!\n");
+  fprintf(stderr, "Entered signal dispatcher %d!\n", i);
 
   uintptr_t handler = 0;
   bool deliver_now = false;
