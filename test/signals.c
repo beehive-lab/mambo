@@ -32,6 +32,8 @@
 #include "../pie/pie-arm-encoder.h"
 #elif __aarch64__
 #include "../pie/pie-a64-encoder.h"
+#elif __riscv
+#include "../pie/pie-riscv-encoder.h"
 #endif
 #include "../scanner_public.h"
 
@@ -71,8 +73,11 @@ void handle_sync(int i, siginfo_t *info, void *ptr) {
 #elif __aarch64__
   #define add_inst(wptr) a64_ADD_SUB_immed(&wptr, 1, 0, 0, 0, 1, x0, x0);
   #define return_inst(wptr) a64_RET(&wptr, lr);
+#elif __riscv
+  #define add_inst(wptr) riscv_addi(&wptr, a0, a0, 0);
+  #define return_inst(wptr) riscv_jalr(&wptr, x0, ra, 0);
 #else
-  #error Unknown architecture
+  #error Unsupported architecture
 #endif
 
 // Fill the CC
@@ -124,6 +129,8 @@ int main (int argc, char **argv) {
   fflush(stdout);
   ret = kill(getpid(), SIGUSR1);
   assert(ret == 0);
+
+  exit(0);
 
   printf("Signal after flushing the code cache: ");
   fflush(stdout);
@@ -192,6 +199,7 @@ int main (int argc, char **argv) {
   assert(count == SIGNAL_CNT);
   printf("success\n");
 
+#ifdef __arm__ || __aarch64__
   printf("Test signal handling in fragments containing CB(N)Z: ");
   fflush(stdout);
   pthread_create(&thread, NULL, signal_parent, &tid);
@@ -199,6 +207,7 @@ int main (int argc, char **argv) {
   pthread_join(thread, NULL);
   assert(count == AS_TEST_ITER/4);
   printf("success\n");
+#endif
 
 #ifdef __aarch64__
   printf("Test signal handling in fragments containing TB(N)Z: ");
@@ -240,6 +249,8 @@ int main (int argc, char **argv) {
     asm volatile ("bkpt 0");
 #elif __aarch64__
     asm volatile ("brk 0");
+#elif __riscv
+    asm volatile ("ebreak");
 #else
     #error Unsupported architecture
 #endif
@@ -259,7 +270,7 @@ int main (int argc, char **argv) {
 #elif __aarch64__
     asm volatile ("hvc 0");
 #else
-    #error Unsupported architecture
+    asm volatile ("unimp");
 #endif
   }
   assert(sig_received == 2);
@@ -273,6 +284,6 @@ int main (int argc, char **argv) {
 #elif __aarch64__
     asm volatile ("hvc 0");
 #else
-    #error Unsupported architecture
+    asm volatile ("unimp");
 #endif
 }

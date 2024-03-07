@@ -8,6 +8,11 @@ ifeq ($(ARCH),aarch64)
 	PIE_ENCODER = ../pie/pie-a64-encoder.o
 	PIE_DECODER = ../pie/pie-a64-decoder.o
 endif
+ifeq ($(ARCH),riscv64)
+	PIE_ENCODER = ../pie/pie-riscv-encoder.o
+	PIE_DECODER = ../pie/pie-riscv-decoder.o
+endif
+
 
 CFLAGS+=-std=gnu99
 LDFLAGS+=-lpthread

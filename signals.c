@@ -83,7 +83,7 @@ void install_system_sig_handlers() {
 
 int deliver_signals(uintptr_t spc, self_signal *s) {
   fprintf(stderr, "Delivering the signal\n");
-  fprintf(stderr, "%ld\n", current_thread->is_signal_pending);
+  // fprintf(stderr, "%ld\n", current_thread->is_signal_pending);
   uint64_t sigmask;
 
   if (global_data.exit_group) {
@@ -96,13 +96,13 @@ int deliver_signals(uintptr_t spc, self_signal *s) {
   for (int i = 0; i < _NSIG; i++) {
     if ((sigmask & (1 << i)) == 0
         && atomic_decrement_if_positive_i32(&current_thread->pending_signals[i], 1) >= 0) {
-      fprintf(stderr, "%ld\n", current_thread->pending_signals[i]);
+      // fprintf(stderr, "%ld\n", current_thread->pending_signals[i]);
       s->pid = syscall(__NR_getpid);
       s->tid = syscall(__NR_gettid);
       s->signo = i;
-      fprintf(stderr, "%ld\n", current_thread->is_signal_pending);
+      // fprintf(stderr, "%ld\n", current_thread->is_signal_pending);
       atomic_increment_u32(&current_thread->is_signal_pending, -1);
-      fprintf(stderr, "%ld\n", current_thread->is_signal_pending);
+      // fprintf(stderr, "%ld\n", current_thread->is_signal_pending);
       return 1;
     }
   }
@@ -524,11 +524,19 @@ void restore_ihl_regs(ucontext_t *cont) {
 void sigret_dispatcher_call(dbm_thread *thread_data, ucontext_t *cont, uintptr_t target) {
   uintptr_t *sp = (uintptr_t *)cont->context_sp;
 
+  fprintf(stderr, "sigret_dispatcher_call start\n");
+  fprintf(stderr, "%p %p %p %p\n", thread_data, cont, target, sp);
+
 #ifdef __arm__
   sp -= DISP_SP_OFFSET / 4;
 #elif __aarch64__
   sp -= 2;
+#elif __riscv
+  sp -= 2;
 #endif
+  
+  fprintf(stderr, "%lx %lx\n", sp, (int64_t) sp % 16);
+
   sp[0] = cont->context_reg(0);
   sp[1] = cont->context_reg(1);
 #ifdef __arm__
@@ -542,6 +550,8 @@ void sigret_dispatcher_call(dbm_thread *thread_data, ucontext_t *cont, uintptr_t
   cont->context_reg(3) = cont->context_sp;
   cont->uc_mcontext.arm_cpsr &= ~CPSR_T;
 #endif
+
+  fprintf(stderr, "sigret_dispatcher_call end\n");
 
   cont->context_sp = (uintptr_t)sp;
 }
@@ -743,17 +753,17 @@ uintptr_t signal_dispatcher(int i, siginfo_t *info, void *context) {
 
   fprintf(stderr, "Checkpoint five!\n");
 
-  fprintf(stderr, "no=%d pending=%ld\n", i, current_thread->pending_signals[i]);
-  fprintf(stderr, "%ld\n", current_thread->is_signal_pending);
+  // fprintf(stderr, "no=%d pending=%ld\n", i, current_thread->pending_signals[i]);
+  // fprintf(stderr, "%ld\n", current_thread->is_signal_pending);
 
   atomic_increment_int(&current_thread->pending_signals[i], 1);
   atomic_increment_u32(&current_thread->is_signal_pending, 1);
 
-  fprintf(stderr, "no=%d pending=%ld\n", i, current_thread->pending_signals[i]);
-  fprintf(stderr, "%ld\n", current_thread->is_signal_pending);
+  // fprintf(stderr, "no=%d pending=%ld\n", i, current_thread->pending_signals[i]);
+  // fprintf(stderr, "%ld\n", current_thread->is_signal_pending);
 
   fprintf(stderr, "Checkpoint six!\n");
 
-  fprintf(stderr, "handler = %ld\n", handler);
+  // fprintf(stderr, "handler = %ld\n", handler);
   return handler;
 }

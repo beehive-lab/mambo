@@ -343,7 +343,9 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
       int ret = pthread_mutex_lock(&global_data.signal_handlers_mutex);
       assert(ret == 0);
 
+      fprintf(stderr, "syscall -----> %d\n", syscall_no);
       uintptr_t syscall_ret = raw_syscall(syscall_no, args[0], args[1], args[2], args[3]);
+      fprintf(stderr, "Acted with sigaction\n");
       if (syscall_ret == 0) {
         struct kernel_sigaction *oldact = (struct kernel_sigaction *)args[2];
         if (oldact != NULL && oldact->k_sa_handler != SIG_IGN && oldact->k_sa_handler != SIG_DFL) {
@@ -482,6 +484,7 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
 #endif
     case __NR_rt_sigreturn: {
       void *app_sp = args;
+      fprintf(stderr, "App sp in syscall handler: %p\n", app_sp);
 #ifdef __arm__
       /* We force all signal handler to the SA_SIGINFO type, which must return
          with rt_sigreturn() and not sigreturn(). Some applications don't return
@@ -492,16 +495,20 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
       args[7] = __NR_rt_sigreturn;
       app_sp += 64;
 #elif __aarch64__
+      // Size of the stack space used to preserve general registers (x4-x21)[144 bytes]
+      // plus any extra stack space used by the syscall_wrapper (64 bytes).
       app_sp += 64 + 144;
+#elif __riscv
+      app_sp += 216;
 #endif
-#if defined(__arm__) || defined(__aarch64__)
+//#if defined(__arm__) || defined(__aarch64__)
       ucontext_t *cont = (ucontext_t *)(app_sp + sizeof(siginfo_t));
       sigret_dispatcher_call(thread_data, cont, cont->context_pc);
-#endif
+/*#endif
 #if defined(__riscv)
       #warning sigreturn handling not implemented for RISCV
       fprintf(stderr, "sigreturn handling not implemented for RISCV\n");
-#endif
+#endif*/
 
       // Don't mark the thread as executing a syscall
       return 1;
@@ -561,8 +568,6 @@ void syscall_handler_post(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_
     thread_abort(thread_data);
   }
   thread_data->status = THREAD_RUNNING;
-
-  fprintf(stderr, "syscall %d\n", syscall_no);
 
   switch(syscall_no) {
     case __NR_clone3:
