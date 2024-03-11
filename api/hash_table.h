@@ -17,6 +17,9 @@
   limitations under the License.
 */
 
+#ifndef __MAMBO_HASH_TABLE_H__
+#define __MAMBO_HASH_TABLE_H__
+
 #include <stdbool.h>
 
 typedef struct {
@@ -44,3 +47,5 @@ int mambo_ht_add_nolock(mambo_ht_t *ht, uintptr_t key, uintptr_t value);
 int mambo_ht_add(mambo_ht_t *ht, uintptr_t key, uintptr_t value);
 int mambo_ht_get_nolock(mambo_ht_t *ht, uintptr_t key, uintptr_t *value);
 int mambo_ht_get(mambo_ht_t *ht, uintptr_t key, uintptr_t *value);
+
+#endif
