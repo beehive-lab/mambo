@@ -39,6 +39,16 @@ typedef struct {
   mambo_ht_entry_t *entries; 
 } mambo_ht_t;
 
+/**
+ * @brief Initialises a hash-table with specific configuration.
+ *
+ * Initialises a hash-table 
+ * 
+ * @pre @c ctx->thread_data must not be @c NULL.
+ * 
+ * @param ctx The context that holds the plugin state.
+ * @return The id of the calling thread.
+ */
 int mambo_ht_init(mambo_ht_t *ht, size_t initial_size, int index_shift, int fill_factor, bool allow_resize);
 int mambo_ht_add_nolock(mambo_ht_t *ht, uintptr_t key, uintptr_t value);
 int mambo_ht_add(mambo_ht_t *ht, uintptr_t key, uintptr_t value);
