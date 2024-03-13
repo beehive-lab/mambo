@@ -14,7 +14,7 @@ LDFLAGS+=-lpthread
 
 .PHONY: clean
 
-portable: mmap_munmap mprotect_exec self_modifying signals load_store
+portable: mmap_munmap mprotect_exec self_modifying signals load_store symbols
 
 aarch32: portable hw_div
 
@@ -33,4 +33,4 @@ load_store: $(PIE_ENCODER) $(PIE_DECODER) load_store.c load_store.S
 	$(CC) -g $(CFLAGS) $^ $(LDFLAGS) -o $@
 
 clean:
-	rm -f mmap_munmap mprotect_exec self_modifying signals hw_div load_store
+	rm -f mmap_munmap mprotect_exec self_modifying signals hw_div load_store symbols
