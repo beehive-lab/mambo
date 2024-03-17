@@ -269,6 +269,7 @@ struct dbm_thread_s {
   bool clone_vm;
   int pending_signals[_NSIG];
   uint32_t is_signal_pending;
+  void *pstack;
 };
 
 typedef enum {
@@ -348,7 +349,11 @@ extern void trace_head_incr();
 extern void* start_of_dispatcher_s;
 extern void* end_of_dispatcher_s;
 extern void th_to_arm();
+#ifdef __riscv
+extern void th_enter(void *stack, uintptr_t cc_addr, uintptr_t tls);
+#else
 extern void th_enter(void *stack, uintptr_t cc_addr);
+#endif
 extern void send_self_signal();
 extern void syscall_wrapper_svc();
 
