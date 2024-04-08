@@ -21,8 +21,61 @@
 .global start_of_dispatcher_s
 start_of_dispatcher_s:
 
-.global push_neon
-push_neon:
+.global push_simd
+push_simd:
+#if defined(__ARM_FEATURE_SVE) || defined(__ARM_FEATURE_SVE2)
+  ADDVL SP, SP, #-32
+  STR Z0, [SP]
+  STR Z1, [SP, #1, MUL VL]
+  STR Z2, [SP, #2, MUL VL]
+  STR Z3, [SP, #3, MUL VL]
+  STR Z4, [SP, #4, MUL VL]
+  STR Z5, [SP, #5, MUL VL]
+  STR Z6, [SP, #6, MUL VL]
+  STR Z7, [SP, #7, MUL VL]
+  STR Z8, [SP, #8, MUL VL]
+  STR Z9, [SP, #9, MUL VL]
+  STR Z10, [SP, #10, MUL VL]
+  STR Z11, [SP, #11, MUL VL]
+  STR Z12, [SP, #12, MUL VL]
+  STR Z13, [SP, #13, MUL VL]
+  STR Z14, [SP, #14, MUL VL]
+  STR Z15, [SP, #15, MUL VL]
+  STR Z16, [SP, #16, MUL VL]
+  STR Z17, [SP, #17, MUL VL]
+  STR Z18, [SP, #18, MUL VL]
+  STR Z19, [SP, #19, MUL VL]
+  STR Z20, [SP, #20, MUL VL]
+  STR Z21, [SP, #21, MUL VL]
+  STR Z22, [SP, #22, MUL VL]
+  STR Z23, [SP, #23, MUL VL]
+  STR Z24, [SP, #24, MUL VL]
+  STR Z25, [SP, #25, MUL VL]
+  STR Z26, [SP, #26, MUL VL]
+  STR Z27, [SP, #27, MUL VL]
+  STR Z28, [SP, #28, MUL VL]
+  STR Z29, [SP, #29, MUL VL]
+  STR Z30, [SP, #30, MUL VL]
+  STR Z31, [SP, #31, MUL VL]
+
+  ADDPL SP, SP, #-16
+  STR P0, [SP]
+  STR P1, [SP, #1, MUL VL]
+  STR P2, [SP, #2, MUL VL]
+  STR P3, [SP, #3, MUL VL]
+  STR P4, [SP, #4, MUL VL]
+  STR P5, [SP, #5, MUL VL]
+  STR P6, [SP, #6, MUL VL]
+  STR P7, [SP, #7, MUL VL]
+  STR P8, [SP, #8, MUL VL]
+  STR P9, [SP, #9, MUL VL]
+  STR P10, [SP, #10, MUL VL]
+  STR P11, [SP, #11, MUL VL]
+  STR P12, [SP, #12, MUL VL]
+  STR P13, [SP, #13, MUL VL]
+  STR P14, [SP, #14, MUL VL]
+  STR P15, [SP, #15, MUL VL]
+#else
   STP  Q0,  Q1, [SP, #-512]!
   STP  Q2,  Q3, [SP,   #32]
   STP  Q4,  Q5, [SP,   #64]
@@ -39,10 +92,65 @@ push_neon:
   STP Q26, Q27, [SP,  #416]
   STP Q28, Q29, [SP,  #448]
   STP Q30, Q31, [SP,  #480]
+#endif
   RET
 
-.global pop_neon
-pop_neon:
+.global pop_simd
+pop_simd:
+#if defined(__ARM_FEATURE_SVE) || defined(__ARM_FEATURE_SVE2)
+  LDR P0, [SP]
+  LDR P1, [SP, #1, MUL VL]
+  LDR P2, [SP, #2, MUL VL]
+  LDR P3, [SP, #3, MUL VL]
+  LDR P4, [SP, #4, MUL VL]
+  LDR P5, [SP, #5, MUL VL]
+  LDR P6, [SP, #6, MUL VL]
+  LDR P7, [SP, #7, MUL VL]
+  LDR P8, [SP, #8, MUL VL]
+  LDR P9, [SP, #9, MUL VL]
+  LDR P10, [SP, #10, MUL VL]
+  LDR P11, [SP, #11, MUL VL]
+  LDR P12, [SP, #12, MUL VL]
+  LDR P13, [SP, #13, MUL VL]
+  LDR P14, [SP, #14, MUL VL]
+  LDR P15, [SP, #15, MUL VL]
+  ADDPL SP, SP, #16
+
+  LDR Z31, [SP, #31, MUL VL]
+  LDR Z30, [SP, #30, MUL VL]
+  LDR Z29, [SP, #29, MUL VL]
+  LDR Z28, [SP, #28, MUL VL]
+  LDR Z27, [SP, #27, MUL VL]
+  LDR Z26, [SP, #26, MUL VL]
+  LDR Z25, [SP, #25, MUL VL]
+  LDR Z24, [SP, #24, MUL VL]
+  LDR Z23, [SP, #23, MUL VL]
+  LDR Z22, [SP, #22, MUL VL]
+  LDR Z21, [SP, #21, MUL VL]
+  LDR Z20, [SP, #20, MUL VL]
+  LDR Z19, [SP, #19, MUL VL]
+  LDR Z18, [SP, #18, MUL VL]
+  LDR Z17, [SP, #17, MUL VL]
+  LDR Z16, [SP, #16, MUL VL]
+  LDR Z15, [SP, #15, MUL VL]
+  LDR Z14, [SP, #14, MUL VL]
+  LDR Z13, [SP, #13, MUL VL]
+  LDR Z12, [SP, #12, MUL VL]
+  LDR Z11, [SP, #11, MUL VL]
+  LDR Z10, [SP, #10, MUL VL]
+  LDR Z9, [SP,  #9 , MUL VL]
+  LDR Z8, [SP,  #8 , MUL VL]
+  LDR Z7, [SP,  #7 , MUL VL]
+  LDR Z6, [SP,  #6 , MUL VL]
+  LDR Z5, [SP,  #5 , MUL VL]
+  LDR Z4, [SP,  #4 , MUL VL]
+  LDR Z3, [SP,  #3 , MUL VL]
+  LDR Z2, [SP,  #2 , MUL VL]
+  LDR Z1, [SP,  #1 , MUL VL]
+  LDR Z0, [SP]
+  ADDVL SP, SP, #31
+  ADDVL SP, SP, #1
+#else
   LDP  Q2,  Q3, [SP, #32]
   LDP  Q4,  Q5, [SP, #64]
   LDP  Q6,  Q7, [SP, #96]
@@ -59,6 +167,7 @@ pop_neon:
   LDP Q28, Q29, [SP, #448]
   LDP Q30, Q31, [SP, #480]
   LDP  Q0,  Q1, [SP], #512
+#endif
   RET
 
 .global push_x4_x21
@@ -103,11 +212,11 @@ dispatcher_trampoline:
   ADD X2, SP, #176
   LDR X3, disp_thread_data
   LDR X9, dispatcher_addr
-  BL push_neon
+  BL push_simd
 
   BLR X9
 
-  BL pop_neon
+  BL pop_simd
   MSR NZCV, X19
   MSR FPCR, X20
   MSR FPSR, X21
@@ -161,11 +270,11 @@ create_trace_trampoline:
   ADD X2, SP, #160
   LDR X0, disp_thread_data
   LDR X3, =create_trace
-  BL push_neon
+  BL push_simd
 
   BLR X3
 
-  BL pop_neon
+  BL pop_simd
   MSR NZCV, X19
   MSR FPCR, X20
   MSR FPSR, X21
@@ -193,14 +302,22 @@ syscall_wrapper:
   BL push_x4_x21
   STP X0, X1, [SP, #-32]!
   STP X2, X3, [SP, #16]
-  BL push_neon
+  BL push_simd
 
   MRS X19, NZCV
   MRS X20, FPCR
   MRS X21, FPSR
 
   MOV X0, X8
-  ADD X1, SP, #512
+#if defined(__ARM_FEATURE_SVE) || defined(__ARM_FEATURE_SVE2)
+  MOV X1, #0
+  ADDVL X1, X1, #31
+  ADDVL X1, X1, #1
+  ADDPL X1, X1, #16
+#else // defined(__ARM_NEON)
+  MOV X1, #512
+#endif
+  ADD X1, SP, X1
   MOV X2, X29
   LDR X3, disp_thread_data
   LDR X4, syscall_handler_pre_addr
@@ -209,7 +326,15 @@ syscall_wrapper:
 
   CBZ X0, s_w_r
 
-  ADD X9, SP, #512
+#if defined(__ARM_FEATURE_SVE) || defined(__ARM_FEATURE_SVE2)
+  MOV X9, #0
+  ADDVL X9, X9, #31
+  ADDVL X9, X9, #1
+  ADDPL X9, X9, #16
+#else // defined(__ARM_NEON)
+  MOV X9, #512
+#endif
+  ADD X9, SP, X9
   LDP X0, X1, [X9, #0]
   LDP X2, X3, [X9, #16]
   LDP X4, X5, [X9, #32]
@@ -219,11 +344,27 @@ syscall_wrapper:
   // Balance the stack on rt_sigreturn, which doesn't return here
   CMP X8, #0x8b
   BNE svc
+
+#if defined(__ARM_FEATURE_SVE) || defined(__ARM_FEATURE_SVE2)
+  ADD SP, SP, #(64 + 144)
+  ADDVL SP, SP, #31
+  ADDVL SP, SP, #1
+  ADDPL SP, SP, #16
+#else // defined(__ARM_NEON)
   ADD SP, SP, #(64 + 144 + 512)
+#endif
 
 svc: SVC 0
 syscall_wrapper_svc:
-  ADD X1, SP, #512
+#if defined(__ARM_FEATURE_SVE) || defined(__ARM_FEATURE_SVE2)
+  MOV X1, #0
+  ADDVL X1, X1, #31
+  ADDVL X1, X1, #1
+  ADDPL X1, X1, #16
+#else // defined(__ARM_NEON)
+  MOV X1, #512
+#endif
+  ADD X1, SP, X1
   STR X0, [X1, #0]
   MOV X0, X8
   MOV X2, X29
@@ -232,7 +373,7 @@ syscall_wrapper_svc:
   BLR X4
 
 s_w_r:
-  BL pop_neon
+  BL pop_simd
   MSR NZCV, X19
   MSR FPCR, X20
   MSR FPSR, X21
@@ -270,7 +411,7 @@ deliver_signals_trampoline:
   STP X29, X30, [SP, #16]
   ADD X1, SP, #32
   BL push_x4_x21
-  BL push_neon
+  BL push_simd
 
   MRS X19, NZCV
   MRS X20, FPCR
@@ -287,7 +428,7 @@ deliver_signals_trampoline:
   MSR FPCR, X20
   MSR FPSR, X21
 
-  BL pop_neon
+  BL pop_simd
   BL pop_x4_x21
   LDP X29, X30, [SP, #16]
   LDR X3, [SP], #32
