@@ -1,0 +1,291 @@
+#
+# This file is part of PIE, an instruction encoder / decoder generator:
+#    https://github.com/beehive-lab/pie
+#
+# Copyright 2020 Guillermo Callaghan <guillermocallaghan at hotmail dot com>
+# Copyright 2020-2021 The University of Manchester
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+#
+#
+# Risc -V Compressed Instructions
+# Several instructions are only valid for certain operands; when invalid, they
+# are marked:
+#   * RES  to indicate that the opcode is reserved for future standard extensions
+#   * NSE  to indicate that the opcode is reserved for custom extensions
+#   * HINT to indicate that the opcode is reserved for microarchitectural hints.
+#
+#
+# RVC Standard Extension for Compressed Instructions -- RVC 2.0 Ratified
+# Instruction listing for RVC, Quadrant 0
+c_illegal             00000000 00000000
+c_addi4spn            000aaaaa aaabbb00, b:rd, a:nzuimm:!:0                      # (RES, nzuimm=0)
+c_fld                 001aaabb bccddd00, d:f_rd, b:rs1, a:uimmhi,  c:uimmlo      # RV32/64
+#c_lq                 001aaabb bccddd00, d:rd, b:rs1, a:uimmhi, c:uimmlo         # RV128
+c_lw                  010aaabb bccddd00, d:rd, b:rs1, a:uimmhi, c:uimmlo
+#c_flw                 011aaabb bccddd00, d:f_rd, b:rs1, a:uimmhi, c:uimmlo      # RV32
+c_ld                  011aaabb bccddd00, d:rd, b:rs1, a:uimmhi, c:uimmlo         # RV64/128
+c_fsd                 101aaabb bccddd00, d:f_rs2, b:rs1, a:uimmhi, c:uimmlo      # RV32/64
+#c_sq                 101aaabb bccddd00, d:rs2, b:rs1, a:uimmhi, c:uimmlo        # RV128
+c_sw                  110aaabb bccddd00, d:rs2, b:rs1, a:uimmhi, c:uimmlo
+#c_fsw                 111aaabb bccddd00, d:f_rs2, b:rs1, a:uimmhi, c:uimmlo     # RV32
+c_sd                  111aaabb bccddd00, d:rs2, b:rs1, a:uimmhi, c:uimmlo        # RV64/128
+#
+# Instruction listing for RVC, Quadrant 1
+#                     | 15 14 13 | 12 | 11 10 | 9 8 7 | 6 5 | 4 3 2 | 1 0 |
+# Reserved            |  1  0  0 |  1 |  1  1 |  ---  | 1 0 |  --   | 0 1 |
+# Reserved            |  1  0  0 |  1 |  1  1 |  ---  | 1 1 |  --   | 0 1 |
+c_nop                 000a0000 0bbbbb01, a:nzimmhi, b:nzimmlo                    # (HINT, nzimm != 0)
+c_addi                000abbbb bccccc01, b:rs1_rd:!:0, a:nzimmhi, c:nzimmlo      # (HINT, nzimm=0)
+c_jal                 001aaaaa aaaaaa01, a:imm                                   # (RV32)
+c_addiw               001abbbb bccccc01, b:rs1_rd:!:0, a:nzimmhi, c:nzimmlo      # (RV64/128; RES, rd=0)
+c_li                  010abbbb bccccc01, b:rd:!:0, a:nzimmhi, c:nzimmlo          # (HINT, rd=0)
+c_addi16sp            011a0001 0bbbbb01, a:nzimmhi, b:nzimmlo                    # (RES, nzimm=0)
+c_lui                 011abbbb bccccc01, b:rd:!:00000:00010, a:nzimmhi, c:nzimmlo # (RES, nzimm=0; HINT, rd=0)
+c_srli                100a00bb bccccc01, b:rs1_rd, a:nzuimmhi, c:nzuimmlo        # (RV32 NSE, nzuimm[5]=1)
+#c_srli64              100000aa a0000001, a:rs1_rd                               # (RV128; RV32/64 HINT)
+c_srai                100a01bb bccccc01, b:rs1_rd, a:nzuimmhi, c:nzuimmlo        # (RV32 NSE, nzuimm[5]=1)
+#c_srai64              100001aa a0000001, a:rs1_rd                               # (RV128; RV32/64 HINT)
+c_andi                100a10bb bccccc01, b:rs1_rd, a:immhi, c:immlo
+c_sub                 100011aa a00bbb01, a:rs1_rd, b:rs2
+c_xor                 100011aa a01bbb01, a:rs1_rd, b:rs2
+c_or                  100011aa a10bbb01, a:rs1_rd, b:rs2
+c_and                 100011aa a11bbb01, a:rs1_rd, b:rs2
+c_subw                100111aa a00bbb01, a:rs1_rd, b:rs2                         # (RV64/128; RV32 RES)
+c_addw                100111aa a01bbb01, a:rs1_rd, b:rs2                         # (RV64/128; RV32 RES)
+c_j                   101aaaaa aaaaaa01, a:imm
+c_beqz                110aaabb bccccc01, b:rs1, a:immhi, c:immlo
+c_bnez                111aaabb bccccc01, b:rs1, a:immhi, c:immlo
+#
+# Instruction listing for RVC, Quadrant 2
+c_slli                000abbbb bccccc10, b:rs1_rd:!:0, a:nzuimmhi, c:nzuimmlo    # (HINT, rd=0; RV32 NSE, nzuimm[5]=1)
+#c_slli64              0000aaaa a0000010, a:rs1_rd:!:0                           # (RV128; RV32/64 HINT; HINT, rd=0)
+c_fldsp               001abbbb bccccc10, b:rd, a:uimmhi, c:uimmlo                # (RV32/64)
+#c_lqsp                001abbbb bccccc10, b:rd:!:0, a:uimmhi, c:uimmlo           # (RV128; RES, rd=0)
+c_lwsp                010abbbb bccccc10, b:rd:!:0, a:uimmhi, c:uimmlo            # (RES, rd=0)
+c_flwsp               011abbbb bccccc10, b:rd, a:uimmhi, c:uimmlo                # (RV32)
+c_ldsp                011abbbb bccccc10, b:rd:!:0, a:uimmhi, c:uimmlo            # (RV64/128; RES, rd=0)
+c_jr                  1000aaaa a0000010, a:rs1:!:0                               # (RES, rs1=0)
+c_mv                  1000aaaa abbbbb10, a:rd:!:0, b:rs2:!:0                     # (HINT, rd=0)
+c_ebreak              10010000 00000010
+c_jalr                1001aaaa a0000010, a:rs1:!:0
+c_add                 1001aaaa abbbbb10, a:rs1_rd:!:0, b:rs2:!:0                 # (HINT, rd=0)
+c_fsdsp               101aaaaa abbbbb10, b:rs2, a:uimm                           # (RV32/64)
+#c_sqsp                101aaaaa abbbbb10, b:rs2, a:uimm                          # (RV128)
+c_swsp                110aaaaa abbbbb10, b:rs2, a:uimm
+#c_fswsp               111aaaaa abbbbb10, b:rs2, a:uimm                          # (RV32)
+c_sdsp                111aaaaa abbbbb10, b:rs2, a:uimm                           # (RV64/128)
+#
+#
+#
+# These instruction are created from:
+#     The RISC-V Instruction Set Manual
+#       Volume I: Unprivileged ISA
+#       Document Version 20191213
+#
+# RV32I Base Integer Instruction Set -- RV32I 2.1 Ratified
+lui              aaaaaaaa aaaaaaaa aaaabbbb b0110111, b:rd, a:imm
+auipc            aaaaaaaa aaaaaaaa aaaabbbb b0010111, b:rd, a:imm
+jal              aaaaaaaa aaaaaaaa aaaabbbb b1101111, b:rd, a:imm
+jalr             aaaaaaaa aaaabbbb b000cccc c1100111, c:rd, b:rs1, a:imm
+beq              aaaaaaab bbbbcccc c000dddd d1100011, c:rs1, b:rs2, a:immhi, d:immlo
+bne              aaaaaaab bbbbcccc c001dddd d1100011, c:rs1, b:rs2, a:immhi, d:immlo
+blt              aaaaaaab bbbbcccc c100dddd d1100011, c:rs1, b:rs2, a:immhi, d:immlo
+bge              aaaaaaab bbbbcccc c101dddd d1100011, c:rs1, b:rs2, a:immhi, d:immlo
+bltu             aaaaaaab bbbbcccc c110dddd d1100011, c:rs1, b:rs2, a:immhi, d:immlo
+bgeu             aaaaaaab bbbbcccc c111dddd d1100011, c:rs1, b:rs2, a:immhi, d:immlo
+lb               aaaaaaaa aaaabbbb b000cccc c0000011, c:rd, b:rs1, a:imm
+lh               aaaaaaaa aaaabbbb b001cccc c0000011, c:rd, b:rs1, a:imm
+lw               aaaaaaaa aaaabbbb b010cccc c0000011, c:rd, b:rs1, a:imm
+lbu              aaaaaaaa aaaabbbb b100cccc c0000011, c:rd, b:rs1, a:imm
+lhu              aaaaaaaa aaaabbbb b101cccc c0000011, c:rd, b:rs1, a:imm
+sb               aaaaaaab bbbbcccc c000dddd d0100011, b:rs2, c:rs1, a:immhi, d:immlo
+sh               aaaaaaab bbbbcccc c001dddd d0100011, b:rs2, c:rs1, a:immhi, d:immlo
+sw               aaaaaaab bbbbcccc c010dddd d0100011, b:rs2, c:rs1, a:immhi, d:immlo
+addi             aaaaaaaa aaaabbbb b000cccc c0010011, c:rd, b:rs1, a:imm
+slti             aaaaaaaa aaaabbbb b010cccc c0010011, c:rd, b:rs1, a:imm
+sltiu            aaaaaaaa aaaabbbb b011cccc c0010011, c:rd, b:rs1, a:imm
+xori             aaaaaaaa aaaabbbb b100cccc c0010011, c:rd, b:rs1, a:imm
+ori              aaaaaaaa aaaabbbb b110cccc c0010011, c:rd, b:rs1, a:imm
+andi             aaaaaaaa aaaabbbb b111cccc c0010011, c:rd, b:rs1, a:imm
+slli             000000aa aaaabbbb b001cccc c0010011, c:rd, b:rs1, a:shamt      # rv32i/rv64i shamt[5] must be 0 for rv32i
+srli             000000aa aaaabbbb b101cccc c0010011, c:rd, b:rs1, a:shamt      # rv32i/rv64i shamt[5] must be 0 for rv32i
+srai             010000aa aaaabbbb b101cccc c0010011, c:rd, b:rs1, a:shamt      # rv32i/rv64i shamt[5] must be 0 for rv32i
+add              0000000a aaaabbbb b000cccc c0110011, c:rd, b:rs1, a:rs2
+sub              0100000a aaaabbbb b000cccc c0110011, c:rd, b:rs1, a:rs2
+sll              0000000a aaaabbbb b001cccc c0110011, c:rd, b:rs1, a:rs2
+slt              0000000a aaaabbbb b010cccc c0110011, c:rd, b:rs1, a:rs2
+sltu             0000000a aaaabbbb b011cccc c0110011, c:rd, b:rs1, a:rs2
+xor              0000000a aaaabbbb b100cccc c0110011, c:rd, b:rs1, a:rs2
+srl              0000000a aaaabbbb b101cccc c0110011, c:rd, b:rs1, a:rs2
+sra              0100000a aaaabbbb b101cccc c0110011, c:rd, b:rs1, a:rs2
+or               0000000a aaaabbbb b110cccc c0110011, c:rd, b:rs1, a:rs2
+and              0000000a aaaabbbb b111cccc c0110011, c:rd, b:rs1, a:rs2
+fence            aaaabbbb cccc0000 00000000 00001111, a:fm, b:pred, c:succ
+ecall            00000000 00000000 00000000 01110011
+ebreak           00000000 00010000 00000000 01110011
+#
+# RV64I Base Integer Instruction Set (in addition to RV32I) -- RV64I 2.1 Ratified
+# SLLI, SRLI and SRAI are declared in RV32I, where the shamt field was extended one bit.
+lwu              aaaaaaaa aaaabbbb b110cccc c0000011, c:rd, b:rs1, a:imm
+ld               aaaaaaaa aaaabbbb b011cccc c0000011, c:rd, b:rs1, a:imm
+sd               aaaaaaab bbbbcccc c011dddd d0100011, b:rs2, c:rs1, a:immhi, d:immlo
+addiw            aaaaaaaa aaaabbbb b000cccc c0011011, c:rd, b:rs1, a:imm
+slliw            0000000a aaaabbbb b001cccc c0011011, c:rd, b:rs1, a:shamt
+srliw            0000000a aaaabbbb b101cccc c0011011, c:rd, b:rs1, a:shamt
+sraiw            0100000a aaaabbbb b101cccc c0011011, c:rd, b:rs1, a:shamt
+addw             0000000a aaaabbbb b000cccc c0111011, c:rd, b:rs1, a:rs2
+subw             0100000a aaaabbbb b000cccc c0111011, c:rd, b:rs1, a:rs2
+sllw             0000000a aaaabbbb b001cccc c0111011, c:rd, b:rs1, a:rs2
+srlw             0000000a aaaabbbb b101cccc c0111011, c:rd, b:rs1, a:rs2
+sraw             0100000a aaaabbbb b101cccc c0111011, c:rd, b:rs1, a:rs2
+#
+# RV32/RV64 Zifencei Standard Extension for Instruction-Fetch Fence, -- Zifencei 2.0 Ratified
+fencei           00000000 00000000 00010000 00001111
+#
+# RV32/RV64 Zicsr Standard Extension for Control and Status Register Instructions,-- Zicsr 2.0 Ratified
+csrrw            aaaaaaaa aaaabbbb b001cccc c1110011, c:rd, a:csr_reg, b:rs1
+csrrs            aaaaaaaa aaaabbbb b010cccc c1110011, c:rd, a:csr_reg, b:rs1
+csrrc            aaaaaaaa aaaabbbb b011cccc c1110011, c:rd, a:csr_reg, b:rs1
+csrrwi           aaaaaaaa aaaabbbb b101cccc c1110011, c:rd, a:csr_reg, b:uimm
+csrrsi           aaaaaaaa aaaabbbb b110cccc c1110011, c:rd, a:csr_reg, b:uimm
+csrrci           aaaaaaaa aaaabbbb b111cccc c1110011, c:rd, a:csr_reg, b:uimm
+#
+# RV32M Standard Extension for Integer Multiplication and Division-- RV32M 2.0 Ratified
+mul              0000001a aaaabbbb b000cccc c0110011, c:rd, b:rs1, a:rs2
+mulh             0000001a aaaabbbb b001cccc c0110011, c:rd, b:rs1, a:rs2
+mulhsu           0000001a aaaabbbb b010cccc c0110011, c:rd, b:rs1, a:rs2
+mulhu            0000001a aaaabbbb b011cccc c0110011, c:rd, b:rs1, a:rs2
+div              0000001a aaaabbbb b100cccc c0110011, c:rd, b:rs1, a:rs2
+divu             0000001a aaaabbbb b101cccc c0110011, c:rd, b:rs1, a:rs2
+rem              0000001a aaaabbbb b110cccc c0110011, c:rd, b:rs1, a:rs2
+remu             0000001a aaaabbbb b111cccc c0110011, c:rd, b:rs1, a:rs2
+#
+# RV64M Standard Extension for Integer Multiplication and Division (in addition to RV32M) -- RV64M 2.0 Ratified
+mulw             0000001a aaaabbbb b000cccc c0111011, c:rd, b:rs1, a:rs2
+divw             0000001a aaaabbbb b100cccc c0111011, c:rd, b:rs1, a:rs2
+divuw            0000001a aaaabbbb b101cccc c0111011, c:rd, b:rs1, a:rs2
+remw             0000001a aaaabbbb b110cccc c0111011, c:rd, b:rs1, a:rs2
+remuw            0000001a aaaabbbb b111cccc c0111011, c:rd, b:rs1, a:rs2
+#
+# RV32A Standard Extension for Atomic Instructions -- RV32A 2.1 Ratified
+lr_w             00010ab0 0000cccc c010dddd d0101111, a:aq, b:rl, d:rd, c:rs1
+sc_w             00011abc ccccdddd d010eeee e0101111, a:aq, b:rl, e:rd, c:rs2, d:rs1
+amoswap_w        00001abc ccccdddd d010eeee e0101111, a:aq, b:rl, e:rd, c:rs2, d:rs1
+amoadd_w         00000abc ccccdddd d010eeee e0101111, a:aq, b:rl, e:rd, c:rs2, d:rs1
+amoxor_w         00100abc ccccdddd d010eeee e0101111, a:aq, b:rl, e:rd, c:rs2, d:rs1
+amoand_w         01100abc ccccdddd d010eeee e0101111, a:aq, b:rl, e:rd, c:rs2, d:rs1
+amoor_w          01000abc ccccdddd d010eeee e0101111, a:aq, b:rl, e:rd, c:rs2, d:rs1
+amomin_w         10000abc ccccdddd d010eeee e0101111, a:aq, b:rl, e:rd, c:rs2, d:rs1
+amomax_w         10100abc ccccdddd d010eeee e0101111, a:aq, b:rl, e:rd, c:rs2, d:rs1
+amominu_w        11000abc ccccdddd d010eeee e0101111, a:aq, b:rl, e:rd, c:rs2, d:rs1
+amomaxu_w        11100abc ccccdddd d010eeee e0101111, a:aq, b:rl, e:rd, c:rs2, d:rs1
+#
+# RV64A Standard Extension for Atomic Instructions (in addition to RV32A) -- RV64A 2.1  Ratified
+lr_d             00010ab0 0000cccc c011dddd d0101111, a:aq, b:rl, d:rd, c:rs1
+sc_d             00011abc ccccdddd d011eeee e0101111, a:aq, b:rl, e:rd, c:rs2, d:rs1
+amoswap_d        00001abc ccccdddd d011eeee e0101111, a:aq, b:rl, e:rd, c:rs2, d:rs1
+amoadd_d         00000abc ccccdddd d011eeee e0101111, a:aq, b:rl, e:rd, c:rs2, d:rs1
+amoxor_d         00100abc ccccdddd d011eeee e0101111, a:aq, b:rl, e:rd, c:rs2, d:rs1
+amoand_d         01100abc ccccdddd d011eeee e0101111, a:aq, b:rl, e:rd, c:rs2, d:rs1
+amoor_d          01000abc ccccdddd d011eeee e0101111, a:aq, b:rl, e:rd, c:rs2, d:rs1
+amomin_d         10000abc ccccdddd d011eeee e0101111, a:aq, b:rl, e:rd, c:rs2, d:rs1
+amomax_d         10100abc ccccdddd d011eeee e0101111, a:aq, b:rl, e:rd, c:rs2, d:rs1
+amominu_d        11000abc ccccdddd d011eeee e0101111, a:aq, b:rl, e:rd, c:rs2, d:rs1
+amomaxu_d        11100abc ccccdddd d011eeee e0101111, a:aq, b:rl, e:rd, c:rs2, d:rs1
+#
+# RV32F Standard Extension for Single-Precision Floating-Point -- RV32F 2.2 Ratified
+flw              aaaaaaaa aaaabbbb b010cccc c0000111, c:f_rd, b:rs1, a:offset
+fsw              aaaaaaab bbbbcccc c010dddd d0100111, b:f_rs2, c:rs1, a:offsethi, d:offsetlo
+fmadd_s          aaaaa00b bbbbcccc cdddeeee e1000011, e:f_rd, c:f_rs1, b:f_rs2, a:f_rs3, d:rm
+fmsub_s          aaaaa00b bbbbcccc cdddeeee e1000111, e:f_rd, c:f_rs1, b:f_rs2, a:f_rs3, d:rm
+fnmsub_s         aaaaa00b bbbbcccc cdddeeee e1001011, e:f_rd, c:f_rs1, b:f_rs2, a:f_rs3, d:rm
+fnmadd_s         aaaaa00b bbbbcccc cdddeeee e1001111, e:f_rd, c:f_rs1, b:f_rs2, a:f_rs3, d:rm
+fadd_s           0000000a aaaabbbb bcccdddd d1010011, d:f_rd, b:f_rs1, a:f_rs2, c:rm
+fsub_s           0000100a aaaabbbb bcccdddd d1010011, d:f_rd, b:f_rs1, a:f_rs2, c:rm
+fmul_s           0001000a aaaabbbb bcccdddd d1010011, d:f_rd, b:f_rs1, a:f_rs2, c:rm
+fdiv_s           0001100a aaaabbbb bcccdddd d1010011, d:f_rd, b:f_rs1, a:f_rs2, c:rm
+fsqrt_s          01011000 0000aaaa abbbcccc c1010011, c:f_rd, a:f_rs1, b:rm
+fsgnj_s          0010000a aaaabbbb b000cccc c1010011, c:f_rd, b:f_rs1, a:f_rs2
+fsgnjn_s         0010000a aaaabbbb b001cccc c1010011, c:f_rd, b:f_rs1, a:f_rs2
+fsgnjx_s         0010000a aaaabbbb b010cccc c1010011, c:f_rd, b:f_rs1, a:f_rs2
+fmin_s           0010100a aaaabbbb b000cccc c1010011, c:f_rd, b:f_rs1, a:f_rs2
+fmax_s           0010100a aaaabbbb b001cccc c1010011, c:f_rd, b:f_rs1, a:f_rs2
+fcvt_w_s         11000000 0000aaaa abbbcccc c1010011, c:rd, a:f_rs1, b:rm
+fcvt_wu_s        11000000 0001aaaa abbbcccc c1010011, c:rd, a:f_rs1, b:rm
+fmv_x_w          11100000 0000aaaa a000bbbb b1010011, b:rd, a:f_rs1
+feq_s            1010000a aaaabbbb b010cccc c1010011, c:rd, b:f_rs1, a:f_rs2
+flt_s            1010000a aaaabbbb b001cccc c1010011, c:rd, b:f_rs1, a:f_rs2
+fle_s            1010000a aaaabbbb b000cccc c1010011, c:rd, b:f_rs1, a:f_rs2
+fclass_s         11100000 0000aaaa a001bbbb b1010011, b:rd, a:f_rs1
+fcvt_s_w         11010000 0000aaaa abbbcccc c1010011, c:f_rd, a:rs1, b:rm
+fcvt_s_wu        11010000 0001aaaa abbbcccc c1010011, c:f_rd, a:rs1, b:rm
+fmv_w_x          11110000 0000aaaa a000bbbb b1010011, b:f_rd, a:rs1
+#
+# RV64F Standard Extension for Single-Precision Floating-Point (in addition to RV32F) -- RV64F 2.2 Ratified
+fcvt_l_s         11000000 0010aaaa abbbcccc c1010011, c:rd, a:f_rs1, b:rm
+fcvt_lu_s        11000000 0011aaaa abbbcccc c1010011, c:rd, a:f_rs1, b:rm
+fcvt_s_l         11010000 0010aaaa abbbcccc c1010011, c:f_rd, a:rs1, b:rm
+fcvt_s_lu        11010000 0011aaaa abbbcccc c1010011, c:f_rd, a:rs1, b:rm
+#
+# RV32D Standard Extension for Double-Precision Floating-Point -- RV32D 2.2 Ratified
+fld              aaaaaaaa aaaabbbb b011cccc c0000111, c:f_rd, b:rs1, a:offset
+fsd              aaaaaaab bbbbcccc c011dddd d0100111, b:f_rs2, c:rs1, a:offsethi, d:offsetlo
+fmadd_d          aaaaa01b bbbbcccc cdddeeee e1000011, e:f_rd, c:f_rs1, b:f_rs2, a:f_rs3, d:rm
+fmsub_d          aaaaa01b bbbbcccc cdddeeee e1000111, e:f_rd, c:f_rs1, b:f_rs2, a:f_rs3, d:rm
+fnmsub_d         aaaaa01b bbbbcccc cdddeeee e1001011, e:f_rd, c:f_rs1, b:f_rs2, a:f_rs3, d:rm
+fnmadd_d         aaaaa01b bbbbcccc cdddeeee e1001111, e:f_rd, c:f_rs1, b:f_rs2, a:f_rs3, d:rm
+fadd_d           0000001a aaaabbbb bcccdddd d1010011, d:f_rd, b:f_rs1, a:f_rs2, c:rm
+fsub_d           0000101a aaaabbbb bcccdddd d1010011, d:f_rd, b:f_rs1, a:f_rs2, c:rm
+fmul_d           0001001a aaaabbbb bcccdddd d1010011, d:f_rd, b:f_rs1, a:f_rs2, c:rm
+fdiv_d           0001101a aaaabbbb bcccdddd d1010011, d:f_rd, b:f_rs1, a:f_rs2, c:rm
+fsqrt_d          01011010 0000aaaa abbbcccc c1010011, c:f_rd, a:f_rs1, b:rm
+fsgnj_d          0010001a aaaabbbb b000cccc c1010011, c:f_rd, b:f_rs1, a:f_rs2
+fsgnjn_d         0010001a aaaabbbb b001cccc c1010011, c:f_rd, b:f_rs1, a:f_rs2
+fsgnjx_d         0010001a aaaabbbb b010cccc c1010011, c:f_rd, b:f_rs1, a:f_rs2
+fmin_d           0010101a aaaabbbb b000cccc c1010011, c:f_rd, b:f_rs1, a:f_rs2
+fmax_d           0010101a aaaabbbb b001cccc c1010011, c:f_rd, b:f_rs1, a:f_rs2
+fcvt_s_d         01000000 0001aaaa abbbcccc c1010011, c:f_rd, a:f_rs1, b:rm
+fcvt_d_s         01000010 0000aaaa abbbcccc c1010011, c:f_rd, a:f_rs1, b:rm
+feq_d            1010001a aaaabbbb b010cccc c1010011, c:rd, b:f_rs1, a:f_rs2
+flt_d            1010001a aaaabbbb b001cccc c1010011, c:rd, b:f_rs1, a:f_rs2
+fle_d            1010001a aaaabbbb b000cccc c1010011, c:rd, b:f_rs1, a:f_rs2
+fclass_d         11100010 0000aaaa a001bbbb b1010011, b:rd, a:f_rs1
+fcvt_w_d         11000010 0000aaaa abbbcccc c1010011, c:rd, a:f_rs1, b:rm
+fcvt_wu_d        11000010 0001aaaa abbbcccc c1010011, c:rd, a:f_rs1, b:rm
+fcvt_d_w         11010010 0000aaaa abbbcccc c1010011, c:f_rd, a:rs1, b:rm
+fcvt_d_wu        11010010 0001aaaa abbbcccc c1010011, c:f_rd, a:rs1, b:rm
+#
+# RV64D Standard Extension for Double-Precision Floating-Point (in addition to RV32D) -- RV64D 2.2 Ratified
+fcvt_l_d         11000010 0010aaaa abbbcccc c1010011, c:rd, a:f_rs1, b:rm
+fcvt_lu_d        11000010 0011aaaa abbbcccc c1010011, c:rd, a:f_rs1, b:rm
+fmv_x_d          11100010 0000aaaa a000bbbb b1010011, b:rd, a:f_rs1
+fcvt_d_l         11010010 0010aaaa abbbcccc c1010011, c:f_rd, a:rs1, b:rm
+fcvt_d_lu        11010010 0011aaaa abbbcccc c1010011, c:f_rd, a:rs1, b:rm
+fmv_d_x          11110010 0000aaaa a000bbbb b1010011, b:f_rd, a:rs1
+
+#
+# Generic instruction types
+#
+branch           aaaaaaab bbbbcccc cdddeeee e1100011, d:funct3, c:rs1, b:rs2, a:immhi, e:immlo
+#
+# TODO: fix the argument order to match the instruction defs
+#
+#c_branch         110aaabb bccccc01, b:rs1, a:immhi, c:immlo
+#r_type           aaaaaaab bbbbcccc cdddeeee efffffff, a:funct7, b:rs2, c:rs1, d:funct3, e:rd, f:opcode
+#i_type           aaaaaaaa aaaabbbb bcccdddd deeeeeee, a:imm, b:rs1, c:funct3, d:rd, e:opcode
+#s_type           aaaaaaab bbbbcccc cdddeeee efffffff, a:immhi, b:rs2, c:rs1, d:funct3, e:immlo, f:opcode
+#b_type           aaaaaaab bbbbcccc cdddeeee efffffff, a:immhi, b:rs2, c:rs1, d:funct3, e:immlo, f:opcode
+#u_type           aaaaaaaa aaaaaaaa aaaabbbb bccccccc, a:imm, b:rd, c:opcode # U and J are the same
+#j_type           aaaaaaaa aaaaaaaa aaaabbbb bccccccc, a:imm, b:rd, c:opcode # the encoding of imm is different

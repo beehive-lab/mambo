@@ -1,0 +1,665 @@
+#
+# This file is part of PIE, an instruction encoder / decoder generator:
+#    https://github.com/beehive-lab/pie
+#
+# Copyright 2011-2016 Cosmin Gorgovan <cosmin at linux-geek dot org>
+# Copyright 2017-2021 The University of Manchester
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+#
+# Suffixes:  h - 16-bit instructions which allow use of the high registers (i.e. R8-R15)
+#            r - instructions which use Rdn, i.e. the same register as both Rd and Rn to allow encoding a larger immediate
+#            i - immediate
+#            m - the immediate is subtracted
+#
+#
+# 16-bit Thumb instructions
+#
+adc16            01000001 01aaabbb, a:rm, b:rdn
+add16            0001100a aabbbccc, a:rm, b:rn, c:rd
+add_from_pc16    10100aaa bbbbbbbb, a:rd, b:imm8
+add_from_sp16    10101aaa bbbbbbbb, a:rd, b:imm8
+addh16           01000100 abbbbccc, a:dn, b:rm, c:rdn
+addi16           0001110a aabbbccc, a:imm3, b:rn, c:rd
+addri16          00110aaa bbbbbbbb, a:rdn, b:imm8
+add_sp_i16       10110000 0aaaaaaa, a:imm7
+and16            01000000 00aaabbb, a:rm, b:rdn
+asr16            01000001 00aaabbb, a:rm, b:rdn
+asri16           00010aaa aabbbccc, a:imm5, b:rm, c:rd
+b16              11100aaa aaaaaaaa, a:imm11
+bic16            01000011 10aaabbb, a:rm, b:rdn
+bkpt16           10111110 aaaaaaaa, a:imm8
+b_cond16         1101aaaa bbbbbbbb, a:condition, b:imm8
+blx16            01000111 1aaaa000, a:rm
+bx16             01000111 0aaaa000, a:rm
+cbnz16           101110a1 bbbbbccc, a:imm1, b:imm5, c:rn
+cbz16            101100a1 bbbbbccc, a:imm1, b:imm5, c:rn
+cmn16            01000010 11aaabbb, a:rm, b:rdn
+cmp16            01000010 10aaabbb, a:rm, b:rdn
+cmph16           01000101 abbbbccc, a:dn, b:rm, c:rdn
+cmpri16          00101aaa bbbbbbbb, a:rdn, b:imm8
+eor16            01000000 01aaabbb, a:rm, b:rdn
+it16             10111111 aaaabbbb, a:cond, b:mask
+ldmfd16          11001aaa bbbbbbbb, a:rn, b:reglist
+ldr16            0101100a aabbbccc, a:rm, b:rn, c:rd
+ldrb16           0101110a aabbbccc, a:rm, b:rn, c:rd
+ldrbi16          01111aaa aabbbccc, a:imm5, b:rn, c:rd
+ldrh16           0101101a aabbbccc, a:rm, b:rn, c:rd
+ldrhi16          10001aaa aabbbccc, a:imm5, b:rn, c:rd
+ldri16           01101aaa aabbbccc, a:imm5, b:rn, c:rd
+ldr_pc_16        01001aaa bbbbbbbb, a:rd, b:imm8
+ldrsb16          0101011a aabbbccc, a:rm, b:rn, c:rd
+ldrsh16          0101111a aabbbccc, a:rm, b:rn, c:rd
+ldr_sp16         10011aaa bbbbbbbb, a:rd, b:imm8
+lsl16            01000000 10aaabbb, a:rm, b:rdn
+lsli16           00000aaa aabbbccc, a:imm5, b:rm, c:rd
+lsr16            01000000 11aaabbb, a:rm, b:rdn
+lsri16           00001aaa aabbbccc, a:imm5, b:rm, c:rd
+movh16           01000110 abbbbccc, a:dn, b:rm, c:rdn
+movi16           00000000 00aaabbb, a:rm, b:rd
+movri16          00100aaa bbbbbbbb, a:rdn, b:imm8
+mul16            01000011 01aaabbb, a:rm, b:rdn
+mvn16            01000011 11aaabbb, a:rm, b:rdn
+nop16            10111111 00000000
+orr16            01000011 00aaabbb, a:rm, b:rdn
+pop16            1011110a aaaaaaaa, a:reg
+push16           1011010a aaaaaaaa, a:reg
+rev16            10111010 00aaabbb, a:rn, b:rd
+rev1616          10111010 01aaabbb, a:rn, b:rd
+revsh16          10111010 11aaabbb, a:rn, b:rd
+ror16            01000001 11aaabbb, a:rm, b:rdn
+rsbi16           01000010 01aaabbb, a:rm, b:rdn
+sbc16            01000001 10aaabbb, a:rm, b:rdn
+setend16         10110110 0101e000, e:is_bigend
+setpan           10110110 0001a000, a:imm
+sev16            10111111 01000000
+stmea16          11000aaa bbbbbbbb, a:rn, b:reglist
+str16            0101000a aabbbccc, a:rm, b:rn, c:rd
+strb16           0101010a aabbbccc, a:rm, b:rn, c:rd
+strbi16          01110aaa aabbbccc, a:imm5, b:rn, c:rd
+strh16           0101001a aabbbccc, a:rm, b:rn, c:rd
+strhi16          10000aaa aabbbccc, a:imm5, b:rn, c:rd
+stri16           01100aaa aabbbccc, a:imm5, b:rn, c:rd
+str_sp16         10010aaa bbbbbbbb, a:rd, b:imm8
+sub16            0001101a aabbbccc, a:rm, b:rn, c:rd
+subi16           0001111a aabbbccc, a:imm3, b:rn, c:rd
+subri16          00111aaa bbbbbbbb, a:rdn, b:imm8
+sub_sp_i16       10110000 1aaaaaaa, a:imm7
+svc16            11011111 aaaaaaaa, a:imm8
+sxtb16           10110010 01aaabbb, a:rm, b:rd
+sxth16           10110010 00aaabbb, a:rm, b:rd
+tst16            01000010 00aaabbb, a:rm, b:rdn
+udf16            11011110 aaaaaaaa, a:imm8
+uxtb16           10110010 11aaabbb, a:rm, b:rd
+uxth16           10110010 10aaabbb, a:rm, b:rd
+wfe16            10111111 00100000
+wfi16            10111111 00110000
+yield16          10111111 00010000
+#
+#
+# 32-bit Thumb instructions
+#
+adc32            11101011 010abbbb 0cccdddd eeffgggg, a:set_flags, b:rn, c:imm3, d:rd, e:imm2, f:shift_type, g:rm
+adci32           11110a01 010bcccc 0dddeeee ffffffff, a:imm1, b:set_condition, c:rn, d:imm3, e:rd, f:imm8
+add32            11101011 000abbbb 0cccdddd eeffgggg, a:set_flags, b:rn, c:imm3, d:rd, e:imm2, f:shift_type, g:rm
+addi32           11110a01 000bcccc 0dddeeee ffffffff, a:imm1, b:set_condition, c:rn, d:imm3, e:rd, f:imm8
+addwi32          11110a10 0000bbbb 0cccdddd eeeeeeee, a:imm1, b:rn, c:imm3, d:rd, e:imm8
+adrwi_post32     11110a10 1000bbbb 0cccdddd eeeeeeee, a:imm1, b:rn, c:imm3, d:rd, e:imm8
+adrwi_pre32      11110a10 0010bbbb 0cccdddd eeeeeeee, a:imm1, b:rn, c:imm3, d:rd, e:imm8
+and32            11101010 000abbbb 0cccdddd eeffgggg, a:set_flags, b:rn, c:imm3, d:rd, e:imm2, f:shift_type, g:rm
+andi32           11110a00 000bcccc 0dddeeee ffffffff, a:imm1, b:set_condition, c:rn, d:imm3, e:rd, f:imm8
+asr32            11111010 010abbbb 1111cccc 0000dddd, a:set_flags, b:rn, c:rd, d:rm
+asri32           11101010 010a1111 0bbbcccc dd10eeee, a:set_flags, b:imm3, c:rd, d:imm2, e:rm
+b32              11110abb bbbbbbbb 10c1deee eeeeeeee, a:sign_bit, b:offset_high, c:j1, d:j2, e:offset_low
+b_cond32         11110abb bbcccccc 10d0efff ffffffff, a:sign_bit, b:condition, c:offset_high, d:j1, e:j2, f:offset_low
+bfc32            11110011 01101111 0aaabbbb cc0ddddd, a:imm3, b:rd, c:imm2, d:imm5
+bfi32            11110011 011aaaaa 0bbbcccc dd0eeeee, a:rn, b:imm3, c:rd, d:imm2, e:imm5
+bic32            11101010 001abbbb 0cccdddd eeffgggg, a:set_flags, b:rn, c:imm3, d:rd, e:imm2, f:shift_type, g:rm
+bici32           11110a00 001bcccc 0dddeeee ffffffff, a:imm1, b:set_condition, c:rn, d:imm3, e:rd, f:imm8
+bl32             11110abb bbbbbbbb 11c1deee eeeeeeee, a:sign_bit, b:offset_high, c:j1, d:j2, e:offset_low
+bl_arm32         11110abb bbbbbbbb 11c0deee eeeeeeee, a:sign_bit, b:offset_high, c:j1, d:j2, e:offset_low
+cdp32            11101110 aaaabbbb ccccdddd eee0ffff, d:coproc, a:opc1, c:crd, b:crn, f:crm, e:opc2
+cdp232           11111110 aaaabbbb ccccdddd eee0ffff, d:coproc, a:opc1, c:crd, b:crn, f:crm, e:opc2
+clrex32          11110011 10111111 10001111 0010aaaa, a:option
+clz32            11111010 1011aaaa 1111bbbb 1000cccc, a:rn, b:rd, c:rm
+cmn32            11101011 0001aaaa 0bbb1111 ccddeeee, a:rn, b:imm3, c:imm2, d:shift_type, e:rm
+cmni32           11110a01 0001bbbb 0ccc1111 dddddddd, a:imm1, b:rn, c:imm3, d:imm8
+cmp32            11101011 1011aaaa 0bbb1111 ccddeeee, a:rn, b:imm3, c:imm2, d:shift_type, e:rm
+cmpi32           11110a01 1011bbbb 0ccc1111 dddddddd, a:imm1, b:rn, c:imm3, d:imm8
+dbg32            11110011 10101111 10000000 1111aaaa, a:option
+dmb32            11110011 10111111 10001111 0101aaaa, a:option
+dsb32            11110011 10111111 10001111 0100aaaa, a:option
+eor32            11101010 100abbbb 0cccdddd eeffgggg, a:set_flags, b:rn, c:imm3, d:rd, e:imm2, f:shift_type, g:rm
+eori32           11110a00 100bcccc 0dddeeee ffffffff, a:imm1, b:set_condition, c:rn, d:imm3, e:rd, f:imm8
+isb32            11110011 10111111 10001111 0110aaaa, a:option
+ldc32            1110110p udw1aaaa bbbbcccc eeeeeeee, c:coproc, d:d, b:crd, a:rn, p:pre_index, u:upwards, w:writeback, e:imm8
+ldc232           1111110p udw1aaaa bbbbcccc eeeeeeee, c:coproc, d:d, b:crd, a:rn, p:pre_index, u:upwards, w:writeback, e:imm8
+ldmea32          11101001 00a1bbbb cccccccc cccccccc, a:writeback, b:rn, c:reglist
+ldmfd32          11101000 10a1bbbb cccccccc cccccccc, a:writeback, b:rn, c:reglist
+ldr32            11111000 0101aaaa bbbb0000 00ccdddd, a:rn, b:rt, c:shift, d:rm
+ldrb32           11111000 0001aaaa bbbb0000 00ccdddd, a:rn, b:rt, c:shift, d:rm
+ldrbi32          11111000 0001cccc dddd1puw eeeeeeee, d:rt, c:rn, e:imm8, p:pre_index, u:upwards, w:writeback
+ldrbl32          11111000 a0011111 bbbbcccc cccccccc, b:rt, c:imm12, a:upwards
+ldrbwi32         11111000 1001cccc ddddeeee eeeeeeee, d:rt, c:rn, e:imm12
+ldrbt32          11111000 0001aaaa bbbb1110 cccccccc, b:rt, a:rn, c:imm8
+ldrd32           1110100a b1c1dddd eeeeffff gggggggg, a:pre_index, b:upwards, c:writeback, d:rn, e:rt, f:rd, g:imm8
+ldrex32          11101000 0101aaaa bbbb1111 cccccccc, a:rn, b:rt, c:imm8
+ldrexb32         11101000 1101aaaa bbbb1111 01001111, a:rn, b:rt
+ldrexd32         11101000 1101aaaa bbbbcccc 01111111, a:rn, b:rt, c:rt2
+ldrexh32         11101000 1101aaaa bbbb1111 01011111, a:rn, b:rt
+ldrh32           11111000 0011aaaa bbbb0000 00ccdddd, a:rn, b:rt, c:shift, d:rm
+ldrhi32          11111000 0011cccc dddd1puw eeeeeeee, d:rt, c:rn, e:imm8, p:pre_index, u:upwards, w:writeback
+ldrhl32          11111000 a0111111 bbbbcccc cccccccc, b:rt, c:imm12, a:upwards
+ldrhwi32         11111000 1011cccc ddddeeee eeeeeeee, d:rt, c:rn, e:imm12
+ldrht32          11111000 0011aaaa bbbb1110 cccccccc, b:rt, a:rn, c:imm8
+ldri32           11111000 0101cccc dddd1puw eeeeeeee, d:rt, c:rn, e:imm8, p:pre_index, u:upwards, w:writeback
+ldrl32           11111000 a1011111 ddddeeee eeeeeeee, d:rt, e:imm12, a:upwards
+ldrsb32          11111001 0001aaaa bbbb0000 00ccdddd, a:rn, b:rt, c:shift, d:rm
+ldrsbi32         11111001 0001cccc dddd1puw eeeeeeee, d:rt, c:rn, e:imm8, p:pre_index, u:upwards, w:writeback
+ldrsbl32         11111001 a0011111 bbbbcccc cccccccc, b:rt, c:imm12, a:upwards
+ldrsbwi32        11111001 1001cccc ddddeeee eeeeeeee, d:rt, c:rn, e:imm12
+ldrsbt32         11111001 0001aaaa bbbb1110 cccccccc, b:rt, a:rn, c:imm8
+ldrsh32          11111001 0011aaaa bbbb0000 00ccdddd, a:rn, b:rt, c:shift, d:rm
+ldrshi32         11111001 0011cccc dddd1puw eeeeeeee, d:rt, c:rn, e:imm8, p:pre_index, u:upwards, w:writeback
+ldrshl32         11111001 a0111111 bbbbcccc cccccccc, b:rt, c:imm12, a:upwards
+ldrshwi32        11111001 1011cccc ddddeeee eeeeeeee, d:rt, c:rn, e:imm12
+ldrsht32         11111001 0011aaaa bbbb1110 cccccccc, b:rt, a:rn, c:imm8
+ldrt32           11111000 0101aaaa bbbb1110 cccccccc, b:rt, a:rn, c:imm8
+ldrwi32          11111000 1101cccc ddddeeee eeeeeeee, d:rt, c:rn, e:imm12
+lsl32            11111010 000abbbb 1111cccc 0000dddd, a:set_flags, b:rn, c:rd, d:rm
+lsli32           11101010 010a1111 0bbbcccc dd00eeee, a:set_flags, b:imm3, c:rd, d:imm2, e:rm
+lsr32            11111010 001abbbb 1111cccc 0000dddd, a:set_flags, b:rn, c:rd, d:rm
+lsri32           11101010 010a1111 0bbbcccc dd01eeee, a:set_flags, b:imm3, c:rd, d:imm2, e:rm
+mcr32            11101110 aaa0bbbb ccccdddd eee1ffff, a:opc1, b:crn, c:rt, d:coproc, e:opc2, f:crm
+mcr232           11111110 aaa0bbbb ccccdddd eee1ffff, a:opc1, b:crn, c:rt, d:coproc, e:opc2, f:crm
+mcrr32           11101100 0100aaaa bbbbcccc ddddeeee, c:coproc, d:opc1, b:rt, a:rt2, e:crm
+mcrr232          11111100 0100aaaa bbbbcccc ddddeeee, c:coproc, d:opc1, b:rt, a:rt2, e:crm
+mla32            11111011 0000aaaa bbbbcccc 0000dddd, a:rn, b:racc, c:rd, d:rm
+mls32            11111011 0000aaaa bbbbcccc 0001dddd, a:rn, b:racc, c:rd, d:rm
+mov32            11101010 010a1111 0000bbbb 0000cccc, a:set_flags, b:rd, c:rm
+movi32           11110a00 010b1111 0cccdddd eeeeeeee, a:imm1, b:set_condition, c:imm3, d:rd, e:imm8
+movwi32          11110a10 0100bbbb 0cccdddd eeeeeeee, a:imm1, b:imm4, c:imm3, d:rd, e:imm8
+movti32          11110a10 1100bbbb 0cccdddd eeeeeeee, a:imm1, b:imm4, c:imm3, d:rd, e:imm8
+mrc32            11101110 aaa1bbbb ccccdddd eee1ffff, a:opc1, b:crn, c:rt, d:coproc, e:opc2, f:crm
+mrc232           11111110 aaa1bbbb ccccdddd eee1ffff, a:opc1, b:crn, c:rt, d:coproc, e:opc2, f:crm
+mrrc32           11101100 0101aaaa bbbbcccc ddddeeee, c:coproc, d:opc, b:rt, a:rt2, e:crm
+mrrc232          11111100 0101aaaa bbbbcccc ddddeeee, c:coproc, d:opc, b:rt, a:rt2, e:crm
+mrs32            11110011 11101111 1000aaaa 00000000, a:rd
+msr32            11110011 1000bbbb 1000cc00 00000000, b:rn, c:mask
+mul32            11111011 0000aaaa 1111bbbb 0000cccc, a:rn, b:rd, c:rm
+mvn32            11101010 011a1111 0bbbcccc ddeeffff, a:set_flags, b:imm3, c:rd, d:imm2, e:shift_type, f:rm
+mvni32           11110a00 011b1111 0cccdddd eeeeeeee, a:imm1, b:set_condition, c:imm3, d:rd, e:imm8
+nop32            11110011 10101111 10000000 00000000
+orn32            11101010 011abbbb 0cccdddd eeffgggg, a:set_flags, b:rn, c:imm3, d:rd, e:imm2, f:shift_type, g:rm
+orni32           11110a00 011bcccc 0dddeeee ffffffff, a:imm1, b:set_condition, c:rn, d:imm3, e:rd, f:imm8
+orr32            11101010 010abbbb 0cccdddd eeffgggg, a:set_flags, b:rn, c:imm3, d:rd, e:imm2, f:shift_type, g:rm
+orri32           11110a00 010bcccc 0dddeeee ffffffff, a:imm1, b:set_condition, c:rn, d:imm3, e:rd, f:imm8
+pkh32            11101010 1100aaaa 0bbbcccc ddeeffff, a:rn, b:imm3, c:rd, d:imm2, e:shift_type, f:rm
+pld32            11111000 0001aaaa 11110000 00bbcccc, a:rn, b:shift, c:rm
+pldi32           11111000 1001aaaa 1111bbbb bbbbbbbb, a:rn, b:imm12
+pldim32          11111000 0001aaaa 11111100 bbbbbbbb, a:rn, b:imm8
+pld_lit32        11111000 u0011111 1111aaaa aaaaaaaa, u:upwards, a:imm12
+pldw32           11111000 0011aaaa 11110000 00bbcccc, a:rn, b:shift, c:rm
+pldwi32          11111000 1011aaaa 1111bbbb bbbbbbbb, a:rn, b:imm12
+pldwim32         11111000 0011aaaa 11111100 bbbbbbbb, a:rn, b:imm8
+pli32            11111001 0001aaaa 11110000 00bbcccc, a:rn, c:rm, b:shift
+plii32           11111001 1001aaaa 1111bbbb bbbbbbbb, a:rn, b:imm12
+pliim32          11111001 0001aaaa 11111100 bbbbbbbb, a:rn, b:imm8
+pli_lit32        11111001 u0011111 1111aaaa aaaaaaaa, u:upwards, a:imm12
+qadd32           11111010 1000aaaa 1111bbbb 1000cccc, a:rn, b:rd, c:rm
+qadd1632         11111010 1001aaaa 1111bbbb 0001cccc, b:rd, a:rn, c:rm
+qadd832          11111010 1000aaaa 1111bbbb 0001cccc, b:rd, a:rn, c:rm
+qasx32           11111010 1010aaaa 1111bbbb 0001cccc, b:rd, a:rn, c:rm
+qdadd32          11111010 1000aaaa 1111bbbb 1001cccc, a:rn, b:rd, c:rm
+qdsub32          11111010 1000aaaa 1111bbbb 1011cccc, a:rn, b:rd, c:rm
+qsax32           11111010 1110aaaa 1111bbbb 0001cccc, b:rd, a:rn, c:rm
+qsub32           11111010 1000aaaa 1111bbbb 1010cccc, a:rn, b:rd, c:rm
+qsub1632         11111010 1101aaaa 1111bbbb 0001cccc, b:rd, a:rn, c:rm
+qsub832          11111010 1100aaaa 1111bbbb 0001cccc, b:rd, a:rn, c:rm
+rbit32           11111010 1001aaaa 1111bbbb 1010cccc, a:rn, b:rd, c:rm
+rev32            11111010 1001aaaa 1111bbbb 1000cccc, a:rn, b:rd, c:rm
+rev1632          11111010 1001aaaa 1111bbbb 1001cccc, a:rn, b:rd, c:rm
+revsh32          11111010 1001aaaa 1111bbbb 1011cccc, a:rn, b:rd, c:rm
+ror32            11111010 011abbbb 1111cccc 0000dddd, a:set_flags, b:rn, c:rd, d:rm
+rori32           11101010 010a1111 0bbbcccc dd11eeee, a:set_flags, b:imm3, c:rd, d:imm2, e:rm
+rrx32            11101010 010a1111 0000bbbb 0011cccc, a:set_flags, b:rd, c:rm
+rsb32            11101011 110abbbb 0cccdddd eeffgggg, a:set_flags, b:rn, c:imm3, d:rd, e:imm2, f:shift_type, g:rm
+rsbi32           11110a01 110bcccc 0dddeeee ffffffff, a:imm1, b:set_condition, c:rn, d:imm3, e:rd, f:imm8
+sadd1632         11111010 1001aaaa 1111bbbb 0000cccc, b:rd, a:rn, c:rm
+sadd832          11111010 1000aaaa 1111bbbb 0000cccc, b:rd, a:rn, c:rm
+sasx32           11111010 1010aaaa 1111bbbb 0000cccc, b:rd, a:rn, c:rm
+sbc32            11101011 011abbbb 0cccdddd eeffgggg, a:set_flags, b:rn, c:imm3, d:rd, e:imm2, f:shift_type, g:rm
+sbci32           11110a01 011bcccc 0dddeeee ffffffff, a:imm1, b:set_condition, c:rn, d:imm3, e:rd, f:imm8
+sbfx32           11110011 010aaaaa 0bbbcccc dd0eeeee, a:rn, b:imm3, c:rd, d:imm2, e:imm5
+sdiv32           11111011 1001aaaa 1111bbbb 1111cccc, a:rn, b:rdhi, c:rm
+sel32            11111010 1010aaaa 1111bbbb 1000cccc, a:rn, b:rd, c:rm
+sev32            11110011 10101111 10000000 00000100
+shadd1632        11111010 1001aaaa 1111bbbb 0010cccc, b:rd, a:rn, c:rm
+shadd832         11111010 1000aaaa 1111bbbb 0010cccc, b:rd, a:rn, c:rm
+shasx32          11111010 1010aaaa 1111bbbb 0010cccc, b:rd, a:rn, c:rm
+shsax32          11111010 1110aaaa 1111bbbb 0010cccc, b:rd, a:rn, c:rm
+shsub1632        11111010 1101aaaa 1111bbbb 0010cccc, b:rd, a:rn, c:rm
+shsub832         11111010 1100aaaa 1111bbbb 0010cccc, b:rd, a:rn, c:rm
+simd_add_sub32   11111010 1aaabbbb 1111cccc 0dddeeee, a:opcode, b:rn, c:rd, d:pref, e:rm
+smlabb32         11111011 0001aaaa bbbbcccc 0000eeee, c:rd, a:rn, e:rm, b:ra
+smlabt32         11111011 0001aaaa bbbbcccc 0001eeee, c:rd, a:rn, e:rm, b:ra
+smlatb32         11111011 0001aaaa bbbbcccc 0010eeee, c:rd, a:rn, e:rm, b:ra
+smlatt32         11111011 0001aaaa bbbbcccc 0011eeee, c:rd, a:rn, e:rm, b:ra
+smlad32          11111011 0010aaaa bbbbcccc ddddeeee, a:rn, b:racc, c:rd, d:opcode2, e:rm
+smlal32          11111011 1100aaaa bbbbcccc 0000dddd, a:rn, b:rdlo, c:rdhi, d:rm
+smlalbb32        11111011 1100aaaa bbbbcccc 1000ffff, b:rdlo, c:rdhi, a:rn, f:rm
+smlalbt32        11111011 1100aaaa bbbbcccc 1001ffff, b:rdlo, c:rdhi, a:rn, f:rm
+smlaltb32        11111011 1100aaaa bbbbcccc 1010ffff, b:rdlo, c:rdhi, a:rn, f:rm
+smlaltt32        11111011 1100aaaa bbbbcccc 1011ffff, b:rdlo, c:rdhi, a:rn, f:rm
+smlald32         11111011 1100aaaa bbbbcccc 110deeee, a:rn, b:rdlo, c:rdhi, d:m_swap, e:rm
+smlawb32         11111011 0011aaaa bbbbcccc 0000dddd, c:rd, a:rn, d:rm, b:ra
+smlawt32         11111011 0011aaaa bbbbcccc 0001dddd, c:rd, a:rn, d:rm, b:ra
+smlsd32          11111011 0100aaaa bbbbcccc ddddeeee, a:rn, b:racc, c:rd, d:opcode2, e:rm
+smlsld32         11111011 1101aaaa bbbbcccc 110deeee, a:rn, b:rdlo, c:rdhi, d:m_swap, e:rm
+smmla32          11111011 0101aaaa bbbbcccc ddddeeee, a:rn, b:racc, c:rd, d:opcode2, e:rm
+smmls32          11111011 0110aaaa bbbbcccc ddddeeee, a:rn, b:racc, c:rd, d:opcode2, e:rm
+smmul32          11111011 0101aaaa 1111bbbb ccccdddd, a:rn, b:rd, c:opcode2, d:rm
+smuad32          11111011 0010aaaa 1111bbbb ccccdddd, a:rn, b:rd, c:opcode2, d:rm
+smulbb32         11111011 0001aaaa 1111bbbb 0000dddd, b:rd, a:rn, d:rm
+smulbt32         11111011 0001aaaa 1111bbbb 0001dddd, b:rd, a:rn, d:rm
+smultb32         11111011 0001aaaa 1111bbbb 0010dddd, b:rd, a:rn, d:rm
+smultt32         11111011 0001aaaa 1111bbbb 0011dddd, b:rd, a:rn, d:rm
+smull32          11111011 1000aaaa bbbbcccc 0000dddd, a:rn, b:rdlo, c:rdhi, d:rm
+smulwb32         11111011 0011aaaa 1111bbbb 0000dddd, a:rn, b:rd, d:rm
+smulwt32         11111011 0011aaaa 1111bbbb 0001dddd, a:rn, b:rd, d:rm
+smusd32          11111011 0100aaaa 1111bbbb ccccdddd, a:rn, b:rd, c:opcode2, d:rm
+ssat1632         11110011 001aaaaa 0000bbbb 00000000, a:rn, b:rd
+ssat_asr32       11110011 001aaaaa 0bbbcccc dd0eeeee, a:rn, b:imm3, c:rd, d:imm2, e:imm5
+ssat_lsl32       11110011 000aaaaa 0bbbcccc dd0eeeee, a:rn, b:imm3, c:rd, d:imm2, e:imm5
+ssax32           11111010 1110aaaa 1111bbbb 0000cccc, b:rd, a:rn, c:rm
+ssub1632         11111010 1101aaaa 1111bbbb 0000cccc, b:rd, a:rn, c:rm
+ssub832          11111010 1100aaaa 1111bbbb 0000cccc, b:rd, a:rn, c:rm
+stc32            1110110p udw0aaaa bbbbcccc eeeeeeee, c:coproc, d:d, b:crd, a:rn, p:pre_index, u:upwards, w:writeback, e:imm8
+stc232           1111110p udw0aaaa bbbbcccc eeeeeeee, c:coproc, d:d, b:crd, a:rn, p:pre_index, u:upwards, w:writeback, e:imm8
+stmea32          11101000 10a0bbbb cccccccc cccccccc, a:writeback, b:rn, c:reglist
+stmfd32          11101001 00a0bbbb cccccccc cccccccc, a:writeback, b:rn, c:reglist
+str32            11111000 0100aaaa bbbb0000 00ccdddd, a:rn, b:rt, c:shift, d:rm
+strb32           11111000 0000aaaa bbbb0000 00ccdddd, a:rn, b:rt, c:shift, d:rm
+strbi32          11111000 0000cccc dddd1puw eeeeeeee, d:rt, c:rn, e:imm8, p:pre_index, u:upwards, w:writeback
+strbwi32         11111000 1000cccc ddddeeee eeeeeeee, d:rt, c:rn, e:imm12
+strbt32          11111000 0000aaaa bbbb1110 cccccccc, b:rt, a:rn, c:imm8
+strd32           1110100a b1c0dddd eeeeffff gggggggg, a:pre_index, b:upwards, c:writeback, d:rn, e:rt, f:rd, g:imm8
+strex32          11101000 0100aaaa bbbbcccc dddddddd, a:rn, b:rt, c:rd, d:imm8
+strexb32         11101000 1100aaaa bbbb1111 0100dddd, a:rn, b:rt, d:rd
+strexd32         11101000 1100aaaa bbbbcccc 0111dddd, a:rn, b:rt, c:rt2, d:rd
+strexh32         11101000 1100aaaa bbbb1111 0101dddd, a:rn, b:rt, d:rd
+strh32           11111000 0010aaaa bbbb0000 00ccdddd, a:rn, b:rt, c:shift, d:rm
+strhi32          11111000 0010cccc dddd1puw eeeeeeee, d:rt, c:rn, e:imm8, p:pre_index, u:upwards, w:writeback
+strhwi32         11111000 1010cccc ddddeeee eeeeeeee, d:rt, c:rn, e:imm12
+strht32          11111000 0010aaaa bbbb1110 cccccccc, b:rt, a:rn, c:imm8
+stri32           11111000 0100cccc dddd1puw eeeeeeee, d:rt, c:rn, e:imm8, p:pre_index, u:upwards, w:writeback
+strt32           11111000 0100aaaa bbbb1110 cccccccc, b:rt, a:rn, c:imm8
+strwi32          11111000 1100cccc ddddeeee eeeeeeee, d:rt, c:rn, e:imm12
+sub32            11101011 101abbbb 0cccdddd eeffgggg, a:set_flags, b:rn, c:imm3, d:rd, e:imm2, f:shift_type, g:rm
+subi32           11110a01 101bcccc 0dddeeee ffffffff, a:imm1, b:set_condition, c:rn, d:imm3, e:rd, f:imm8
+subwi32          11110a10 1010bbbb 0cccdddd eeeeeeee, a:imm1, b:rn, c:imm3, d:rd, e:imm8
+sxtab1632        11111010 0010aaaa 1111bbbb 10ccdddd, a:rn, b:rd, c:rotate, d:rm
+sxtab32          11111010 0100aaaa 1111bbbb 10ccdddd, a:rn, b:rd, c:rotate, d:rm
+sxtah32          11111010 0000aaaa 1111bbbb 10ccdddd, a:rn, b:rd, c:rotate, d:rm
+sxtb1632         11111010 00101111 1111aaaa 10bbcccc, a:rd, b:rotate, c:rm
+sxtb32           11111010 01001111 1111aaaa 10bbcccc, a:rd, b:rotate, c:rm
+sxth32           11111010 00001111 1111aaaa 10bbcccc, a:rd, b:rotate, c:rm
+tbb32            11101000 1101aaaa 11110000 0000bbbb, a:rn, b:rm
+tbh32            11101000 1101aaaa 11110000 0001bbbb, a:rn, b:rm
+teq32            11101010 1001aaaa 0bbb1111 ccddeeee, a:rn, b:imm3, c:imm2, d:shift_type, e:rm
+teqi32           11110a00 1001bbbb 0ccc1111 dddddddd, a:imm1, b:rn, c:imm3, d:imm8
+tst32            11101010 0001aaaa 0bbb1111 ccddeeee, a:rn, b:imm3, c:imm2, d:shift_type, e:rm
+tsti32           11110a00 0001bbbb 0ccc1111 dddddddd, a:imm1, b:rn, c:imm3, d:imm8
+uadd1632         11111010 1001aaaa 1111bbbb 0100cccc, b:rd, a:rn, c:rm
+uadd832          11111010 1000aaaa 1111bbbb 0100cccc, b:rd, a:rn, c:rm
+uasx32           11111010 1010aaaa 1111bbbb 0100cccc, b:rd, a:rn, c:rm
+ubfx32           11110011 110aaaaa 0bbbcccc dd0eeeee, a:rn, b:imm3, c:rd, d:imm2, e:imm5
+udf32            11110111 1111aaaa 1010bbbb bbbbbbbb, a:imm4, b:imm12
+udiv32           11111011 1011aaaa 1111bbbb 1111cccc, a:rn, b:rdhi, c:rm
+uhadd1632        11111010 1001aaaa 1111bbbb 0110cccc, b:rd, a:rn, c:rm
+uhadd832         11111010 1000aaaa 1111bbbb 0110cccc, b:rd, a:rn, c:rm
+uhasx32          11111010 1010aaaa 1111bbbb 0110cccc, b:rd, a:rn, c:rm
+uhsax32          11111010 1110aaaa 1111bbbb 0110cccc, b:rd, a:rn, c:rm
+uhsub1632        11111010 1101aaaa 1111bbbb 0110cccc, b:rd, a:rn, c:rm
+uhsub832         11111010 1100aaaa 1111bbbb 0110cccc, b:rd, a:rn, c:rm
+umaal32          11111011 1110aaaa bbbbcccc 0110dddd, a:rn, b:rdlo, c:rdhi, d:rm
+umlal32          11111011 1110aaaa bbbbcccc 0000dddd, a:rn, b:rdlo, c:rdhi, d:rm
+umull32          11111011 1010aaaa bbbbcccc 0000dddd, a:rn, b:rdlo, c:rdhi, d:rm
+uqadd1632        11111010 1001aaaa 1111bbbb 0101cccc, b:rd, a:rn, c:rm
+uqadd832         11111010 1000aaaa 1111bbbb 0101cccc, b:rd, a:rn, c:rm
+uqasx32          11111010 1010aaaa 1111bbbb 0101cccc, b:rd, a:rn, c:rm
+uqsax32          11111010 1110aaaa 1111bbbb 0101cccc, b:rd, a:rn, c:rm
+uqsub1632        11111010 1101aaaa 1111bbbb 0101cccc, b:rd, a:rn, c:rm
+uqsub832         11111010 1100aaaa 1111bbbb 0101cccc, b:rd, a:rn, c:rm
+usad832          11111011 0111aaaa 1111bbbb ccccdddd, a:rn, b:rd, c:opcode2, d:rm
+usada832         11111011 0111aaaa bbbbcccc ddddeeee, a:rn, b:racc, c:rd, d:opcode2, e:rm
+usat1632         11110011 101aaaaa 0000bbbb 00000000, a:rn, b:rd
+usat_asr32       11110011 101aaaaa 0bbbcccc dd0eeeee, a:rn, b:imm3, c:rd, d:imm2, e:imm5
+usat_lsl32       11110011 100aaaaa 0bbbcccc dd0eeeee, a:rn, b:imm3, c:rd, d:imm2, e:imm5
+usax32           11111010 1110aaaa 1111bbbb 0100cccc, b:rd, a:rn, c:rm
+usub1632         11111010 1101aaaa 1111bbbb 0100cccc, b:rd, a:rn, c:rm
+usub832          11111010 1100aaaa 1111bbbb 0100cccc, b:rd, a:rn, c:rm
+uxtab1632        11111010 0011aaaa 1111bbbb 10ccdddd, a:rn, b:rd, c:rotate, d:rm
+uxtab32          11111010 0101aaaa 1111bbbb 10ccdddd, a:rn, b:rd, c:rotate, d:rm
+uxtah32          11111010 0001aaaa 1111bbbb 10ccdddd, a:rn, b:rd, c:rotate, d:rm
+uxtb1632         11111010 00111111 1111aaaa 10bbcccc, a:rd, b:rotate, c:rm
+uxtb32           11111010 01011111 1111aaaa 10bbcccc, a:rd, b:rotate, c:rm
+uxth32           11111010 00011111 1111aaaa 10bbcccc, a:rd, b:rotate, c:rm
+wfe32            11110011 10101111 10000000 00000010
+wfi32            11110011 10101111 10000000 00000011
+yield32          11110011 10101111 10000000 00000001
+#
+#
+# VFP, NEON
+#
+# naming rules: if there are separate encodings for integer and fp, add _i, _f suffxies
+#               neon_, vfp_ prefixes
+##             _scal = scalar
+##               _hp = half precision
+##               _sp = single precision
+##               _dp = double precision
+#                _i  = integer
+#                _f  = floating point
+##               _fp = fixed point
+#              _core = arm core register
+#                  i = immediate
+#                  z = compare with immediate #0
+#
+# Ordering of operands: op, is_float, unsign, size, q
+#
+neon_vaba           111u1111 0dssaaaa bbbb0111 nqm1cccc, u:unsign, s:size, q:q, d:d, b:vd, n:n, a:vn, m:m, c:vm
+neon_vabal          111u1111 1dssaaaa bbbb0101 n0m0cccc, u:unsign, s:size:!:11, d:d, b:vd, n:n, a:vn, m:m, c:vm
+neon_vabd_i         111a1111 0bccdddd eeee0111 fgh0iiii, a:unsign, c:size, g:q, b:d, e:vd, f:n, d:vn, h:m, i:vm
+neon_vabd_f         11111111 0d1saaaa bbbb1101 nqm0cccc, s:size, q:q, d:d, b:vd, n:n, a:vn, m:m, c:vm
+neon_vabdl          111a1111 1bccdddd eeee0111 f0g0hhhh, a:unsign, c:size:!:11, b:d, e:vd, f:n, d:vn, g:m, h:vm
+neon_vabs           11111111 1d11ss01 aaaa0f11 0qm0bbbb, f:is_float, s:size, q:q, d:d, a:vd, m:m, b:vm
+ vfp_vabs           11101110 1a110000 cccc101s 11d0eeee, s:size, a:d, c:vd, d:m, e:vm
+neon_vacge          11111111 0d0saaaa bbbb1110 nqm1cccc, s:size, q:q, d:d, b:vd, n:n, a:vn, m:m, c:vm
+neon_vacgt          11111111 0d1saaaa bbbb1110 nqm1cccc, s:size, q:q, d:d, b:vd, n:n, a:vn, m:m, c:vm
+neon_vadd_i         11101111 0dssaaaa bbbb1000 nqm0cccc, s:size, q:q, d:d, b:vd, n:n, a:vn, m:m, c:vm
+neon_vadd_f         11101111 0d0saaaa bbbb1101 nqm0cccc, s:size, q:q, d:d, b:vd, n:n, a:vn, m:m, c:vm
+ vfp_vadd           11101110 0a11bbbb cccc101s d0e0ffff, s:size, a:d, c:vd, d:n, b:vn, e:m, f:vm
+neon_vaddhn         11101111 1abbcccc dddd0100 e0f0gggg, b:size:!:11, a:d, e:n, d:vd, c:vn, f:m, g:vm
+neon_vaddl          111a1111 1bccdddd eeee0000 f0g0hhhh, a:unsign, c:size:!:11, b:d, e:vd, f:n, d:vn, g:m, h:vm
+neon_vaddw          111a1111 1bccdddd eeee0001 f0g0hhhh, a:unsign, c:size:!:11, b:d, e:vd, f:n, d:vn, g:m, h:vm
+neon_vand           11101111 0a00bbbb cccc0001 def1gggg, e:q, a:d, c:vd, d:n, b:vn, f:m, g:vm
+neon_vbic           11101111 0a01bbbb cccc0001 def1gggg, e:q, a:d, c:vd, d:n, b:vn, f:m, g:vm
+neon_vbici          111i1111 1d000aaa bbbbcccc 0q11eeee, q:q, d:d, b:vd, c:cmode, i:i, a:imm3, e:imm4
+neon_vbif           11111111 0a11bbbb cccc0001 def1gggg, e:q, a:d, c:vd, d:n, b:vn, f:m, g:vm
+neon_vbit           11111111 0a10bbbb cccc0001 def1gggg, e:q, a:d, c:vd, d:n, b:vn, f:m, g:vm
+neon_vbsl           11111111 0a01bbbb cccc0001 def1gggg, e:q, a:d, c:vd, d:n, b:vn, f:m, g:vm
+neon_vceq_i         11111111 0dssaaaa bbbb1000 nqm1cccc, s:size, q:q, d:d, b:vd, n:n, a:vn, m:m, c:vm
+neon_vceq_f         11101111 0d0saaaa bbbb1110 nqm0cccc, s:size, q:q, d:d, b:vd, n:n, a:vn, m:m, c:vm
+neon_vceqz          11111111 1d11ss01 aaaa0f01 0qm0bbbb, f:is_float, s:size, q:q, d:d, a:vd, m:m, b:vm
+neon_vcge_i         111u1111 0dssaaaa bbbb0011 nqm1cccc, u:unsign, s:size, q:q, d:d, b:vd, n:n, a:vn, m:m, c:vm
+neon_vcge_f         11111111 0d0saaaa bbbb1110 nqm0cccc, s:size, q:q, d:d, b:vd, n:n, a:vn, m:m, c:vm
+neon_vcgez          11111111 1d11ss01 aaaa0f00 1qm0bbbb, f:is_float, s:size, q:q, d:d, a:vd, m:m, b:vm
+neon_vcgt_i         111u1111 0dssaaaa bbbb0011 nqm0cccc, u:unsign, s:size, q:q, d:d, b:vd, n:n, a:vn, m:m, c:vm
+neon_vcgt_f         11111111 0d1saaaa bbbb1110 nqm0cccc, s:size, q:q, d:d, b:vd, n:n, a:vn, m:m, c:vm
+neon_vcgtz          11111111 1d11ss01 aaaa0f00 0qm0bbbb, f:is_float, s:size, q:q, d:d, a:vd, m:m, b:vm
+neon_vclez          11111111 1d11ss01 aaaa0f01 1qm0bbbb, f:is_float, s:size, q:q, d:d, a:vd, m:m, b:vm
+neon_vcls           11111111 1d11ss00 aaaa0100 0qm0bbbb, s:size, q:q, d:d, a:vd, m:m, b:vm
+neon_vcltz          11111111 1d11ss01 aaaa0f10 0qm0bbbb, f:is_float, s:size, q:q, d:d, a:vd, m:m, b:vm
+neon_vclz           11111111 1d11ss00 aaaa0100 1qm0bbbb, s:size, q:q, d:d, a:vd, m:m, b:vm
+ vfp_vcmp           11101110 1a110100 bbbb101c 01e0ffff, c:size, a:d, b:vd, e:m, f:vm
+ vfp_vcmpz          11101110 1a110101 bbbb101c 01000000, c:size, a:d, b:vd
+ vfp_vcmpe          11101110 1a110100 bbbb101c 11e0ffff, c:size, a:d, b:vd, e:m, f:vm
+ vfp_vcmpez         11101110 1a110101 bbbb101c 11000000, c:size, a:d, b:vd
+neon_vcnt           11111111 1d11ss00 aaaa0101 0qm0bbbb, s:size, q:q, d:d, a:vd, m:m, b:vm
+neon_vcvt_f_i       11111111 1d11ss11 aaaa011o oqm0bbbb, o:op, s:size, q:q, d:d, a:vd, m:m, b:vm
+neon_vcvt_f_fp      111u1111 1daaaaaa bbbb111o 0qm1bbbb, o:op, u:unsign, q:q, d:d, b:vd, m:m, b:vm, a:imm6:!:000000:000001:000010:000011:000100:000101:000110:000111
+neon_vcvt_hp_sp     11111111 1d11ss10 aaaa011o 00m0bbbb, o:op, s:size, d:d, a:vd, m:m, b:vm
+ vfp_vcvt_f_i       11101110 1d111aaa bbbb101s o1m0cccc, o:op, a:op2, s:size, d:d, b:vd, m:m, c:vm
+ vfp_vcvt_f_fp      11101110 1d111o1u aaaa101b c1i0eeee, o:op, u:unsign, b:sf, c:sx, d:d, a:vd, e:imm4, i:i
+ vfp_vcvt_dp_sp     11101110 1d110111 aaaa101s 11m0bbbb, s:size, d:d, a:vd, m:m, b:vm
+ vfp_vcvtb          11101110 1d11001o aaaa1010 01m0bbbb, o:op, d:d, a:vd, m:m, b:vm
+ vfp_vcvtt          11101110 1d11001o aaaa1010 11m0bbbb, o:op, d:d, a:vd, m:m, b:vm
+ vfp_vdiv           11101110 1a00bbbb cccc101s d0e0ffff, s:size, a:d, c:vd, d:n ,b:vn, e:m, f:vm
+neon_vdup_scal      11111111 1a11bbbb cccc1100 0de0ffff, d:q, b:imm4, a:d, c:vd, e:m, f:vm
+neon_vdup_core      11101110 1bq0aaaa cccc1011 d0e10000, b:b, e:e, q:q, d:d, a:vd, c:rt
+neon_veor           11111111 0a00bbbb cccc0001 def1gggg, e:q, a:d, c:vd, d:n, b:vn, f:m, g:vm
+neon_vext           11101111 1a11bbbb ccccdddd efg0hhhh, f:q, a:d, c:vd, e:n, b:vn, g:m, h:vm, d:imm4
+neon_vfma           11101111 0a0sbbbb cccc1100 nqm1dddd, s:size, q:q, a:d, c:vd, n:n, b:vn, m:m, d:vm
+neon_vfmal          11111100 0a10bbbb cccc1000 def1gggg, e:q, a:d, c:vd, d:n, b:vn, f:m, g:vm
+neon_vfmal_scal     11111110 0a00bbbb cccc1000 def1gggg, e:q, a:d, c:vd, d:n, b:vn, f:m, g:vm
+neon_vfms           11101111 0a1sbbbb cccc1100 nqm1dddd, s:size, q:q, a:d, c:vd, n:n, b:vn, m:m, d:vm
+ vfp_vfma           11101110 1d10aaaa bbbb101s n0m0cccc, s:size, d:d, b:vd, n:n, a:vn, m:m, c:vm
+ vfp_vfms           11101110 1d10aaaa bbbb101s n1m0cccc, s:size, d:d, b:vd, n:n, a:vn, m:m, c:vm
+neon_vfmsl          11111100 1a10bbbb cccc1000 def1gggg, e:q, a:d, c:vd, d:n, b:vn, f:m, g:vm
+neon_vfmsl_scal     11111110 0a01bbbb cccc1000 def1gggg, e:q, a:d, c:vd, d:n, b:vn, f:m, g:vm
+ vfp_vfnma          11101110 1d01aaaa bbbb101s n0m0cccc, s:size, d:d, b:vd, n:n, a:vn, m:m, c:vm
+ vfp_vfnms          11101110 1d01aaaa bbbb101s n1m0cccc, s:size, d:d, b:vd, n:n, a:vn, m:m, c:vm
+neon_vhadd          111a1111 0bccdddd eeee0000 fgh0iiii, a:unsign, c:size, g:q, b:d, e:vd, f:n, d:vn, h:m, i:vm
+neon_vhsub          111a1111 0bccdddd eeee0010 fgh0iiii, a:unsign, c:size, g:q, b:d, e:vd, f:n, d:vn, h:m, i:vm
+ vfp_vins           11111110 1a110000 bbbb1010 11c0dddd, a:d, b:vd, c:m, d:vm
+neon_vldx_m         11111001 0a10bbbb ccccdddd eeffgggg, d:opcode, e:size, a:d, c:vd, b:rn, f:align, g:rm
+neon_vldx_s_o       11111001 1a10bbbb ccccddee ffffgggg, e:opcode, d:size, a:d, c:vd, b:rn, f:index_align, g:rm
+neon_vldx_s_a       11111001 1a10bbbb cccc11dd eetgffff, d:opcode, e:size, a:d, c:vd, t:inc, b:rn, g:align, f:rm
+ vfp_vldm_dp        1110110p udw1aaaa bbbb1011 cccccccc, p:p, u:upwards, w:writeback, a:rn, d:d, b:vd, c:imm8
+ vfp_vldm_sp        1110110p udw1aaaa bbbb1010 cccccccc, p:p, u:upwards, w:writeback, a:rn, d:d, b:vd, c:imm8
+ vfp_vldr_dp        11101101 ud01aaaa bbbb1011 cccccccc, u:upwards, a:rn, d:d, b:vd, c:imm8
+ vfp_vldr_sp        11101101 ud01aaaa bbbb1010 cccccccc, u:upwards, a:rn, d:d, b:vd, c:imm8
+neon_vmax_i         111a1111 0bccdddd eeee0110 fgh0iiii, a:unsign, c:size, g:q, b:d, e:vd, f:n, d:vn, h:m, i:vm
+neon_vmin_i         111a1111 0bccdddd eeee0110 fgh1iiii, a:unsign, c:size, g:q, b:d, e:vd, f:n, d:vn, h:m, i:vm
+neon_vmax_f         11101111 0d0saaaa bbbb1111 nqm0cccc, s:size, q:q, d:d, b:vd, n:n, a:vn, m:m, c:vm
+neon_vmin_f         11101111 0d1saaaa bbbb1111 nqm0cccc, s:size, q:q, d:d, b:vd, n:n, a:vn, m:m, c:vm
+neon_vmla_i         11101111 0abbcccc dddd1001 efg0hhhh, b:size, f:q, a:d, d:vd, e:n, c:vn, g:m, h:vm
+neon_vmls_i         11111111 0abbcccc dddd1001 efg0hhhh, b:size, f:q, a:d, d:vd, e:n, c:vn, g:m, h:vm
+neon_vmlal_i        111a1111 1bccdddd eeee1000 f0g0hhhh, a:unsign, c:size:!:11, b:d, e:vd, f:n, d:vn, g:m, h:vm
+neon_vmlsl_i        111a1111 1bccdddd eeee1010 f0g0hhhh, a:unsign, c:size:!:11, b:d, e:vd, f:n, d:vn, g:m, h:vm
+neon_vmla_f         11101111 0a0sbbbb cccc1101 def1gggg, s:size, e:q, a:d, c:vd, d:n, b:vn, f:m, g:vm
+neon_vmls_f         11101111 0a1sbbbb cccc1101 def1gggg, s:size, e:q, a:d, c:vd, d:n, b:vn, f:m, g:vm
+ vfp_vmla_f         11101110 0a00bbbb cccc101s d0e0ffff, s:size, a:d, c:vd, d:n, b:vn, e:m, f:vm
+ vfp_vmls_f         11101110 0a00bbbb cccc101s d1e0ffff, s:size, a:d, c:vd, d:n, b:vn, e:m, f:vm
+neon_vmla_scal      111a1111 1bccdddd eeee000f g1h0iiii, f:is_float, c:size:!:11, a:q, b:d, e:vd, g:n, d:vn, h:m, i:vm
+neon_vmls_scal      111a1111 1bccdddd eeee010f g1h0iiii, f:is_float, c:size:!:11, a:q, b:d, e:vd, g:n, d:vn, h:m, i:vm
+neon_vmlal_scal     111a1111 1bccdddd eeee0010 f1g0hhhh, a:unsign, c:size:!:11, b:d, e:vd, f:n, d:vn, g:m, h:vm
+neon_vmlsl_scal     111a1111 1bccdddd eeee0110 f1g0hhhh, a:unsign, c:size:!:11, b:d, e:vd, f:n, d:vn, g:m, h:vm
+neon_vmovi          111a1111 1b000ccc ddddeeee 0fg1hhhh, f:q, b:d, d:vd, g:op, e:cmode, a:i, c:imm3, h:imm4
+ vfp_vmovi          11101110 1d11aaaa bbbb101s 0000cccc, s:size, d:d, b:vd, a:imm4h, c:imm4l
+ vfp_vmov           11101110 1a110000 bbbb101s 01c0dddd, s:size, a:d, b:vd, c:m, d:vm
+ vfp_vmov_core_scal 11101110 0ooaaaaa bbbb1011 dcc10000, d:d, a:vd, o:opc1, c:opc2, b:rt
+ vfp_vmov_scal_core 11101110 uaa1bbbb cccc1011 ndd10000, u:unsign, c:rt, n:n, b:vn, a:opc1, d:opc2
+ vfp_vmov_core_sp   11101110 000oaaaa bbbb1010 n0010000, o:op, b:rt, n:n, a:vn
+ vfp_vmov_2core_2sp 11101100 010abbbb cccc1010 00d1eeee, a:to_arm, c:rt, b:rt2, d:m, e:vm
+ vfp_vmov_2core_dp  11101100 010abbbb cccc1011 00d1eeee, a:to_arm, c:rt, b:rt2, d:m, e:vm
+ vfp_vmov_hp        11101110 000abbbb cccc1001 d0010000, a:op, c:rt, d:n, b:vn
+neon_vmovl          111u1111 1daaa000 bbbb1010 00m1cccc, a:op:!:000, u:unsign, d:d, b:vd, m:m, c:vm
+neon_vmovn          11111111 1d11ss10 aaaa0010 00m0bbbb, s:size, d:d, a:vd, m:m, b:vm
+ vfp_vmovx          11111110 1a110000 bbbb1010 01c0dddd, a:d, b:vd, c:m, d:vm
+ vfp_vmrs           11101110 11110001 aaaa1010 00010000, a:rt
+ vfp_vmsr           11101110 11100001 aaaa1010 00010000, a:rt
+neon_vmul_i         111o1111 0dssaaaa bbbb1001 nqm1cccc, o:op, s:size, q:q, d:d, b:vd, n:n, a:vn, m:m, c:vm
+neon_vmull_i        111a1111 1bccdddd eeee11f0 g0h0iiii, f:op, a:unsign, c:size:!:11, b:d, e:vd, g:n, d:vn, h:m, i:vm
+neon_vmul_f         11111111 0d0saaaa bbbb1101 nqm1cccc, s:size, q:q, d:d, b:vd, n:n, a:vn, m:m, c:vm
+ vfp_vmul           11101110 0d10aaaa bbbb101s n0m0cccc, s:size, d:d, b:vd, n:n, a:vn, m:m, c:vm
+neon_vmul_scal      111q1111 1dssaaaa bbbb100f n1m0cccc, f:is_float, s:size:!:11, q:q, d:d, b:vd, n:n, a:vn, m:m, c:vm
+neon_vmull_scal     111u1111 1dssaaaa bbbb1010 n1m0cccc, u:unsign, s:size:!:11, d:d, b:vd, n:n, a:vn, m:m, c:vm
+neon_vmvni          111i1111 1d000aaa bbbbcccc 0q11eeee, q:q, d:d, b:vd, c:cmode, i:i, a:imm3, e:imm4
+neon_vmvn           11111111 1d11ss00 aaaa0101 1qm0bbbb, s:size, q:q, d:d, a:vd, m:m, b:vm
+neon_vneg           11111111 1d11ss01 aaaa0f11 1qm0bbbb, f:is_float, s:size, q:q, d:d, a:vd, m:m, b:vm
+ vfp_vneg           11101110 1d110001 aaaa101s 01m0bbbb, s:size, d:d, a:vd, m:m, b:vm
+ vfp_vnmla          11101110 0a01bbbb cccc101s d1e0ffff, s:size, a:d, c:vd, d:n, b:vn, e:m, f:vm
+ vfp_vnmls          11101110 0a01bbbb cccc101s d0e0ffff, s:size, a:d, c:vd, d:n, b:vn, e:m, f:vm
+ vfp_vnmul          11101110 0a10bbbb cccc101s d1e0ffff, s:size, a:d, c:vd, d:n, b:vn, e:m, f:vm
+neon_vorn           11101111 0a11bbbb cccc0001 def1gggg, e:q, a:d, c:vd, d:n, b:vn, f:m, g:vm
+neon_vorri          111i1111 1d000aaa bbbbcccc 0q01eeee, q:q, d:d, b:vd, c:cmode:=:0001:0011:0101:0111:1001:1011, i:i, a:imm3, e:imm4
+neon_vorr           11101111 0a10bbbb cccc0001 def1gggg, e:q, a:d, c:vd, d:n, b:vn, f:m, g:vm
+neon_vpadal         11111111 1d11ss00 aaaa0110 oqm0bbbb, o:unsign, s:size, q:q, d:d, a:vd, m:m, b:vm
+neon_vpadd_i        11101111 0dssaaaa bbbb1011 nqm1cccc, s:size, q:q, d:d, b:vd, n:n, a:vn, m:m, c:vm
+neon_vpadd_f        11111111 0d0saaaa bbbb1101 nqm0cccc, s:size, q:q, d:d, b:vd, n:n, a:vn, m:m, c:vm
+neon_vpaddl         11111111 1d11ss00 aaaa0010 oqm0bbbb, o:unsign, s:size, q:q, d:d, a:vd, m:m, b:vm
+neon_vpmax_i        111u1111 0dssaaaa bbbb1010 nqm0cccc, u:unsign, s:size, q:q, d:d, b:vd, n:n, a:vn, m:m, c:vm
+neon_vpmin_i        111u1111 0dssaaaa bbbb1010 nqm1cccc, u:unsign, s:size, q:q, d:d, b:vd, n:n, a:vn, m:m, c:vm
+neon_vpmax_f        11111111 0d0saaaa bbbb1111 nqm0cccc, s:size, q:q, d:d, b:vd, n:n, a:vn, m:m, c:vm
+neon_vpmin_f        11111111 0d1saaaa bbbb1111 nqm0cccc, s:size, q:q, d:d, b:vd, n:n, a:vn, m:m, c:vm
+ vfp_vpop           11101100 1d111101 aaaa101s bbbbbbbb, s:size, d:d, a:vd, b:regs
+ vfp_vpush          11101101 0d101101 aaaa101s bbbbbbbb, s:size, d:d, a:vd, b:regs
+neon_vqabs          11111111 1d11ss00 aaaa0111 0qm0bbbb, s:size, q:q, d:d, a:vd, m:m, b:vm
+neon_vqadd          111a1111 0bccdddd eeee0000 fgh1iiii, a:unsign, c:size, g:q, b:d, e:vd, f:n, d:vn, h:m, i:vm
+neon_vqdmlal_i      11101111 1dssaaaa bbbb1001 n0m0cccc, s:size:!:11, d:d, b:vd, n:n, a:vn, m:m, c:vm
+neon_vqdmlsl_i      11101111 1dssaaaa bbbb1011 n0m0cccc, s:size:!:11, d:d, b:vd, n:n, a:vn, m:m, c:vm
+neon_vqdmlal_scal   11101111 1dssaaaa bbbb0011 n1m0cccc, s:size:!:11, d:d, b:vd, n:n, a:vn, m:m, c:vm
+neon_vqdmlsl_scal   11101111 1dssaaaa bbbb0111 n1m0cccc, s:size:!:11, d:d, b:vd, n:n, a:vn, m:m, c:vm
+neon_vqdmulh_i      11101111 0dssaaaa bbbb1011 nqm0cccc, s:size, q:q, d:d, b:vd, n:n, a:vn, m:m, c:vm
+neon_vqdmulh_scal   111q1111 1dssaaaa bbbb1100 n1m0cccc, s:size, q:q, d:d, b:vd, n:n, a:vn, m:m, c:vm
+neon_vqdmull_i      11101111 1dssaaaa bbbb1101 n0m0cccc, s:size:!:11, d:d, b:vd, n:n, a:vn, m:m, c:vm
+neon_vqdmull_scal   11101111 1dssaaaa bbbb1011 n1m0cccc, s:size:!:11, d:d, b:vd, n:n, a:vn, m:m, c:vm
+neon_vqmovn         11111111 1a11bb10 cccc0010 1de0ffff, d:unsign, b:size, a:d, c:vd, e:m, f:vm
+neon_vqmovun        11111111 1a11bb10 cccc0010 01d0ffff, b:size, a:d, c:vd, d:m, f:vm
+neon_vqneg          11111111 1d11ss00 aaaa0111 1qm0bbbb, s:size, q:q, d:d, a:vd, m:m, b:vm
+neon_vqrdmlaht1     11111111 0abbcccc dddd1011 efg1hhhh, b:size, f:q, a:d, d:vd, e:n, c:vn, g:m, h:vm
+neon_vqrdmlaht2     111a1111 1bccdddd eeee1110 f1g0hhhh, c:size, a:q, b:d, e:vd, f:n, d:vn, g:m, h:vm
+neon_vqrdmlsht1     11111111 0abbcccc dddd1100 efg1hhhh, b:size, f:q, a:d, d:vd, e:n, c:vn, g:m, h:vm
+neon_vqrdmlsht2     111a1111 1bccdddd eeee1111 f1g0hhhh, c:size, a:q, b:d, e:vd, f:n, d:vn, g:m, h:vm
+neon_vqrdmulh_i     11111111 0dssaaaa bbbb1011 nqm0cccc, s:size, q:q, d:d, b:vd, n:n, a:vn, m:m, c:vm
+neon_vqrdmulh_scal  111q1111 1dssaaaa bbbb1101 n1m0cccc, s:size, q:q, d:d, b:vd, n:n, a:vn, m:m, c:vm
+neon_vqrshl         111u1111 0dssaaaa bbbb0101 nqm1cccc, u:unsign, s:size, q:q, d:d, b:vd, n:n, a:vn, m:m, c:vm
+neon_vqrshrn        111a1111 1bcccccc dddd1001 01e1ffff, a:unsign, b:d, d:vd, e:m, f:vm, c:imm6
+neon_vqrshrun       11111111 1abbbbbb cccc1000 01d1eeee, a:d, c:vd, d:m, e:vm, b:imm6
+neon_vqshl          111u1111 0dssaaaa bbbb0100 nqm1cccc, u:unsign, s:size, q:q, d:d, b:vd, m:m, c:vm, n:n, a:vn
+neon_vqshli         111u1111 1daaaaaa bbbb0111 lqm1cccc, u:unsign, q:q, d:d, b:vd, m:m, c:vm, l:l, a:imm6
+neon_vqshlui        11111111 1daaaaaa bbbb0110 lqm1cccc, q:q, d:d, b:vd, m:m, c:vm, l:l, a:imm6
+neon_vqshrn         111u1111 1daaaaaa bbbb1001 00m1cccc, u:unsign, d:d, b:vd, m:m, c:vm, a:imm6
+neon_vqshrun        11111111 1daaaaaa bbbb1000 00m1cccc, d:d, b:vd, m:m, c:vm, a:imm6
+neon_vqsub          111a1111 0bccdddd eeee0010 fgh1iiii, a:unsign, c:size, g:q, b:d, e:vd, f:n, d:vn, h:m, i:vm
+neon_vraddhn        11111111 1dssaaaa bbbb0100 n0m0cccc, s:size:!:11, d:d, b:vd, n:n, a:vn, m:m, c:vm
+neon_vrecpe         11111111 1d11ss11 aaaa010f 0qm0bbbb, f:is_float, s:size, q:q, d:d, a:vd, m:m, b:vm
+neon_vrecps         11101111 0d0saaaa bbbb1111 nqm1cccc, s:size, q:q, d:d, b:vd, n:n, a:vn, m:m, c:vm
+neon_vrev16         11111111 1d11ss00 aaaa0001 0qm0bbbb, s:size, q:q, d:d, a:vd, m:m, b:vm
+neon_vrev32         11111111 1d11ss00 aaaa0000 1qm0bbbb, s:size, q:q, d:d, a:vd, m:m, b:vm
+neon_vrev64         11111111 1d11ss00 aaaa0000 0qm0bbbb, s:size, q:q, d:d, a:vd, m:m, b:vm
+neon_vrhadd         111u1111 0bccdddd eeee0001 fgh0iiii, u:unsign, c:size, g:q, b:d, e:vd, f:n, d:vn, h:m, i:vm
+neon_vrshl          111u1111 0dssaaaa bbbb0101 nqm0cccc, u:unsign, s:size, q:q, d:d, b:vd, n:n, a:vn, m:m, c:vm
+neon_vrshr          111a1111 1bcccccc dddd0010 efg1hhhh, a:unsign, f:q, b:d, d:vd, g:m, h:vm, e:l, c:imm6
+neon_vrshrn         11101111 1abbbbbb cccc1000 01d1eeee, a:d, c:vd, d:m, e:vm, b:imm6:!:000000:000001:000010:000011:000100:000101:000110:000111
+neon_vrsqrte        11111111 1d11ss11 aaaa010f 1qm0bbbb, f:is_float, s:size, q:q, d:d, a:vd, m:m, b:vm
+neon_vrsqrts        11101111 0d1saaaa bbbb1111 nqm1cccc, s:size, q:q, d:d, b:vd, n:n, a:vn, m:m, c:vm
+neon_vrsra          111u1111 1daaaaaa bbbb0011 lqm1cccc, u:unsign, q:q, d:d, b:vd, m:m, c:vm, l:l, a:imm6
+neon_vrsubhn        11111111 1dssaaaa bbbb0110 n0m0cccc, s:size:!:11, d:d, b:vd, n:n, a:vn, m:m, c:vm
+neon_vsdot          11111100 0a10bbbb cccc1101 defghhhh, g:u, e:q, a:d, c:vd, d:n, b:vn, f:m, h:vm
+neon_vsdot_scal     11111110 0a10bbbb cccc1101 defghhhh, g:u, e:q, a:d, c:vd, d:n, b:vn, f:m, h:vm
+neon_vshl           111a1111 0bccdddd eeee0100 fgh0iiii, a:unsign, c:size, g:q, b:d, e:vd, f:n, d:vn, h:m, i:vm
+neon_vshli          11101111 1abbbbbb cccc0101 def1gggg, e:q, a:d, c:vd, f:m, g:vm, d:l, b:imm6
+neon_vshll          111a1111 1bcccccc dddd1010 00e1ffff, a:unsign, b:d, d:vd, e:m, f:vm, c:imm6:!:000000:000001:000010:000011:000100:000101:000110:000111
+neon_vshll2         11111111 1d11ss10 aaaa0011 00m0bbbb, s:size, d:d, a:vd, m:m, b:vm
+neon_vshr           111a1111 1bcccccc dddd0000 efg1hhhh, a:unsign, f:q, b:d, d:vd, g:m, h:vm, e:l, c:imm6
+neon_vshrn          11101111 1daaaaaa bbbb1000 00m1cccc, d:d, b:vd, m:m, c:vm, a:imm6
+neon_vsli           11111111 1abbbbbb cccc0101 def1gggg, e:q, a:d, c:vd, f:m, g:vm, d:l, b:imm6
+ vfp_vsqrt          11101110 1d110001 aaaa101s 11m0bbbb, s:size, d:d, a:vd, m:m, b:vm
+neon_vsra           111u1111 1daaaaaa bbbb0001 lqm1cccc, u:unsign, q:q, d:d, b:vd, m:m, c:vm, l:l, a:imm6
+neon_vsri           11111111 1daaaaaa bbbb0100 lqm1cccc, q:q, d:d, b:vd, m:m, c:vm, l:l, a:imm6
+neon_vstx_m         11111001 0a00bbbb ccccdddd eeffgggg, d:opcode, e:size, a:d, c:vd, b:rn, f:align, g:rm
+neon_vstx_s_o       11111001 1a00bbbb ccccddee ffffgggg, e:opcode, d:size:!:11, a:d, c:vd, b:rn, f:index_align, g:rm
+ vfp_vstm_dp        1110110p udw0aaaa bbbb1011 cccccccc, p:p, u:upwards, w:writeback, a:rn, d:d, b:vd, c:imm8
+ vfp_vstm_sp        1110110p udw0aaaa bbbb1010 cccccccc, p:p, u:upwards, w:writeback, a:rn, d:d, b:vd, c:imm8
+ vfp_vstr_dp        11101101 ud00aaaa bbbb1011 cccccccc, u:upwards, a:rn, d:d, b:vd, c:imm8
+ vfp_vstr_sp        11101101 ud00aaaa bbbb1010 cccccccc, u:upwards, a:rn, d:d, b:vd, c:imm8
+neon_vsub_i         11111111 0dssaaaa bbbb1000 nqm0cccc, s:size, q:q, d:d, b:vd, n:n, a:vn, m:m, c:vm
+neon_vsub_f         11101111 0d1saaaa bbbb1101 nqm0cccc, s:size, q:q, d:d, b:vd, n:n, a:vn, m:m, c:vm
+ vfp_vsub           11101110 0d11aaaa bbbb101s n1m0cccc, s:size, d:d, b:vd, n:n, a:vn, m:m, c:vm
+neon_vsubhn         11101111 1abbcccc dddd0110 e0f0gggg, b:size:!:11, a:d, d:vd, e:n, c:vn, f:m, g:vm
+neon_vsubl          111a1111 1bccdddd eeee0010 f0g0hhhh, a:unsign, c:size:!:11, b:d, e:vd, f:n, d:vn, g:m, h:vm
+neon_vsubw          111a1111 1bccdddd eeee0011 f0g0hhhh, a:unsign, c:size:!:11, b:d, e:vd, f:n, d:vn, g:m, h:vm
+neon_vsudot         11111110 1a00bbbb cccc1101 def1gggg, e:q, a:d, c:vd, d:n, b:vn, f:m, g:vm
+neon_vswp           11111111 1d11ss10 aaaa0000 0qm0bbbb, s:size, q:q, d:d, a:vd, m:m, b:vm
+neon_vtbl           11111111 1d11aaaa bbbb10cc n0m0eeee, d:d, b:vd, n:n, a:vn, c:len, m:m, e:vm
+neon_vtbx           11111111 1d11aaaa bbbb10cc n1m0eeee, d:d, b:vd, n:n, a:vn, c:len, m:m, e:vm
+neon_vtrn           11111111 1a11bb10 cccc0000 1de0ffff, b:size, d:q, a:d, c:vd, e:m, f:vm
+neon_vtst           11101111 0dssaaaa bbbb1000 nqm1cccc, s:size, q:q, d:d, b:vd, n:n, a:vn, m:m, c:vm
+neon_vudot          11111100 0a10bbbb cccc1101 def1gggg, e:q, a:d, c:vd, d:n, b:vn, f:m, g:vm
+neon_vudot_scal     11111110 0a10bbbb cccc1101 def1gggg, e:q, a:d, c:vd, d:n, b:vn, f:m, g:vm
+neon_vusdot         11111100 1a10bbbb cccc1101 def0gggg, e:q, a:d, c:vd, d:n, b:vn, f:m, g:vm
+neon_vusdot_scal    11111110 1a00bbbb cccc1101 def0gggg, e:q, a:d, c:vd, d:n, b:vn, f:m, g:vm
+neon_vuzp           11111111 1d11ss10 aaaa0001 0qm0bbbb, s:size, q:q, d:d, a:vd, m:m, b:vm
+neon_vzip           11111111 1d11ss10 aaaa0001 1qm0bbbb, s:size, q:q, d:d, a:vd, m:m, b:vm
+#
+# New ARMv8 instructions
+#
+# ARMv8 VFP, NEON
+#
+ vfp_vsel           11111110 0abbcccc dddd101s n0m0eeee, s:size, b:cond, a:d, d:vd, n:n, c:vn, m:m, e:vm
+
+#
+# Generic field decoders
+#
+shift_i_mov_16            000aabbb bbcccddd, a:opcode, b:imm5, c:rm, d:rd
+add_sub_16                000110ab bbcccddd, a:opcode, b:rm, c:rn, d:rd
+add_sub_i_16              000111ab bbcccddd, a:opcode, b:imm3, c:rn, d:rd
+add_sub_comp_mov_i_16     001aabbb cccccccc, a:opcode, b:rdn, c:imm8
+data_proc_16              010000aa aabbbccc, a:opcode, b:rm, c:rdn
+special_data_proc_16      010001aa bccccddd, a:opcode, b:dn, c:rm, d:rdn
+bx_16                     01000111 abbbb000, a:link, b:rm
+load_lit_16               01001aaa bbbbbbbb, a:rd, b:imm8
+load_store_reg_offset_16  0101aaab bbcccddd, a:opcode, b:rm, c:rn, d:rd
+load_store_byte_word_i_16 011abccc ccdddeee, a:byte, b:load, c:imm5, d:rn, e:rd
+load_store_halfword_i_16  1000abbb bbcccddd, a:load, b:imm5, c:rn, d:rd
+load_store_stack_16       1001abbb cccccccc, a:load, b:rd, c:imm8
+add_sp_pc_16              1010abbb cccccccc, a:sp, b:rd, c:imm8
+misc_add_sub_sp_i_16      10110000 abbbbbbb, a:opcode, b:imm7
+misc_sign_zero_extend_16  10110010 aabbbccc, a:opcode, b:rm, c:rd
+misc_cbz_16               1011a0b1 cccccddd, a:n, b:imm1, c:imm5, d:rn
+misc_push_pop_16          1011aaab bbbbbbbb, a:opcode, b:reg
+misc_rev_16               10111010 aabbbccc, a:opcode, b:rn, c:rd
+misc_if_then_16           10111111 aaaabbbb, a:cond, b:mask
+misc_nop_16               10111111 aaaa0000, a:hint
+load_store_multiple_16    1100abbb cccccccc, a:load, b:rn, c:reglist
+cond_branch_16            1101aaaa bbbbbbbb, a:condition, b:imm8
+svc_16                    11011111 aaaaaaaa, a:imm8
+uncond_branch_16          11100aaa aaaaaaaa, a:imm11
+data_proc_12bit_i_32      11110abb bbbcdddd 0eeeffff gggggggg, a:imm1, b:opcode, c:set_condition, d:rn, e:imm3, f:rd, g:imm8
+data_proc_12bit_i_plain_32 11110a10 bbbbcccc 0dddeeee ffffffff, a:imm1, b:opcode, c:rn, d:imm3, e:rd, f:imm8
+data_proc_16bit_i_32      11110abb bbbbcccc 0dddeeee ffffffff, a:imm1, b:opcode, c:imm4, d:imm3, e:rd, f:imm8
+data_proc_bit_field       11110011 aaabbbbb 0cccdddd ee0fffff, a:opcode, b:rn, c:imm3, d:rd, e:imm2, f:imm5
+data_proc_const_shift     1110101a aaabcccc 0dddeeee ffgghhhh, a:opcode, b:set_flags, c:rn, d:imm3, e:rd, f:imm2, g:shift_type, h:rm
+data_proc_reg_shift       11111010 0aabcccc 1111dddd 0eeeffff, a:opcode, b:set_flags, c:rn, d:rd, e:opcode2, f:rm
+data_proc_sign_zero_ext   11111010 0aaabbbb 1111cccc 10ddeeee, a:opcode, b:rn, c:rd, d:rotate, e:rm
+data_proc_simd_add_sub    11111010 1aaabbbb 1111cccc 0dddeeee, a:opcode, b:rn, c:rd, d:pref, e:rm
+data_proc_other_3reg      11111010 1aaabbbb 1111cccc 1dddeeee, a:opcode, b:rn, c:rd, d:opcode2, e:rm
+data_proc_32_mult         11111011 0aaabbbb ccccdddd eeeeffff, a:opcode, b:rn, c:racc, d:rd, e:opcode2, f:rm
+data_proc_64_mult         11111011 1aaabbbb ccccdddd eefghhhh, a:opcode, b:rn, c:rdlo, d:rdhi, e:opcode2, f:n_high, g:m_swap, h:rm
+load_store_single_reg_imm12_32 1111100a bccdeeee ffffgggg gggggggg, a:sign_ext, b:upwards, c:size, d:load_store, e:rn, f:rt, g:imm12
+load_store_single_reg_off_32 1111100a 0bbcdddd eeee0000 00ffgggg, a:sign_ext, b:size, c:load_store, d:rn, e:rt, f:shift, g:rm
+pld_t2_32                 1111100a 0bbcdddd eeeeffff gggggggg, a:sign_ext, b:size, c:load_store, d:rn, e:rt, f:opcode, g:imm8
+load_store_double_ex      1110100a b1cdeeee ffffgggg hhhhhhhh, a:pre_index, b:upwards, c:writeback, d:load_store, e:rn, f:rt, g:rd, h:imm8
+load_store_ex_tb_branch   1110100a b1cdeeee ffffgggg hhhhiiii, a:pre_index, b:upwards, c:writeback, d:load_store, e:rn, f:rt, g:rd, h:opcode, i:rm
+load_store_multiple32     1110100a aabcdddd eeeeeeee eeeeeeee, a:opcode, b:writeback, c:load, d:rn, e:reglist
+branch32                  11110abb bbbbbbbb 1cdefggg gggggggg, a:sign_bit, b:offset_high, c:link, d:j1, e:thumb_mode, f:j2, g:offset_low
+branch_cond32             11110abb bbcccccc 10d0efff ffffffff, a:sign_bit, b:condition, c:offset_high, d:j1, e:j2, f:offset_low
+special_control           11110011 10111111 10001111 aaaabbbb, a:opcode, b:option
+status_reg_access         11110011 1aabcccc 1000dddd 00000000, a:opcode, b:s_or_c, c:rn, d:rd
+coproc_proc               11101110 aaaabbbb ccccdddd eee0ffff, a:opc1, b:crn, c:crd, d:coproc, e:opc2, f:crm
+coproc_trans              11101110 aaabcccc ddddeeee fff1gggg, a:opc1, b:load, c:crn, d:rt, e:coproc, f:opc2, g:crm
+vmov_arm                  111011aa aaabcccc dddd101e fgh1iiii, a:opcode, b:to_arm, c:rt2, d:rt, e:double_single, f:n, g:f2, h:m, i:vm
+vmov                      1110111a abccdddd eeeeffff ghijkkkk, a:type, b:d, c:opcode, d:vm2, e:vd, f:opcode2, g:m2, h:q, i:m, j:opcode3, k:vm
+vmovi_neon                111a1111 1b000ccc ddddeeee 0fg1hhhh, a:i, b:d, c:imm3, d:vd, e:cmode, f:q, g:op, h:imm4
+vmovi                     11101110 1a11bbbb cccc101d 0000eeee, a:d, b:immh, c:vd, d:sz, e:imml
+vfp_ldr_str               11101101 ab0cdddd eeee101f gggggggg, a:upwards, b:d, c:load_store, d:rn, e:vd, f:double_reg, g:imm8
+vcmp                      11101110 1a11010b cccc101d e1f0gggg, a:d, b:empty, c:vd, d:sz, e:e, f:m, g:vm
+v_s_ldm                   1110110a bcdeffff gggg101h iiiiiiii, a:p, b:upwards, c:d, d:writeback, e:load_store, f:rn, g:vd, h:double_prec, i:imm8
+vadd                      111a111b 0cddeeee ffffgggg hij0kkkk, a:sub_add, b:single_prec, c:d, d:sz, e:vn, f:vd, g:opcode, h:n, i:q, j:m, k:vm
+vneg                      1110111a 1b11cc01 ddddef1g hij0kkkk, a:single_prec, b:d, c:size, d:vd, e:double_prec, f:f, g:f5, h:sz, i:q, j:m, k:vm
+vml                       111a111b cdeeffff gggghijk lmnopppp, a:op, b:opcode2, c:scalar, d:d, e:size, f:vn, g:vd, h:f2, i:opcode3, j:f3, k:f, l:n, m:q, n:m, o:f4, p:vm
+vcvt                      111a111b 1c11dddd eeeeffff ghi0jjjj, a:u, b:opcode2, c:d, d:opcode3, e:vd, f:opcode4, g:op, h:q, i:m, j:vm
+vdiv                      11101110 1a00bbbb cccc101d e0f0gggg, a:d, b:vn, c:vd, d:sz, e:n, f:m, g:vm
+fpv_op                    11101110 1abbcccc ddddeeef ghijkkkk, a:d, b:opcode, c:vn, d:vd, e:opcode2, f:sz, g:n, h:q, i:m, j:z, k:vm
+simd_op                   11101111 0abbcccc ddddeeee fghijjjj, a:d, b:sz, c:vn, d:vd, e:opcode, f:n, g:q, h:m, i:z, j:vm
+neon_imm6                 111a1111 1bcccccc ddddeeef ghi1jjjj, a:u, b:d, c:imm6, d:vd, e:opcode3, f:opcode4, g:l, h:q, i:m, j:vm
+neon_trans_mult_lane      11111001 abccdddd eeeeffgg hhiijjjj, a:opcode, b:d, c:opcode2, d:rn, e:vd, f:size, g:element_size, h:sz, i:align, j:rm
+neon_imm4_2reg            11111111 1a11bbbb ccccdddd efg0hhhh, a:d, b:imm4, c:vd, d:opcode, e:opcode2, f:q, g:m, h:vm
+neon_imm4_3reg            11101111 1a11bbbb ccccdddd efg0hhhh, a:d, b:vn, c:vd, d:imm4, e:n, f:q, g:m, h:vm
+data_proc_rd_rn_rm        00000000 0000aaaa 0000bbbb 0000cccc, b:rd, a:rn, c:rm
+data_proc_rd_rn_rm_ra     00000000 0000aaaa bbbbcccc 0000dddd, c:rd, a:rn, d:rm, b:ra
+vfp_ld_st_m               0000000p udw0aaaa bbbb0000 cccccccc, p:p, u:upwards, w:writeback, a:rn, d:d, b:vd, c:imm8
+vfp_vldr_vstr             00000000 ud00aaaa bbbb0000 cccccccc, u:upwards, a:rn, d:d, b:vd, c:imm8

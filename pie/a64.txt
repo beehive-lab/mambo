@@ -1,0 +1,113 @@
+#
+# This file is part of PIE, an instruction encoder / decoder generator:
+#    https://github.com/beehive-lab/pie
+#
+# Copyright 2014-2016 Amanieu d'Antras <amanieu at gmail dot com>
+# Copyright 2015-2016 Guillermo Callaghan <guillermocallaghan at hotmail dot com>
+# Copyright 2011-2016 Cosmin Gorgovan <cosmin at linux-geek dot org>
+# Copyright 2017-2021 The University of Manchester
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+#
+CBZ_CBNZ                a011010b cccccccc cccccccc cccddddd, a:sf, b:op, c:imm19, d:rt
+B_cond                  01010100 aaaaaaaa aaaaaaaa aaa0bbbb, a:imm19, b:cond
+SVC                     11010100 000aaaaa aaaaaaaa aaa00001, a:imm16
+HVC                     11010100 000aaaaa aaaaaaaa aaa00010, a:imm16
+SMC                     11010100 000aaaaa aaaaaaaa aaa00011, a:imm16
+BRK                     11010100 001aaaaa aaaaaaaa aaa00000, a:imm16
+HLT                     11010100 010aaaaa aaaaaaaa aaa00000, a:imm16
+DCPS1                   11010100 101aaaaa aaaaaaaa aaa00001, a:imm16
+DCPS2                   11010100 101aaaaa aaaaaaaa aaa00010, a:imm16
+DCPS3                   11010100 101aaaaa aaaaaaaa aaa00011, a:imm16
+MSR_immed               11010101 00000aaa 0100bbbb ccc11111, a:op1, b:crm, c:op2
+HINT                    11010101 00000011 0010aaaa bbb11111, a:crm, b:op2
+CLREX                   11010101 00000011 0011aaaa 01011111, a:crm
+DSB                     11010101 00000011 0011aaaa 10011111, a:crm
+DMB                     11010101 00000011 0011aaaa 10111111, a:crm
+ISB                     11010101 00000011 0011aaaa 11011111, a:crm
+SYS                     11010101 00001aaa bbbbcccc dddeeeee, a:op1, b:crn, c:crm, d:op2, e:rt
+MRS_MSR_reg             11010101 00a1bccc ddddeeee fffggggg, a:r, b:o0, c:op1, d:crn, e:crm, f:op2, g:rt
+SYSL                    11010101 00101aaa bbbbcccc dddeeeee, a:op1, b:crn, c:crm, d:op2, e:rt
+TBZ_TBNZ                a011011b cccccddd dddddddd dddeeeee, a:b5, b:op, c:b40, d:imm14, e:rt
+B_BL                    a00101bb bbbbbbbb bbbbbbbb bbbbbbbb, a:op, b:imm26
+BR                      11010110 00011111 000000aa aaa00000, a:rn
+BLR                     11010110 00111111 000000aa aaa00000, a:rn
+RET                     11010110 01011111 000000aa aaa00000, a:rn
+ERET                    11010110 10011111 00000011 11100000
+DRPS                    11010110 10111111 00000011 11100000
+LDX_STX                 aa001000 bcdeeeee fggggghh hhhiiiii, a:size, b:o2, c:l, d:o1, e:rs, f:o0, g:rt2, h:rn, i:rt
+LDR_lit                 aa011b00 cccccccc cccccccc cccddddd, a:opc, b:v, c:imm19, d:rt
+LDP_STP                 aa101b0c cdeeeeee efffffgg ggghhhhh, a:opc, b:v, c:type, d:l, e:imm7, f:rt2, g:rn, h:rt
+LDR_STR_immed           aa111b00 cc0ddddd ddddeeff fffggggg, a:size, b:v, c:opc, d:imm9, e:type, f:rn, g:rt
+LDR_STR_reg             aa111b00 cc1ddddd eeef10gg ggghhhhh, a:size, b:v, c:opc, d:rm, e:option, f:s, g:rn, h:rt
+LDR_STR_unsigned_immed  aa111b01 ccdddddd ddddddee eeefffff, a:size, b:v, c:opc, d:imm12, e:rn, f:rt
+LDx_STx_multiple        0a001100 0b000000 ccccddee eeefffff, a:q, b:l, c:opcode, d:size, e:rn, f:rt
+LDx_STx_multiple_post   0a001100 1b0ccccc ddddeeff fffggggg, a:q, b:l, c:rm, d:opcode, e:size, f:rn, g:rt
+LDx_STx_single          0a001101 0bc00000 dddeffgg ggghhhhh, a:q, b:l, c:r, d:opcode, e:s, f:size, g:rn, h:rt
+LDx_STx_single_post     0a001101 1bcddddd eeefgghh hhhiiiii, a:q, b:l, c:r, d:rm, e:opcode, f:s, g:size, h:rn, i:rt
+LDADD                   aa111000 bc1ddddd 000000ee eeefffff, a:size, b:a, c:r, d:rs, e:rn, f:rt
+LDCLR                   aa111000 bc1ddddd 000100ee eeefffff, a:size, b:a, c:r, d:rs, e:rn, f:rt
+LDEOR                   aa111000 bc1ddddd 001000ee eeefffff, a:size, b:a, c:r, d:rs, e:rn, f:rt
+LDSMAX                  aa111000 bc1ddddd 010000ee eeefffff, a:size, b:a, c:r, d:rs, e:rn, f:rt
+LDSMIN                  aa111000 bc1ddddd 010100ee eeefffff, a:size, b:a, c:r, d:rs, e:rn, f:rt
+LDUMAX                  aa111000 bc1ddddd 011000ee eeefffff, a:size, b:a, c:r, d:rs, e:rn, f:rt
+LDUMIN                  aa111000 bc1ddddd 011100ee eeefffff, a:size, b:a, c:r, d:rs, e:rn, f:rt
+LDSET                   aa111000 bc1ddddd 001100ee eeefffff, a:size, b:a, c:r, d:rs, e:rn, f:rt
+SWP                     aa111000 bc1ddddd 100000ee eeefffff, a:size, b:a, c:r, d:rs, e:rn, f:rt
+ADD_SUB_immed           abc10001 ddeeeeee eeeeeeff fffggggg, a:sf, b:op, c:s, d:shift, e:imm12, f:rn, g:rd
+BFM                     abb10011 0cdddddd eeeeeeff fffggggg, a:sf, b:opc, c:n, d:immr, e:imms, f:rn, g:rd
+EXTR                    a0010011 1b0ccccc ddddddee eeefffff, a:sf, b:n, c:rm, d:imms, e:rn, f:rd
+logical_immed           abb10010 0cdddddd eeeeeeff fffggggg, a:sf, b:opc, c:n, d:immr, e:imms, f:rn, g:rd
+MOV_wide                abb10010 1ccddddd dddddddd dddeeeee, a:sf, b:opc, c:hw, d:imm16, e:rd
+ADR                     abb10000 cccccccc cccccccc cccddddd, a:op, b:immlo, c:immhi, d:rd
+ADD_SUB_ext_reg         abc01011 001ddddd eeefffgg ggghhhhh, a:sf, b:op, c:s, d:rm, e:option, f:imm3, g:rn, h:rd
+ADD_SUB_shift_reg       abc01011 dd0eeeee ffffffgg ggghhhhh, a:sf, b:op, c:s, d:shift, e:rm, f:imm6, g:rn, h:rd
+ADC_SBC                 abc11010 000ddddd 000000ee eeefffff, a:sf, b:op, c:s, d:rm, e:rn, f:rd
+CCMP_CCMN_immed         ab111010 010ccccc dddd10ee eee0ffff, a:sf, b:op,  c:imm5, d:cond,  e:rn, f:nzcv
+CCMP_CCMN_reg           ab111010 010ccccc dddd00ee eee0ffff, a:sf, b:op, c:rm, d:cond, e:rn, f:nzcv
+cond_select             ab011010 100ccccc ddddeeff fffggggg, a:sf, b:op, c:rm, d:cond, e:op2, f:rn, g:rd
+data_proc_reg1          a1011010 11000000 bbbbbbcc cccddddd, a:sf, b:opcode, c:rn, d:rd
+data_proc_reg2          a0011010 110bbbbb ccccccdd dddeeeee, a:sf, b:rm, c:opcode, d:rn, e:rd
+data_proc_reg3          a0011011 bbbccccc deeeeeff fffggggg, a:sf, b:op31, c:rm, d:o0, e:Ra, f:rn, g:rd
+logical_reg             abb01010 ccdeeeee ffffffgg ggghhhhh, a:sf, b:opc, c:shift, d:n, e:rm, f:imm6, g:rn, h:rd
+simd_across_lane        0ab01110 cc11000d dddd10ee eeefffff, a:q, b:u, c:size, d:opcode, e:rn, f:rd
+simd_copy               0ab01110 000ccccc 0dddd1ee eeefffff, a:q, b:op, c:imm5, d:imm4, e:rn, f:rd
+simd_extract            0a101110 000bbbbb 0cccc0dd dddeeeee, a:q, b:rm, c:imm4, d:rn, e:rd
+simd_modified_immed     0ab01111 00000ccc dddd01ee eeefffff, a:q, b:op, c:abc, d:cmode, e:defgh, f:rd
+simd_permute            0a001110 bb0ccccc 0ddd10ee eeefffff, a:q, b:size, c:rm, d:opcode, e:rn, f:rd
+simd_scalar_copy        01011110 000aaaaa 000001bb bbbccccc, a:imm5, b:rn, c:rd
+simd_scalar_pairwise    01a11110 bb11000c cccc10dd dddeeeee, a:u, b:size, c:opcode, d:rn, e:rd
+simd_scalar_shift_immed 01a11111 0bbbbccc ddddd1ee eeefffff, a:u, b:immh, c:immb, d:opcode, e:rn, f:rd
+simd_scalar_three_diff  01a11110 bb1ccccc dddd00ee eeefffff, a:u, b:size, c:rm, d:opcode, e:rn, f:rd
+simd_scalar_three_same  01a11110 bb1ccccc ddddd1ee eeefffff, a:u, b:size, c:rm, d:opcode, e:rn, f:rd
+simd_scalar_two_reg     01a11110 bb10000c cccc10dd dddeeeee, a:u, b:size, c:opcode, d:rn, e:rd
+simd_scalar_x_indexed   01a11111 bbcdeeee ffffg0hh hhhiiiii, a:u, b:size, c:l, d:m, e:rm, f:opcode, g:H, h:rn, i:rd
+simd_shift_immed        0ab01111 0ccccddd eeeee1ff fffggggg, a:q, b:u, c:immh:!:0000, d:immb, e:opcode, f:rn, g:rd
+simd_table_lookup       0a001110 000bbbbb 0ccd00ee eeefffff, a:q, b:rm, c:len, d:op, e:rn, f:rd
+simd_three_diff         0ab01110 cc1ddddd eeee00ff fffggggg, a:q, b:u, c:size, d:rm, e:opcode, f:rn, g:rd
+simd_three_same         0ab01110 cc1ddddd ccccc1dd dddeeeee, a:q, b:u, c:size, d:rm, c:opcode, d:rn, e:rd
+simd_two_reg            0ab01110 cc10000d dddd10ee eeefffff, a:q, b:u, c:size, d:opcode, e:rn, f:rd
+simd_x_indexed          0ab01111 ccdeffff ggggh0ii iiijjjjj, a:q, b:u, c:size, d:l, e:m, f:rm, g:opcode, h:H, i:rn, j:rd
+crypto_aes              01001110 0010100a aaaa10bb bbbccccc, a:opcode, b:rn, c:rd
+crypto_sha_reg3         01011110 000aaaaa 0ccc00dd dddeeeee, a:rm, c:opcode, d:rn, e:rd
+crypto_sha_reg2         01011110 0010100a aaaa10bb bbbccccc, a:opcode, b:rn, c:rd
+FCMP                    00011110 aa1bbbbb 001000cc cccddddd, a:type, b:rm, c:rn, d:opcode2
+FCCMP                   00011110 aa1bbbbb cccc01dd dddeffff, a:type, b:rm, c:cond, d:rn, e:op, f:nzcv
+FCSEL                   00011110 aa1bbbbb cccc11dd dddeeeee, a:type, b:rm, c:cond, d:rn, e:rd
+float_reg1              00011110 aa1bbbbb b10000cc cccddddd, a:type, b:opcode, c:rn, d:rd
+float_reg2              00011110 aa1bbbbb cccc10dd dddeeeee, a:type, b:rm, c:opcode, d:rn, e:rd
+float_reg3              00011111 aabccccc deeeeeff fffggggg, a:type, b:o1, c:rm, d:o0, e:Ra, f:rn, g:rd
+FMOV_immed              00011110 aa1bbbbb bbb10000 000ccccc, a:type, b:imm8, c:rd
+float_cvt_fixed         a0011110 bb0ccddd eeeeeeff fffggggg, a:sf, b:type, c:rmode, d:opcode, e:scale, f:rn, g:rd
+float_cvt_int           a0011110 bb1ccddd 000000ee eeefffff, a:sf, b:type, c:rmode, d:opcode, e:rn, f:rd
