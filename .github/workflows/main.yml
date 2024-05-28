@@ -3,6 +3,11 @@ run-name: Running GitHub Action
 on: [push]
 jobs:
   build-and-run-mambo:
+    strategy:
+      matrix:
+        os: [focal]
+        arch: [ {os: arm64, qemu: aarch64}, {os: riscv64, qemu: riscv64}, {os: armhf, qemu: arm} ]
+      fail-fast: false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -10,13 +15,13 @@ jobs:
           path: mambo
           submodules: true
       - run: sudo apt-get update
-      # - run: sudo apt-get upgrade
+      - run: sudo apt-get upgrade
       - run: sudo apt-get install -y debootstrap
       - run: sudo apt-get install -y qemu-user-static
       - run: mkdir -p /tmp/chroot/
-      - run: sudo debootstrap --arch=riscv64 --foreign focal /tmp/chroot/riscv64 http://ports.ubuntu.com/ubuntu-ports
-      - run: sudo cp /usr/bin/qemu-riscv64-static /tmp/chroot/riscv64/usr/bin/
-      - run: sudo chroot /tmp/chroot/riscv64/ /usr/bin/qemu-riscv64-static /bin/bash -c '/debootstrap/debootstrap --second-stage'
-      - run: sudo cp -r $GITHUB_WORKSPACE/mambo /tmp/chroot/riscv64/root
-      - run: sudo chroot /tmp/chroot/riscv64/ /usr/bin/qemu-riscv64-static /bin/bash -c 'sudo apt-get update; sudo apt-get upgrade -y; sudo apt-get -y install build-essential libelf-dev ruby; cd /root/mambo/; make'
-      - run: sudo chroot /tmp/chroot/riscv64/ /usr/bin/qemu-riscv64-static /bin/bash -c '/root/mambo/dbm /bin/ls'
+      - run: sudo debootstrap --arch=${{ matrix.arch.os }} --foreign ${{ matrix.os }} /tmp/chroot/${{ matrix.arch.os }} http://ports.ubuntu.com/ubuntu-ports
+      - run: sudo cp /usr/bin/qemu-${{ matrix.arch.qemu }}-static /tmp/chroot/${{ matrix.arch.os }}/usr/bin/
+      - run: sudo chroot /tmp/chroot/${{ matrix.arch.os }}/ /usr/bin/qemu-${{ matrix.arch.qemu }}-static /bin/bash -c '/debootstrap/debootstrap --second-stage'
+      - run: sudo cp -r $GITHUB_WORKSPACE/mambo /tmp/chroot/${{ matrix.arch.os }}/root
+      - run: sudo chroot /tmp/chroot/${{ matrix.arch.os }}/ /usr/bin/qemu-${{ matrix.arch.qemu }}-static /bin/bash -c 'sudo apt-get update; sudo apt-get upgrade -y; sudo apt-get -y install build-essential libelf-dev ruby; cd /root/mambo/; make'
+      - run: sudo chroot /tmp/chroot/${{ matrix.arch.os }}/ /usr/bin/qemu-${{ matrix.arch.qemu }}-static /bin/bash -c '/root/mambo/dbm /bin/ls'
