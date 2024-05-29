@@ -1,6 +1,10 @@
 name: build-and-run-mambo
-run-name: Running GitHub Action
-on: [push]
+run-name: Building and running MAMBO triggered by ${{ github.actor }} on ${{ github.ref }}
+on:
+  push:
+    branches: [master]
+  pull_request:
+    types: [opened, synchronize, reopened] 
 jobs:
   build-and-run-mambo:
     strategy:
@@ -8,7 +12,7 @@ jobs:
         os: [focal]
         arch: [ {os: arm64, qemu: aarch64}, {os: riscv64, qemu: riscv64}, {os: armhf, qemu: arm} ]
       fail-fast: false
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
         with:
