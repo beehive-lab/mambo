@@ -18,14 +18,33 @@ jobs:
         with:
           path: mambo
           submodules: true
-      - run: sudo apt-get update
-      - run: sudo apt-get upgrade
-      - run: sudo apt-get install -y debootstrap
-      - run: sudo apt-get install -y qemu-user-static
-      - run: mkdir -p /tmp/chroot/
-      - run: sudo debootstrap --arch=${{ matrix.arch.os }} --foreign ${{ matrix.os }} /tmp/chroot/${{ matrix.arch.os }} http://ports.ubuntu.com/ubuntu-ports
-      - run: sudo cp /usr/bin/qemu-${{ matrix.arch.qemu }}-static /tmp/chroot/${{ matrix.arch.os }}/usr/bin/
-      - run: sudo chroot /tmp/chroot/${{ matrix.arch.os }}/ /usr/bin/qemu-${{ matrix.arch.qemu }}-static /bin/bash -c '/debootstrap/debootstrap --second-stage'
-      - run: sudo cp -r $GITHUB_WORKSPACE/mambo /tmp/chroot/${{ matrix.arch.os }}/root
-      - run: sudo chroot /tmp/chroot/${{ matrix.arch.os }}/ /usr/bin/qemu-${{ matrix.arch.qemu }}-static /bin/bash -c 'sudo apt-get update; sudo apt-get upgrade -y; sudo apt-get -y install build-essential libelf-dev ruby; cd /root/mambo/; make'
-      - run: sudo chroot /tmp/chroot/${{ matrix.arch.os }}/ /usr/bin/qemu-${{ matrix.arch.qemu }}-static /bin/bash -c '/root/mambo/dbm /bin/ls'
+      - name: Set up host environment
+        run: |
+          sudo apt-get update
+          sudo apt-get upgrade
+          sudo apt-get install -y debootstrap
+          sudo apt-get install -y qemu-user-static
+          sudo mkdir -p /tmp/chroot/
+          sudo chown root /bin/tar
+          sudo chmod u+s /bin/tar
+      - uses: actions/cache/restore@v4
+        id: cache
+        with:
+          path: /tmp/chroot/${{ matrix.arch.os }}
+          key: ${{ matrix.os }}.${{ matrix.arch.os }}
+      - name: Install and configure sysroot
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: | 
+          sudo debootstrap --arch=${{ matrix.arch.os }} --foreign ${{ matrix.os }} /tmp/chroot/${{ matrix.arch.os }} http://ports.ubuntu.com/ubuntu-ports
+          sudo cp /usr/bin/qemu-${{ matrix.arch.qemu }}-static /tmp/chroot/${{ matrix.arch.os }}/usr/bin/
+          sudo chroot /tmp/chroot/${{ matrix.arch.os }}/ /usr/bin/qemu-${{ matrix.arch.qemu }}-static /bin/bash -c '/debootstrap/debootstrap --second-stage'
+      - uses: actions/cache/save@v4
+        if: steps.cache.outputs.cache-hit != 'true'
+        with:
+          path: /tmp/chroot/${{ matrix.arch.os }}
+          key: ${{ matrix.os }}.${{ matrix.arch.os }}
+      - name: Build and run MAMBO inside chroot
+        run: |
+          sudo cp -r $GITHUB_WORKSPACE/mambo /tmp/chroot/${{ matrix.arch.os }}/root
+          sudo chroot /tmp/chroot/${{ matrix.arch.os }}/ /usr/bin/qemu-${{ matrix.arch.qemu }}-static /bin/bash -c 'sudo apt-get update; sudo apt-get upgrade -y; sudo apt-get -y install build-essential libelf-dev ruby; cd /root/mambo/; make'
+          sudo chroot /tmp/chroot/${{ matrix.arch.os }}/ /usr/bin/qemu-${{ matrix.arch.qemu }}-static /bin/bash -c '/root/mambo/dbm /bin/ls'
