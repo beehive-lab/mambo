@@ -3059,8 +3059,8 @@ size_t scan_t32(dbm_thread *thread_data, uint16_t *read_address, int basic_block
       case THUMB_NEON_VRHADD:
       case THUMB_NEON_VRSHR:
       case THUMB_NEON_VRSHRN:
-      case THUMB_NEON_VSDOT_EL:
-      case THUMB_NEON_VSDOT_VEC:
+      case THUMB_NEON_VSDOT_SCAL:
+      case THUMB_NEON_VSDOT:
       case THUMB_NEON_VSHL:
       case THUMB_NEON_VSHLI:
       case THUMB_NEON_VSHLL:
@@ -3070,14 +3070,14 @@ size_t scan_t32(dbm_thread *thread_data, uint16_t *read_address, int basic_block
       case THUMB_NEON_VSUB_I:
       case THUMB_NEON_VSUBL:
       case THUMB_NEON_VSUBW:
-      case THUMB_NEON_VSUDOT_EL:
+      case THUMB_NEON_VSUDOT:
       case THUMB_NEON_VSWP:
       case THUMB_NEON_VTRN:
       case THUMB_NEON_VTST:
-      case THUMB_NEON_VUDOT_EL:
-      case THUMB_NEON_VUDOT_VEC:
-      case THUMB_NEON_VUSDOT_EL:
-      case THUMB_NEON_VUSDOT_VEC:
+      case THUMB_NEON_VUDOT_SCAL:
+      case THUMB_NEON_VUDOT:
+      case THUMB_NEON_VUSDOT_SCAL:
+      case THUMB_NEON_VUSDOT:
       case THUMB_VFP_VABS:
       case THUMB_VFP_VADD:
       case THUMB_VFP_VCMP:
@@ -3088,17 +3088,17 @@ size_t scan_t32(dbm_thread *thread_data, uint16_t *read_address, int basic_block
       case THUMB_VFP_VCVT_F_FP:
       case THUMB_VFP_VCVT_F_I:
       case THUMB_VFP_VDIV:
-      case THUMB_VFP_VFMAL_EL:
-      case THUMB_VFP_VFMAL_VEC:
-      case THUMB_VFP_VFMSL_EL:
-      case THUMB_VFP_VFMSL_VEC:
-      case THUMB_VFP_VINS_HP:
+      case THUMB_NEON_VFMAL_SCAL:
+      case THUMB_NEON_VFMAL:
+      case THUMB_NEON_VFMSL_SCAL:
+      case THUMB_NEON_VFMSL:
+      case THUMB_VFP_VINS:
       case THUMB_VFP_VMLA_F:
       case THUMB_VFP_VMLS_F:
       case THUMB_VFP_VMOV:
       case THUMB_VFP_VMOV_HP:
       case THUMB_VFP_VMOVI:
-      case THUMB_VFP_VMOVX_HP:
+      case THUMB_VFP_VMOVX:
       case THUMB_VFP_VMRS: // rt=0xF is CPSR
       case THUMB_VFP_VMUL:
       case THUMB_VFP_VNEG:

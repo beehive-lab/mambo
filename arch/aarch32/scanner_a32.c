@@ -1804,8 +1804,8 @@ size_t scan_a32(dbm_thread *thread_data, uint32_t *read_address, int basic_block
       case ARM_NEON_VRSHR:
       case ARM_NEON_VRSHRN:
       case ARM_NEON_VRSRA:
-      case ARM_NEON_VSDOT_EL:
-      case ARM_NEON_VSDOT_VEC:
+      case ARM_NEON_VSDOT_SCAL:
+      case ARM_NEON_VSDOT:
       case ARM_NEON_VSHL:
       case ARM_NEON_VSHLI:
       case ARM_NEON_VSHLL:
@@ -1818,14 +1818,14 @@ size_t scan_a32(dbm_thread *thread_data, uint32_t *read_address, int basic_block
       case ARM_NEON_VSUB_I:
       case ARM_NEON_VSUBL:
       case ARM_NEON_VSUBW:
-      case ARM_NEON_VSUDOT_EL:
+      case ARM_NEON_VSUDOT:
       case ARM_NEON_VSWP:
       case ARM_NEON_VTRN:
       case ARM_NEON_VTST:
-      case ARM_NEON_VUDOT_EL:
-      case ARM_NEON_VUDOT_VEC:
-      case ARM_NEON_VUSDOT_EL:
-      case ARM_NEON_VUSDOT_VEC:
+      case ARM_NEON_VUDOT_SCAL:
+      case ARM_NEON_VUDOT:
+      case ARM_NEON_VUSDOT_SCAL:
+      case ARM_NEON_VUSDOT:
       case ARM_NEON_VUZP:
       case ARM_NEON_VZIP:
       case ARM_VFP_VABS:
@@ -1839,19 +1839,19 @@ size_t scan_a32(dbm_thread *thread_data, uint32_t *read_address, int basic_block
       case ARM_VFP_VCVT_F_I:
       case ARM_VFP_VDIV:
       case ARM_VFP_VFMA:
-      case ARM_VFP_VFMAL_EL:
-      case ARM_VFP_VFMAL_VEC:
+      case ARM_NEON_VFMAL_SCAL:
+      case ARM_NEON_VFMAL:
       case ARM_VFP_VFMS:
-      case ARM_VFP_VFMSL_EL:
-      case ARM_VFP_VFMSL_VEC:
+      case ARM_NEON_VFMSL_SCAL:
+      case ARM_NEON_VFMSL:
       case ARM_VFP_VFNMS:
-      case ARM_VFP_VINS_HP:
+      case ARM_VFP_VINS:
       case ARM_VFP_VMLA_F:
       case ARM_VFP_VMLS_F:
       case ARM_VFP_VMOV:
       case ARM_VFP_VMOV_HP:
       case ARM_VFP_VMOVI:
-      case ARM_VFP_VMOVX_HP:
+      case ARM_VFP_VMOVX:
       case ARM_VFP_VMRS:
       case ARM_VFP_VMUL_F:
       case ARM_VFP_VNEG:
