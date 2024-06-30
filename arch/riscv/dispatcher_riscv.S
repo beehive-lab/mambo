@@ -578,8 +578,9 @@ signal_trampoline:
   // 0x7f..(many f)..f..0..0
   srli ra, tp, 32
   beq ra, zero, skip_tp
-  ld ra, 8(tp)
-  mv tp, ra
+//  ld ra, 8(tp)
+//  mv tp, ra
+
 
 skip_tp:
   jal ra, signal_dispatcher
