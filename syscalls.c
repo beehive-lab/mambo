@@ -499,9 +499,11 @@ int syscall_handler_pre(uintptr_t syscall_no, uintptr_t *args, uint16_t *next_in
       // plus any extra stack space used by the syscall_wrapper (64 bytes).
       app_sp += 64 + 144;
 #elif __riscv
-      app_sp += 216;
+      app_sp += 216 + 0x28;
 #endif
 //#if defined(__arm__) || defined(__aarch64__)
+      fprintf(stderr, "App sp in syscall handler after addition: %p\n", app_sp);
+
       ucontext_t *cont = (ucontext_t *)(app_sp + sizeof(siginfo_t));
       sigret_dispatcher_call(thread_data, cont, cont->context_pc);
 /*#endif

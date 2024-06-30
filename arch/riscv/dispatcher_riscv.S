@@ -232,9 +232,13 @@ dispatcher_trampoline:
   ld      s2, 24(sp)
   ld      tp, 32(sp)
   ld      gp, 40(sp)
+  ld      a1, 48(sp)
   ld      a0, 56(sp) // TPC (Translated target)
   ld      s1, 64(sp)
   addi    sp, sp, 72
+
+trap1:
+  beq a1, zero, trap1
 
   j checked_cc_return
 
@@ -469,7 +473,13 @@ syscall_wrapper:
   ld a6, 48+FP_FRAME_SZ(sp)
   ld a7, 56+FP_FRAME_SZ(sp)
 
+  ld tp, 24+(12 * GP_REG_SIZE)+24+FP_FRAME_SZ(sp)
+
   ecall
+
+  lla a3, disp_thread_data
+  ld  a3, (a3)
+  ld  tp, (a3) // mambo_tp is the first value in a dbm_thread
 
   // store the returned value(s)
   sd a0, 0+FP_FRAME_SZ(sp)
@@ -507,6 +517,7 @@ skip_syscall:
 
   // prepare the TPC
   mv a0, s1
+  mv a1, s0
 
   // restore the other values stored at the bottom of the stack frame
   ld s2,  0(sp)
@@ -525,6 +536,10 @@ skip_syscall:
   ld s0, 104(sp)
   ld s1, 112(sp)
   addi sp, sp, 120
+
+trap2:
+  beq a1, zero, trap2
+
   j checked_cc_return
 
 syscall_handler_pre_addr: .quad syscall_handler_pre
@@ -532,8 +547,9 @@ syscall_handler_post_addr: .quad syscall_handler_post
 
 .global signal_trampoline
 signal_trampoline:
+  //ebreak
   addi sp, sp, -144
-  sd x1, 0(sp)
+  sd x1, 0(sp) // ra
   sd x5, 8(sp)
   sd x6, 16(sp)
   sd x7, 24(sp)
@@ -568,7 +584,7 @@ signal_trampoline:
 skip_tp:
   jal ra, signal_dispatcher
 
-  ld x1, 0(sp)
+  ld x1, 0(sp) // ra
   ld x5, 8(sp)
   ld x6, 16(sp)
   ld x7, 24(sp)
@@ -707,14 +723,18 @@ deliver_signal_trampoline_trap:
   ld a0, 0(sp)
   ld a1, 8(sp)
   addi sp, sp, 32
+  // Load data from self_signal struct and deallocate it
 
   // STR X8, [SP, #24]
   sd a7, 24(sp)
 
+  addi sp, sp, -8
+  sd a3, 0(sp)
+
   /*
     TPC, SPC
-    X2, X8
-    X0, X1
+    A2, A7
+    A0, A1
   */
 r:
   // MOV X8, #131
@@ -732,6 +752,10 @@ r:
 
   sd  a3, 8(tp)
 
+  ld a3, 0(sp)
+  addi sp, sp, 8
+
+  //ebreak
   ecall
 send_self_signal:
   // LDP X2, X8, [SP, #16]

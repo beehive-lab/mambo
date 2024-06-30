@@ -82,7 +82,7 @@ void install_system_sig_handlers() {
 }
 
 int deliver_signals(uintptr_t spc, self_signal *s) {
-  fprintf(stderr, "Delivering the signal\n");
+  fprintf(stderr, "Delivering the signal %p\n", spc);
   // fprintf(stderr, "%ld\n", current_thread->is_signal_pending);
   uint64_t sigmask;
 
@@ -522,34 +522,22 @@ void restore_ihl_regs(ucontext_t *cont) {
 }
 
 void sigret_dispatcher_call(dbm_thread *thread_data, ucontext_t *cont, uintptr_t target) {
-  uintptr_t *sp = (uintptr_t *)cont->context_sp;
+  volatile uintptr_t *sp = (uintptr_t *)cont->context_sp;
 
   fprintf(stderr, "sigret_dispatcher_call start\n");
   fprintf(stderr, "%p %p %p %p\n", thread_data, cont, target, sp);
 
-#ifdef __arm__
-  sp -= DISP_SP_OFFSET / 4;
-#elif __aarch64__
-  sp -= 2;
-#elif __riscv
-  sp -= 2;
-#endif
+  sp -= 3;
   
-  fprintf(stderr, "%lx %lx\n", sp, (int64_t) sp % 16);
+  fprintf(stderr, "%lx\n", sp);
 
-  sp[0] = cont->context_reg(0);
-  sp[1] = cont->context_reg(1);
-#ifdef __arm__
-  sp[2] = cont->context_reg(2);
-  sp[3] = cont->context_reg(3);
-#endif
-  cont->context_reg(0) = target;
-  cont->context_reg(1) = 0;
+  sp[0] = cont->context_reg(9);
+  sp[1] = cont->context_reg(10);
+  sp[2] = cont->context_reg(11);
+
+  cont->context_reg(10) = target;
+  cont->context_reg(11) = 0;
   cont->context_pc = thread_data->dispatcher_addr;
-#ifdef __arm__
-  cont->context_reg(3) = cont->context_sp;
-  cont->uc_mcontext.arm_cpsr &= ~CPSR_T;
-#endif
 
   fprintf(stderr, "sigret_dispatcher_call end\n");
 
