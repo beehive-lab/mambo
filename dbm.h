@@ -274,6 +274,9 @@ struct dbm_thread_s {
   int pending_signals[_NSIG];
   uint32_t is_signal_pending;
   void *pstack;
+
+  // Can be utilised to trasnfer data to child thread
+  void *shared_parent_data;
 };
 
 typedef enum {
