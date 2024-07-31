@@ -10,6 +10,8 @@
 #PLUGINS+=plugins/memcheck/memcheck.S plugins/memcheck/memcheck.c plugins/memcheck/naive_stdlib.c
 #PLUGINS+=plugins/follow_exec.c
 #PLUGINS+=plugins/hotspot.c
+#PLUGINS+=plugins/datarace/datarace.c plugins/datarace/detectors/fasttrack.c
+#PLUGINS+=plugins/datarace/datarace.c plugins/datarace/detectors/djit.c
 
 OPTS= -DDBM_LINK_UNCOND_IMM
 OPTS+=-DDBM_INLINE_UNCOND_IMM
@@ -86,6 +88,12 @@ pie:
 
 $(or $(OUTPUT_FILE),dbm): $(HEADERS) $(SOURCES) $(PLUGINS)
 	$(CC) $(CFLAGS) $(LDFLAGS) $(OPTS) $(INCLUDES) -o $@ $(SOURCES) $(PLUGINS) $(PIE) $(LIBS) $(PLUGIN_ARGS)
+
+datarace_ft:
+	PLUGINS="plugins/datarace/datarace.c plugins/datarace/detectors/fasttrack.c" CFLAGS="-DFASTTRACK" OUTPUT_FILE=mambo_datarace_ft make
+
+datarace_djit:
+	PLUGINS="plugins/datarace/datarace.c plugins/datarace/detectors/djit.c" CFLAGS="-DDJIT" OUTPUT_FILE=mambo_datarace_djit make
 
 cachesim:
 	PLUGINS="plugins/cachesim/cachesim.c plugins/cachesim/cachesim.S plugins/cachesim/cachesim_model.c" OUTPUT_FILE=mambo_cachesim make
