@@ -126,6 +126,8 @@ dbm_thread *dbm_create_thread(dbm_thread *thread_data, void *next_inst, sys_clon
   new_thread_data->set_tid = set_tid;
   new_thread_data->clone_args = args;
   new_thread_data->pstack = pstack;
+  new_thread_data->shared_parent_data = thread_data->shared_parent_data;
+
 
   pthread_attr_t attr;
   pthread_attr_init(&attr);
