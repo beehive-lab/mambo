@@ -219,13 +219,71 @@ int mambo_register_function_cb(mambo_context *ctx, char *fn_name,
                                mambo_callback cb_pre, mambo_callback cb_post, int max_args);
 
 /* Memory management */
+/**
+ * @brief A wrapper of mmap to allocate memory space optimised to support the
+ * DBM use case.
+ *
+ * An mmap wrapper that allocates private to MAMBO memory space with read/write
+ * permissions. This function shoud be used instead of the regular libc malloc
+ * inside plugins.
+ *
+ * @param ctx The context that holds the plugin state. Currently unused.
+ * @param size The allocation size requested. Will round up to a multiple of
+ * page size due to calling mmap.
+ * @return Pointer to the mapped area or @c (void*)-1 on error.
+ */
 void *mambo_alloc(mambo_context *ctx, size_t size);
+
+/**
+ * @brief Frees memory space pointed by @c ptr which must have been returned by a
+ * previous call to mambo_alloc.
+ *
+ * Currently this function is just and empty wrapper.
+ *
+ * @param ctx The context that holds the plugin state. Currently unused.
+ * @param ptr Pointer to memory space requested for freeing. Currently unused.
+ */
 void mambo_free(mambo_context *ctx, void *ptr);
 
 /* Access plugin data */
+/**
+ * @brief Stores an address to a global structure, making data stored at that
+ * address accessible between callbacks of all threads running in MAMBO.
+ *
+ * @param ctx The context that holds the plugin state.
+ * @param data The address to be stored.
+ * @return MAMBO_SUCCESS on success or MAMBO_INVALID_PLUGIN_ID on error.
+ */
 int mambo_set_plugin_data(mambo_context *ctx, void *data);
+
+/**
+ * @brief Retrieves an address from a global structure accessible between
+ * callbacks of all threads running in MAMBO.
+ *
+ * @param ctx The context that holds the plugin state.
+ * @return Pointer to the address holding the data.
+ */
 void *mambo_get_plugin_data(mambo_context *ctx);
+
+/**
+ * @brief Stores an address holding data to a structure allocated in the calling
+ * thread, making data accessible between callbacks of that thread running in
+ * MAMBO.
+ *
+ * @param ctx The context that holds the plugin state.
+ * @param data Pointer to the address where data will be stored.
+ * @return MAMBO_SUCCESS on success, or MAMBO_INVALID_PLUGIN_ID or
+ * MAMBO_INVALID_THREAD on error.
+ */
 int mambo_set_thread_plugin_data(mambo_context *ctx, void *data);
+
+/**
+ * @brief Retrieves an address holding data to a structure allocated in the
+ * calling thread, accessible between its callbacks running in MAMBO.
+ *
+ * @param ctx The context that holds the plugin state.
+ * @return Pointer to the address holding the data.
+ */
 void *mambo_get_thread_plugin_data(mambo_context *ctx);
 
 /* Scratch register management */
@@ -298,6 +356,19 @@ int mambo_reserve_cc_space(mambo_context *ctx, size_t size);
 mambo_branch_type mambo_get_branch_type(mambo_context *ctx);
 
 /* Symbol-related functions */
+
+/**
+ * @brief Uses the untranslated address of the application's instruction to
+ * return the symbol name, the starting address of the symbol and the
+ * filename that this instruction belongs to.
+ *
+ * @param addr The untranslated address of the application's instruction.
+ * @param sym_name Pointer to a string where the symbol name will be stored.
+ * @param start_addr Pointer to the pointer where the starting address of the
+ * symbol will be stored.
+ * @param filename Pointer to a string where the filename will be stored.
+ * @return 0 on success or -1 on error.
+ */
 int get_symbol_info_by_addr(uintptr_t addr, char **sym_name, void **start_addr, char **filename);
 typedef int (*stack_frame_handler)(void *data, void *addr, char *sym_name, void *symbol_start_addr, char *filename);
 int get_backtrace(stack_frame_t *fp, stack_frame_handler handler, void *ptr);
