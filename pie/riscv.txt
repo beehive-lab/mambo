@@ -316,7 +316,10 @@ ror_w            0110000a aaaabbbb b101cccc c0111011, c:rd, b:rs1, a:rs2
 orc_b            00101000 0111aaaa a101bbbb b0010011, b:rd, a:rs
 #
 rev8             01101011 1000aaaa a101bbbb b0010011, b:rd, a:rs
-#
+# RV64B Zbc
+clmul            0000101a aaaabbbb b001cccc c0110011, c:rd, b:rs1, a:rs2
+clmul_h          0000101a aaaabbbb b011cccc c0110011, c:rd, b:rs1, a:rs2
+clmulr           0000101a aaaabbbb b010cccc c0110011, c:rd, b:rs1, a:rs2
 
 # Generic instruction types
 #
