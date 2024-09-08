@@ -275,6 +275,15 @@ fcvt_d_l         11010010 0010aaaa abbbcccc c1010011, c:f_rd, a:rs1, b:rm
 fcvt_d_lu        11010010 0011aaaa abbbcccc c1010011, c:f_rd, a:rs1, b:rm
 fmv_d_x          11110010 0000aaaa a000bbbb b1010011, b:f_rd, a:rs1
 #
+# RV64B Zba
+add_uw           0000100a aaaabbbb b000cccc c0111011, c:rd, b:rs1, a:rs2
+sh1add           0010000a aaaabbbb b010cccc c0110011, c:rd, b:rs1, a:rs2
+sh1add_uw        0010000a aaaabbbb b010cccc c0111011, c:rd, b:rs1, a:rs2
+sh2add           0010000a aaaabbbb b100cccc c0110011, c:rd, b:rs1, a:rs2
+sh2add_uw        0010000a aaaabbbb b100cccc c0111011, c:rd, b:rs1, a:rs2
+sh3add           0010000a aaaabbbb b110cccc c0110011, c:rd, b:rs1, a:rs2
+sh3add_uw        0010000a aaaabbbb b110cccc c0111011, c:rd, b:rs1, a:rs2
+slli_uw          000010aa aaaabbbb b001cccc c0011011, c:rd, b:rs1, a:shamt
 # RV64B Zbb
 andn             0100000a aaaabbbb b111cccc c0110011, c:rd, b:rs1, a:rs2
 orrn             0100000a aaaabbbb b110cccc c0110011, c:rd, b:rs1, a:rs2

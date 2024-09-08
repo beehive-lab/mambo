@@ -1290,7 +1290,15 @@ size_t scan_riscv(dbm_thread *thread_data, uint16_t *read_address,
         case RISCV_FCVT_D_L:
         case RISCV_FCVT_D_LU:
         case RISCV_FMV_D_X:
-
+	// RV64B Zba
+	case RISCV_ADD_UW:
+	case RISCV_SH1ADD:
+	case RISCV_SH1ADD_UW:
+	case RISCV_SH2ADD:
+	case RISCV_SH2ADD_UW:
+	case RISCV_SH3ADD:
+	case RISCV_SH3ADD_UW:
+	case RISCV_SLLI_UW:
 	// RV64B Zbb
 	case RISCV_ANDN:
 	case RISCV_ORRN:
