@@ -274,8 +274,41 @@ fmv_x_d          11100010 0000aaaa a000bbbb b1010011, b:rd, a:f_rs1
 fcvt_d_l         11010010 0010aaaa abbbcccc c1010011, c:f_rd, a:rs1, b:rm
 fcvt_d_lu        11010010 0011aaaa abbbcccc c1010011, c:f_rd, a:rs1, b:rm
 fmv_d_x          11110010 0000aaaa a000bbbb b1010011, b:f_rd, a:rs1
-
 #
+# RV64B Zbb
+andn             0100000a aaaabbbb b111cccc c0110011, c:rd, b:rs1, a:rs2
+orrn             0100000a aaaabbbb b110cccc c0110011, c:rd, b:rs1, a:rs2
+xnor             0100000a aaaabbbb b100cccc c0110011, c:rd, b:rs1, a:rs2
+#
+clz              01100000 0000aaaa a001bbbb b0010011, b:rd, a:rs1
+clz_w            01100000 0000aaaa a001bbbb b0011011, b:rd, a:rs1
+ctz              01100000 0001aaaa a001bbbb b0010011, b:rd, a:rs1
+ctz_w            01100000 0001aaaa a001bbbb b0011011, b:rd, a:rs1
+#
+cpop             01100000 0010aaaa a001bbbb b0010011, b:rd, a:rs1
+cpop_w           01100000 0010aaaa a001bbbb b0011011, b:rd, a:rs
+#
+max              0000101a aaaabbbb b110cccc c0110011, c:rd, b:rs1, a:rs2
+max_u            0000101a aaaabbbb b111cccc c0110011, c:rd, b:rs1, a:rs2
+min              0000101a aaaabbbb b100cccc c0110011, c:rd, b:rs1, a:rs2
+min_u            0000101a aaaabbbb b101cccc c0110011, c:rd, b:rs1, a:rs2
+#
+sext_b           01100000 0100aaaa a001bbbb b0010011, b:rd, a:rs1
+sext_h           01100000 0101aaaa a001bbbb b0010011, b:rd, a:rs1
+zext_h           00001000 0000aaaa a100bbbb b0111011, b:rd, a:rs
+#
+rol              0110000a aaaabbbb b001cccc c0110011, c:rd, b:rs1, a:rs2
+rol_w            0110000a aaaabbbb b001cccc c0111011, c:rd, b:rs1, a:rs2
+ror              0110000a aaaabbbb b101cccc c0110011, c:rd, b:rs1, a:rs2
+rori             011000aa aaaabbbb b101cccc c0010011, c:rd, b:rs1, a:shamt
+rori_w           0110000a aaaabbbb b101cccc c0011011, c:rd, b:rs1, a:shamt
+ror_w            0110000a aaaabbbb b101cccc c0111011, c:rd, b:rs1, a:rs2
+#
+orc_b            00101000 0111aaaa a101bbbb b0010011, b:rd, a:rs
+#
+rev8             01101011 1000aaaa a101bbbb b0010011, b:rd, a:rs
+#
+
 # Generic instruction types
 #
 branch           aaaaaaab bbbbcccc cdddeeee e1100011, d:funct3, c:rs1, b:rs2, a:immhi, e:immlo

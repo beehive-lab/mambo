@@ -1290,6 +1290,32 @@ size_t scan_riscv(dbm_thread *thread_data, uint16_t *read_address,
         case RISCV_FCVT_D_L:
         case RISCV_FCVT_D_LU:
         case RISCV_FMV_D_X:
+
+	// RV64D Zbb
+	case RISCV_ANDN:
+	case RISCV_ORRN:
+	case RISCV_XNOR:
+	case RISCV_CLZ:
+	case RISCV_CLZ_W:
+	case RISCV_CTZ:
+	case RISCV_CTZ_W:
+	case RISCV_CPOP:
+	case RISCV_CPOP_W:
+	case RISCV_MAX:
+	case RISCV_MAX_U:
+	case RISCV_MIN:
+	case RISCV_MIN_U:
+	case RISCV_SEXT_B:
+	case RISCV_SEXT_H:
+	case RISCV_ZEXT_H:
+	case RISCV_ROL:
+	case RISCV_ROL_W:
+	case RISCV_ROR:
+	case RISCV_RORI:
+	case RISCV_RORI_W:
+	case RISCV_ROR_W:
+	case RISCV_ORC_B:
+	case RISCV_REV8:
           copy_riscv();
           break;
 #endif
@@ -1306,10 +1332,10 @@ size_t scan_riscv(dbm_thread *thread_data, uint16_t *read_address,
           }
           break;
         default:
-          fprintf(stderr, "Unhandled RISC-V instruction: %d at %p\n", inst, read_address);
-          while(1);
-          exit(EXIT_FAILURE);
-          break;
+         fprintf(stderr, "Unhandled RISC-V instruction: %d at %p\n", inst, read_address);
+         while(1);
+         exit(EXIT_FAILURE);
+         break;
         }
 #ifdef PLUGINS_NEW
     } // if(!skip_inst)
