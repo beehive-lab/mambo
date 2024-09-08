@@ -1342,6 +1342,9 @@ size_t scan_riscv(dbm_thread *thread_data, uint16_t *read_address,
 	case RISCV_PACK_H:
 	case RISCV_PACK_W:
 	case RISCV_REV_B:
+	// RV64B Zbkx
+	case RISCV_XPERM_B:
+	case RISCV_XPERM_N:
           copy_riscv();
           break;
 #endif
