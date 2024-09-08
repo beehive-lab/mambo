@@ -1291,7 +1291,7 @@ size_t scan_riscv(dbm_thread *thread_data, uint16_t *read_address,
         case RISCV_FCVT_D_LU:
         case RISCV_FMV_D_X:
 
-	// RV64D Zbb
+	// RV64B Zbb
 	case RISCV_ANDN:
 	case RISCV_ORRN:
 	case RISCV_XNOR:
