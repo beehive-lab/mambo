@@ -337,6 +337,10 @@ rev_b            01101000 0111aaaa a101bbbb b0010011, b:rd, a:rs
 # RV64B Zbkx
 xperm_n          0010100a aaaabbbb b010cccc c0110011, c:rd, b:rs1, a:rs2
 xperm_b          0010100a aaaabbbb b100cccc c0110011, c:rd, b:rs1, a:rs2
+#
+# Zicond -- Version 1.0.0
+czero_eqz        0000111a aaaabbbb b101cccc c0110011, c:rd, b:rs1, a:rs2
+czero_nez        0000111a aaaabbbb b111cccc c0110011, c:rd, b:rs1, a:rs2
 
 # Generic instruction types
 #
