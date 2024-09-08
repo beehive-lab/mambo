@@ -320,6 +320,15 @@ rev8             01101011 1000aaaa a101bbbb b0010011, b:rd, a:rs
 clmul            0000101a aaaabbbb b001cccc c0110011, c:rd, b:rs1, a:rs2
 clmul_h          0000101a aaaabbbb b011cccc c0110011, c:rd, b:rs1, a:rs2
 clmulr           0000101a aaaabbbb b010cccc c0110011, c:rd, b:rs1, a:rs2
+# RV64B Zbs
+bclr             0100100a aaaabbbb b001cccc c0110011, c:rd, b:rs1, a:rs2
+bclri            010010aa aaaabbbb b001cccc c0010011, c:rd, b:rs1, a:shamt
+bext             0100100a aaaabbbb b101cccc c0110011, c:rd, b:rs1, a:rs2
+bexti            010010aa aaaabbbb b101cccc c0010011, c:rd, b:rs1, a:shamt
+binv             0110100a aaaabbbb b001cccc c0110011, c:rd, b:rs1, a:rs2
+binvi            011010aa aaaabbbb b001cccc c0010011, c:rd, b:rs1, a:shamt
+bset             0010100a aaaabbbb b001cccc c0110011, c:rd, b:rs1, a:rs2
+bseti            001010aa aaaabbbb b001cccc c0010011, c:rd, b:rs1, a:shamt
 
 # Generic instruction types
 #

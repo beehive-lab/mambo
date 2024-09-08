@@ -1328,6 +1328,15 @@ size_t scan_riscv(dbm_thread *thread_data, uint16_t *read_address,
 	case RISCV_CLMUL:
 	case RISCV_CLMUL_H:
 	case RISCV_CLMULR:
+	// RV64B Zbs
+	case RISCV_BCLR:
+	case RISCV_BCLRI:
+	case RISCV_BEXT:
+	case RISCV_BEXTI:
+	case RISCV_BINV:
+	case RISCV_BINVI:
+	case RISCV_BSET:
+	case RISCV_BSETI:
           copy_riscv();
           break;
 #endif
