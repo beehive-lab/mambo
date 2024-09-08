@@ -1348,6 +1348,9 @@ size_t scan_riscv(dbm_thread *thread_data, uint16_t *read_address,
 	// RV64 Zicond
 	case RISCV_CZERO_EQZ:
 	case RISCV_CZERO_NEZ:
+	//RV64 Zacas
+	case RISCV_AMOCAS_W:
+	case RISCV_AMOCAS_D:
           copy_riscv();
           break;
 #endif

@@ -341,6 +341,10 @@ xperm_b          0010100a aaaabbbb b100cccc c0110011, c:rd, b:rs1, a:rs2
 # Zicond -- Version 1.0.0
 czero_eqz        0000111a aaaabbbb b101cccc c0110011, c:rd, b:rs1, a:rs2
 czero_nez        0000111a aaaabbbb b111cccc c0110011, c:rd, b:rs1, a:rs2
+#
+# Zacas -- Verson 1.0.0
+amocas_w         00101abc ccccdddd d010eeee e0101111, e:rd, d:rs1, c:rs2, b:rl, a:aq
+amocas_d         00101abc ccccdddd d011eeee e0101111, e:rd, d:rs1, c:rs2, b:rl, a:aq
 
 # Generic instruction types
 #
