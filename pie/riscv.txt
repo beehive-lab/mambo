@@ -345,6 +345,37 @@ czero_nez        0000111a aaaabbbb b111cccc c0110011, c:rd, b:rs1, a:rs2
 # Zacas -- Verson 1.0.0
 amocas_w         00101abc ccccdddd d010eeee e0101111, e:rd, d:rs1, c:rs2, b:rl, a:aq
 amocas_d         00101abc ccccdddd d011eeee e0101111, e:rd, d:rs1, c:rs2, b:rl, a:aq
+#
+# RISC-V Scalar Crypto Extensions Version 1.0.0 (Note, there is some overlap with RV64B)
+# Zbkb
+brev8            01101000 0111aaaa a101bbbb b0010011, b:rd, a:rs
+# Zbkx
+xperm8           0010100a aaaabbbb b100cccc c0110011, c:rd, b:rs1, a:rs2
+xperm4           0010100a aaaabbbb b010cccc c0110011, c:rd, b:rs1, a:rs2
+# Zknd
+aes64ds          0011101a aaaabbbb b000cccc c0110011, c:rd, b:rs1, a:rs2
+aes64dsm         0011111a aaaabbbb b000cccc c0110011, c:rd, b:rs1, a:rs2
+aes64im          00110000 0000aaaa a001bbbb b0010011, b:rd, a:rs
+aes64ksli        00110001 aaaabbbb b001cccc c0010011, c:rd, b:rs1, a:rnum
+aes64ks2         0111111a aaaabbbb b000cccc c0110011, c:rd, b:rs1, a:rs2
+# Zkne
+aes64es          0011001a aaaabbbb b000cccc c0110011, c:rd, b:rs1, a:rs2
+aes64esm         0011011a aaaabbbb b000cccc c0110011, c:rd, b:rs1, a:rs2
+# Zknh
+sha256sig0       00010000 0010aaaa a001bbbb b0010011, b:rd, a:rs1
+sha256sig1       00010000 0011aaaa a001bbbb b0010011, b:rd, a:rs1
+sha256sum0       00010000 0000aaaa a001bbbb b0010011, b:rd, a:rs1
+sha256sum1       00010000 0001aaaa a001bbbb b0010011, b:rd, a:rs1
+sha512sig0       00010000 0110aaaa a001bbbb b0010011, b:rd, a:rs1
+sha512sig1       00010000 0111aaaa a001bbbb b0010011, b:rd, a:rs1
+sha512sum0       00010000 0100aaaa a001bbbb b0010011, b:rd, a:rs1
+sha512sum1       00010000 0101aaaa a001bbbb b0010011, b:rd, a:rs1
+# Zksed
+sm4ed           aa11000b bbbbcccc c000dddd d0110011, d:rd, c:rs1, b:rs2, a:bs
+sm4ks            aa11010b bbbbcccc c000dddd d0110011, d:rd, c:rs1, b:rs2, a:bs
+# Zksh
+sm3p0            00010000 1000aaaa a001bbbb b0010011, b:rd, a:rs1
+sm3p1            00010000 1001aaaa a001bbbb b0010011, b:rd, a:rs1
 
 # Generic instruction types
 #

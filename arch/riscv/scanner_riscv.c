@@ -1351,6 +1351,29 @@ size_t scan_riscv(dbm_thread *thread_data, uint16_t *read_address,
 	//RV64 Zacas
 	case RISCV_AMOCAS_W:
 	case RISCV_AMOCAS_D:
+	// RV64 Scalar Crypto
+	case RISCV_BREV8:
+	case RISCV_XPERM8:
+	case RISCV_XPERM4:
+	case RISCV_AES64DS:
+	case RISCV_AES64DSM:
+	case RISCV_AES64IM:
+	case RISCV_AES64KSLI:
+	case RISCV_AES64KS2:
+	case RISCV_AES64ES:
+	case RISCV_AES64ESM:
+	case RISCV_SHA256SIG0:
+	case RISCV_SHA256SIG1:
+	case RISCV_SHA256SUM0:
+	case RISCV_SHA256SUM1:
+	case RISCV_SHA512SIG0:
+	case RISCV_SHA512SIG1:
+	case RISCV_SHA512SUM0:
+	case RISCV_SHA512SUM1:
+	case RISCV_SM4ED:
+	case RISCV_SM4KS:
+	case RISCV_SM3P0:
+	case RISCV_SM3P1:
           copy_riscv();
           break;
 #endif
