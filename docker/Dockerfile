@@ -2,7 +2,7 @@ FROM ubuntu:latest
 
 RUN apt-get update
 RUN apt-get install -y qemu-system-misc opensbi u-boot-qemu
-RUN apt-get install -y qemu-system-aarch64 qemu-efi
+RUN apt-get install -y qemu-system-aarch64 qemu-efi-aarch64 qemu-efi-riscv64
 RUN apt-get install -y wget xz-utils git build-essential libelf-dev ruby gdb sudo
 
 #create new user
@@ -27,10 +27,10 @@ RUN echo "#!/bin/bash\n\nqemu-system-aarch64 -machine virt -cpu cortex-a57 -smp 
 RUN chown mambo run-qemu-arm64.sh
 
 WORKDIR /home/mambo/riscv
-RUN wget https://cdimage.ubuntu.com/ubuntu-server/daily-preinstalled/current/noble-preinstalled-server-riscv64.img.xz
-RUN unxz noble-preinstalled-server-riscv64.img.xz
-RUN qemu-img resize noble-preinstalled-server-riscv64.img +8G
-RUN echo "#!/bin/bash\n\nqemu-system-riscv64 -machine virt -m 4G -smp cpus=2 -nographic     -bios /usr/lib/riscv64-linux-gnu/opensbi/generic/fw_jump.bin     -kernel /usr/lib/u-boot/qemu-riscv64_smode/u-boot.bin     -netdev user,id=net0     -device virtio-net-device,netdev=net0     -drive file=noble-preinstalled-server-riscv64.img,format=raw,if=virtio     -device virtio-rng-pci\n" > run-qemu-riscv.sh
+RUN wget https://cdimage.ubuntu.com/ubuntu-server/daily-preinstalled/current/oracular-preinstalled-server-riscv64.img.xz
+RUN unxz oracular-preinstalled-server-riscv64.img.xz
+RUN qemu-img resize oracular-preinstalled-server-riscv64.img +8G
+RUN echo "#!/bin/bash\n\nqemu-system-riscv64 -machine virt -m 4G -smp cpus=2 -nographic     -bios /usr/lib/riscv64-linux-gnu/opensbi/generic/fw_jump.bin     -kernel /usr/lib/u-boot/qemu-riscv64_smode/u-boot.bin     -netdev user,id=net0     -device virtio-net-device,netdev=net0     -drive file=oracular-preinstalled-server-riscv64.img,format=raw,if=virtio     -device virtio-rng-pci\n" > run-qemu-riscv.sh
 RUN chown mambo run-qemu-riscv.sh
 
 
