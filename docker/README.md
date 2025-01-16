@@ -23,7 +23,8 @@ Here, a prebuilt server image for ubuntu will be run under QEMU.
 4. Clone MAMBO using the following command: `git clone https://github.com/beehive-lab/mambo.git`
 5. Set an environment variable for mambo `export MAMBO_ROOT=/home/ubuntu/mambo`
 6. Change to the cloned directory: `cd $MAMBO_ROOT`
-7. Build MAMBO: `make`
+7. Change line 33 of the makefile to: `LIBS=-lelf -lpthread -lz -lzstd`
+8. Build MAMBO: `make`
 
 
 
@@ -45,5 +46,5 @@ Here, a prebuilt server image for ubuntu will be run under QEMU.
 4. Clone MAMBO using the following command: `git clone https://github.com/beehive-lab/mambo.git`
 5. Set an environment variable for mambo `export MAMBO_ROOT=/home/ubuntu/mambo`
 6. Change to the cloned directory: `cd $MAMBO_ROOT`
-7. Change line 30 of the makefile to: `LIBS=-lelf -lpthread -lz -lzstd`
+7. Change line 33 of the makefile to: `LIBS=-lelf -lpthread -lz -lzstd`
 8. Build MAMBO: `make`
