@@ -14,7 +14,7 @@ The purpose of the Introduction is to go through the main directory of MAMBO, se
 We build the `test` application with `make`:
 
 ```shell
-cd $MAMBO_ROOT/docs/tutorials/hipeac2024/introduction/code
+cd $MAMBO_ROOT/docs/tutorials/hipeac2025/introduction/code
 make
 ```
 
@@ -23,16 +23,16 @@ make
 
 ## Step 2: Build MAMBO with the plugin
 
-Copy the makefile from `$MAMBO_ROOT/tutorials/hipeac2024/introduction/mambo` to your MAMBO repository to replace the existing makefile. This file includes the new plugin into the build process.
+Copy the makefile from `$MAMBO_ROOT/tutorials/hipeac2025/introduction/mambo` to your MAMBO repository to replace the existing makefile. This file includes the new plugin into the build process.
 
 ```shell
-cp $MAMBO_ROOT/docs/tutorials/hipeac2024/introduction/mambo/makefile $MAMBO_ROOT
+cp $MAMBO_ROOT/docs/tutorials/hipeac2025/introduction/mambo/makefile $MAMBO_ROOT
 ```
 
 Then, copy the initial plugin template into `$MAMBO_ROOT/plugins/tutorial.c`:
 
 ```shell
-cp $MAMBO_ROOT/docs/tutorials/hipeac2024/introduction/code/tutorial.c $MAMBO_ROOT/plugins/
+cp $MAMBO_ROOT/docs/tutorials/hipeac2025/introduction/code/tutorial.c $MAMBO_ROOT/plugins/
 ```
 
 Re-build MAMBO with the newly created plugin and the copied Makefile:
@@ -56,7 +56,7 @@ make
 Run the `test` binary.
 
 ```shell
-./dbm $MAMBO_ROOT/docs/tutorials/hipeac2024/introduction/code/test
+./dbm $MAMBO_ROOT/docs/tutorials/hipeac2025/introduction/code/test
 ```
 
 > [!NOTE]
@@ -68,7 +68,7 @@ The expected output is:
 2^16 = 65536
 ```
 
-Now it is a good time to look into the `test` application and see what it does. The code can be found in `$MAMBO_ROOT/docs/tutorials/hipeac2024/introduction/code/test.c`:
+Now it is a good time to look into the `test` application and see what it does. The code can be found in `$MAMBO_ROOT/docs/tutorials/hipeac2025/introduction/code/test.c`:
 
 ```c
 int main(int argc, char* argv[]) {
