@@ -238,35 +238,35 @@ Finally run the code and investigate the output. Since many basic blocks were sc
 The output should be similar to the one below, assuming only blocks from the `test` binary were printed:
 
 ```
-/home/root/mambo/docs/tutorials/hipeac2024/introduction/code/test (0xffffa5708000) (none) executed 1 times
-/home/root/mambo/docs/tutorials/hipeac2024/introduction/code/test (0xffffa5708000) (none) executed 1 times
-/home/root/mambo/docs/tutorials/hipeac2024/introduction/code/test (0xffffa5708000) (none) executed 1 times
-/home/root/mambo/docs/tutorials/hipeac2024/introduction/code/test (0xffffa5708000) (none) executed 1 times
-/home/root/mambo/docs/tutorials/hipeac2024/introduction/code/test (0xffffa5708000) (none) executed 1 times
-/home/root/mambo/docs/tutorials/hipeac2024/introduction/code/test (0xffffa5708000) (none) executed 1 times
-/home/root/mambo/docs/tutorials/hipeac2024/introduction/code/test (0xffffa5708698) (call_weak_fn) executed 1 times
-/home/root/mambo/docs/tutorials/hipeac2024/introduction/code/test (0xffffa5708698) (call_weak_fn) executed 1 times
-/home/root/mambo/docs/tutorials/hipeac2024/introduction/code/test (0xffffa5708000) (none) executed 1 times
-/home/root/mambo/docs/tutorials/hipeac2024/introduction/code/test (0xffffa5708000) (none) executed 1 times
-/home/root/mambo/docs/tutorials/hipeac2024/introduction/code/test (0xffffa5708000) (none) executed 1 times
-/home/root/mambo/docs/tutorials/hipeac2024/introduction/code/test (0xffffa5708000) (none) executed 1 times
-/home/root/mambo/docs/tutorials/hipeac2024/introduction/code/test (0xffffa5708000) (none) executed 1 times
-/home/root/mambo/docs/tutorials/hipeac2024/introduction/code/test (0xffffa5708000) (none) executed 1 times
-/home/root/mambo/docs/tutorials/hipeac2024/introduction/code/test (0xffffa5708000) (none) executed 1 times
-/home/root/mambo/docs/tutorials/hipeac2024/introduction/code/test (0xffffa5708000) (none) executed 1 times
-/home/root/mambo/docs/tutorials/hipeac2024/introduction/code/test (0xffffa5708000) (none) executed 1 times
-/home/root/mambo/docs/tutorials/hipeac2024/introduction/code/test (0xffffa5708000) (none) executed 1 times
-/home/root/mambo/docs/tutorials/hipeac2024/introduction/code/test (0xffffa570876c) (main) executed 1 times
-/home/root/mambo/docs/tutorials/hipeac2024/introduction/code/test (0xffffa570876c) (main) executed 1 times
-/home/root/mambo/docs/tutorials/hipeac2024/introduction/code/test (0xffffa570876c) (main) executed 1 times
-/home/root/mambo/docs/tutorials/hipeac2024/introduction/code/test (0xffffa570876c) (main) executed 1 times
-/home/root/mambo/docs/tutorials/hipeac2024/introduction/code/test (0xffffa570876c) (main) executed 1 times
-/home/root/mambo/docs/tutorials/hipeac2024/introduction/code/test (0xffffa57087d8) (__libc_csu_init) executed 1 times
-/home/root/mambo/docs/tutorials/hipeac2024/introduction/code/test (0xffffa57087d8) (__libc_csu_init) executed 1 times
-/home/root/mambo/docs/tutorials/hipeac2024/introduction/code/test (0xffffa57087d8) (__libc_csu_init) executed 1 times
-/home/root/mambo/docs/tutorials/hipeac2024/introduction/code/test (0xffffa57087d8) (__libc_csu_init) executed 1 times
-/home/root/mambo/docs/tutorials/hipeac2024/introduction/code/test (0xffffa57087d8) (__libc_csu_init) executed 1 times
-/home/root/mambo/docs/tutorials/hipeac2024/introduction/code/test (0xffffa5708000) (none) executed 1 times
+/home/root/mambo/docs/tutorials/hipeac2025/introduction/code/test (0xffffa5708000) (none) executed 1 times
+/home/root/mambo/docs/tutorials/hipeac2025/introduction/code/test (0xffffa5708000) (none) executed 1 times
+/home/root/mambo/docs/tutorials/hipeac2025/introduction/code/test (0xffffa5708000) (none) executed 1 times
+/home/root/mambo/docs/tutorials/hipeac2025/introduction/code/test (0xffffa5708000) (none) executed 1 times
+/home/root/mambo/docs/tutorials/hipeac2025/introduction/code/test (0xffffa5708000) (none) executed 1 times
+/home/root/mambo/docs/tutorials/hipeac2025/introduction/code/test (0xffffa5708000) (none) executed 1 times
+/home/root/mambo/docs/tutorials/hipeac2025/introduction/code/test (0xffffa5708698) (call_weak_fn) executed 1 times
+/home/root/mambo/docs/tutorials/hipeac2025/introduction/code/test (0xffffa5708698) (call_weak_fn) executed 1 times
+/home/root/mambo/docs/tutorials/hipeac2025/introduction/code/test (0xffffa5708000) (none) executed 1 times
+/home/root/mambo/docs/tutorials/hipeac2025/introduction/code/test (0xffffa5708000) (none) executed 1 times
+/home/root/mambo/docs/tutorials/hipeac2025/introduction/code/test (0xffffa5708000) (none) executed 1 times
+/home/root/mambo/docs/tutorials/hipeac2025/introduction/code/test (0xffffa5708000) (none) executed 1 times
+/home/root/mambo/docs/tutorials/hipeac2025/introduction/code/test (0xffffa5708000) (none) executed 1 times
+/home/root/mambo/docs/tutorials/hipeac2025/introduction/code/test (0xffffa5708000) (none) executed 1 times
+/home/root/mambo/docs/tutorials/hipeac2025/introduction/code/test (0xffffa5708000) (none) executed 1 times
+/home/root/mambo/docs/tutorials/hipeac2025/introduction/code/test (0xffffa5708000) (none) executed 1 times
+/home/root/mambo/docs/tutorials/hipeac2025/introduction/code/test (0xffffa5708000) (none) executed 1 times
+/home/root/mambo/docs/tutorials/hipeac2025/introduction/code/test (0xffffa5708000) (none) executed 1 times
+/home/root/mambo/docs/tutorials/hipeac2025/introduction/code/test (0xffffa570876c) (main) executed 1 times
+/home/root/mambo/docs/tutorials/hipeac2025/introduction/code/test (0xffffa570876c) (main) executed 1 times
+/home/root/mambo/docs/tutorials/hipeac2025/introduction/code/test (0xffffa570876c) (main) executed 1 times
+/home/root/mambo/docs/tutorials/hipeac2025/introduction/code/test (0xffffa570876c) (main) executed 1 times
+/home/root/mambo/docs/tutorials/hipeac2025/introduction/code/test (0xffffa570876c) (main) executed 1 times
+/home/root/mambo/docs/tutorials/hipeac2025/introduction/code/test (0xffffa57087d8) (__libc_csu_init) executed 1 times
+/home/root/mambo/docs/tutorials/hipeac2025/introduction/code/test (0xffffa57087d8) (__libc_csu_init) executed 1 times
+/home/root/mambo/docs/tutorials/hipeac2025/introduction/code/test (0xffffa57087d8) (__libc_csu_init) executed 1 times
+/home/root/mambo/docs/tutorials/hipeac2025/introduction/code/test (0xffffa57087d8) (__libc_csu_init) executed 1 times
+/home/root/mambo/docs/tutorials/hipeac2025/introduction/code/test (0xffffa57087d8) (__libc_csu_init) executed 1 times
+/home/root/mambo/docs/tutorials/hipeac2025/introduction/code/test (0xffffa5708000) (none) executed 1 times
 ```
 
 Does it seem correct? Probably not, because we see in the test program hosted by MAMBO that there is a loop in the main function with 16 iterations. We also see that all the basic blocks execute only once. So what has gone wrong? The next exercise explores this issue.
