@@ -3,7 +3,7 @@
 The final exercise covers more advanced instrumentation techniques, showing how a function written in C can be inserted into an execution flow of the binary at a specific instruction. The specific task is:
 
 ___
-**Instrument every AArch64 `MUL` instruction, so its current operands (arguments) are printed before the instruction is executed.**
+**Instrument every AArch64 `MUL` / RISC-V `MULW`  instruction, so its current operands (arguments) are printed before the instruction is executed.**
 ___
 
 ## Step 1: Instructions Instrumentation
@@ -24,17 +24,22 @@ The second steps describes MAMBO facilities for decoding individual instructions
 
 ### PIE
 
-MAMBO uses [PIE](https://github.com/beehive-lab/pie) (MAMBO custom instruction encoder/decoder generator) to generate functions for instruction decoding and encoding. Those are fairly low-level utilities, and do not provide the exact decoding for every assembly instruction. Instead they closely follow conventions of the [ARM Architecture Reference Manual](https://developer.arm.com/documentation/ddi0487/ja/). As a result, certain instructions are aggregated under the same basic type, and further decoding of specific fields may be required to identify the specific instruction. A good example of this concept is the MOV instruction, which moves a value from one register to another. This is decoded by MAMBO as an ADD instruction, since in the ARMv8 ISA, MOV Xd, Xn is simply an alias for the true operation in the hardware which adds the contents of the zero register to the value in register Xn and places the result in register Xd (ADD Xd, Xn, Xzr).
+MAMBO uses [PIE](https://github.com/beehive-lab/pie) (MAMBO custom instruction encoder/decoder generator) to generate functions for instruction decoding and encoding. Those are fairly low-level utilities, that closely follow conventions of the [ARM Architecture Reference Manual](https://developer.arm.com/documentation/ddi0487/ja/) and [RISC-V Specification](https://drive.google.com/file/d/1uviu1nH-tScFfgrovvFCrj7Omv8tFtkp/view). For ARM64, certain instructions are aggregated under the same basic type, and further decoding of specific fields may be required to identify the specific instruction. A good example of this concept is the MOV instruction, which moves a value from one register to another. This is decoded by MAMBO as an ADD instruction, since in the ARMv8 ISA, MOV Xd, Xn is simply an alias for the true operation in the hardware which adds the contents of the zero register to the value in register Xn and places the result in register Xd (ADD Xd, Xn, Xzr).
+For RISC-V, each instruction is encoded seperately meaning that the desired instruction can be decoded directly.
 
 > [!TIP]
-> Instruction encodings can be found in the [ARM Architecture Reference Manual](https://developer.arm.com/documentation/ddi0487/ja/).
+> Instruction encodings can be found in the [ARM Architecture Reference Manual](https://developer.arm.com/documentation/ddi0487/ja/) and [RISC-V Specification](https://drive.google.com/file/d/1uviu1nH-tScFfgrovvFCrj7Omv8tFtkp/view).
 
 ### Decoding Instruction Type
 
-The instruction type can be decoded with the `a64_decode` function (generated with PIE) that takes an address of the instruction as an argument and returns the PIE instruction type:
+The instruction type can be decoded with the `a64_decode`/`riscv_decode` function (generated with PIE) that takes an address of the instruction as an argument and returns the PIE instruction type:
 
 ```c
 a64_instruction a64_decode(uint32_t *address);
+```
+
+```c
+riscv_instruction riscv_decode(uint16_t *address);
 ```
 
 The full list of the PIE instructions types can be found in the PIE repository in architecture specific `[a64|arm|thumb|riscv].txt` files or in `pie-[a64|arm|thumb|riscv]-decoder.h`. To see the latter, PIE has to be built first.
@@ -44,12 +49,16 @@ As a result, the following code can be used to get the type of the scanned instr
 ```c
 a64_instruction instruction = a64_decode(source_addr);
 ```
+```c
+riscv_instruction instruction = riscv_decode(source_addr);
+```
 
 Where `source_addr` was set by the `mambo_get_source_addr` function.
 
 > [!WARNING]
 > PIE instruction types do not directly map to the ARM assembly instructions, but they map to instructions types defined in the ARM Architecture Reference Manual. More user friendly disassembly could be achieved with tool such as [Capstone](https://www.capstone-engine.org/).
 
+## ARM64:
 In this exercise, we look for the `A64_DATA_PROC_REG3` (data processing on 3 registers) instruction type that includes the `MUL` instruction (see [ARM Architecture Reference Manual](https://developer.arm.com/documentation/ddi0487/ja/) for more details). For example:
 
 ```c
@@ -106,8 +115,41 @@ Again `source_addr` was set by the `mambo_get_source_addr` function.
 
 ### Tasks
 
-- [ ] Decode instruction with `a64_decode` and look for the `A64_DATA_PROC_REG3` type.
-- [ ] Decode instruction's fields and analyse `op31` and `o0` to identify the `MUL` instruction.
+- [ ] Decode instruction with `a64_decode`/`riscv_decode` and look for the `A64_DATA_PROC_REG3`/`RISCV_MULW` type.
+- [ ] Decode instruction's fields and analyse `op31` and `o0` to identify the `MUL` instruction. (ARM64)
+
+## RISC-V:
+In this exercise, we look for the `RISCV_MULW` (Multiply Word) instruction (see [RISC-V Specification](https://drive.google.com/file/d/1uviu1nH-tScFfgrovvFCrj7Omv8tFtkp/view) for more details). For example:
+
+```c
+riscv_instruction instruction = riscv_decode(source_addr);
+if(instruction == RISCV_MULW) {
+  // Do something...
+}
+```
+
+### Decoding Instruction Fields
+
+Once the instruction has been found, the fields can be expanded. This is provided by `[a64|arm|thumb|riscv]_*_decode_fields` functions, in this case `riscv_mulw_decode_fields`:
+
+```c
+void riscv_mulw_decode_fields (
+  uint16_t *address,
+  unsigned int *rd,
+  unsigned int *rs1,
+  unsigned int *rs2);
+```
+The function takes the address of the instruction along with pointers to three integers into which it can decode the fields of the instruction: `rd` the result register, `rs1` the multiplicand, and `rs2` the multiplier.
+Thus, we can do the following:
+
+```c
+riscv_instruction instruction = riscv_decode(source_addr);
+if(instruction == RISCV_MULW) {
+  unsigned int rd, rs1, rs2;
+  riscv_mulw_decode_fields(source_addr, &rd, &rs1, &rs2);
+  // Do something with the result
+}
+```
 
 ## Step 3: Implementing Instrumentation in C
 
@@ -131,15 +173,16 @@ void foo(int64_t a, int64_t b) {
 }
 ```
 
-### AArch64 Calling Conventions
+### AArch64 and RISC-V Calling Conventions
 
-The function above is compiled as a part of the MAMBO plugin using a standard C compiler. As such, it is important to understand standard calling conventions for a specific architecture, so the function can be correctly called by the instrumentation. For example the details of AArch64 calling conventions can be found in [Procedure Call Standard for the Arm® 64-bit Architecture (AArch64)](https://github.com/ARM-software/abi-aa/blob/main/aapcs64/aapcs64.rst).
+The function above is compiled as a part of the MAMBO plugin using a standard C compiler. As such, it is important to understand standard calling conventions for a specific architecture, so the function can be correctly called by the instrumentation. The details of AArch64 calling conventions can be found in [Procedure Call Standard for the Arm® 64-bit Architecture (AArch64)](https://github.com/ARM-software/abi-aa/blob/main/aapcs64/aapcs64.rst) and the RISC-V calling conventions in [RISC-V Calling Conventions](https://riscv.org/wp-content/uploads/2024/12/riscv-calling.pdf).
 
-For the purpose of this exercise, it is enough to know that the first 8 integer arguments are passed in register `x0-x7` and the result is returned in `x0`. For the function signature given above `a` is passed in `x0` and `b` is passed in `x1`; no results is returned. This information is used in the next step.
+For the purpose of this exercise, it is enough to know that the first 8 integer arguments are passed in register `x0-x7`(ARM64)/`a0-a7`(RISC-V) and the result is returned in `x0`(ARM64)/`a0`(RISC-V). For the function signature given above `a` is passed in `x0`/`a0` and `b` is passed in `x1`/`a1`; no results is returned. This information is used in the next step.
 
 
 > [!TIP]
-> AArch64 calling conventions can be found in [Procedure Call Standard for the Arm® 64-bit Architecture (AArch64)](https://github.com/ARM-software/abi-aa/blob/main/aapcs64/aapcs64.rst).
+> AArch64 calling conventions can be found in [Procedure Call Standard for the Arm® 64-bit Architecture (AArch64)](https://github.com/ARM-software/abi-aa/blob/main/aapcs64/aapcs64.rst) and the RISC-V calling conventions in [RISC-V Calling Conventions](https://riscv.org/wp-content/uploads/2024/12/riscv-calling.pdf).
+
 
 ### Tasks
 
@@ -158,7 +201,7 @@ void emit_push(mambo_context *ctx, uint32_t regs);
 void emit_pop(mambo_context *ctx, uint32_t regs);
 ```
 
-Both helpers take MAMBO context as the first argument and a 32-bit mask indicating which registers should be preserved. For example, to preserve `x0`, `x1`, and `lr` the following mask is used:
+Both helpers take MAMBO context as the first argument and a 32-bit mask indicating which registers should be preserved. For example, to preserve `x0`/`a0`, `x1`/`a1`, and `lr` the following mask is used:
 
 ```c
 (1 << 0) | (1 << 1) | (1 << 30)
@@ -166,9 +209,16 @@ Both helpers take MAMBO context as the first argument and a 32-bit mask indicati
 
 Or using more human-readable MAMBO-defined aliases:
 
+### ARM64:
 ```c
 (1 << x0) | (1 << x1) | (1 << lr)
 ```
+### RISC-V:
+```c
+(1 << a0) | (1 << a1) | (1 << lr)
+```
+
+## ARM64:
 
 The whole pushing process looks as follows:
 
@@ -258,6 +308,101 @@ emit_pop(ctx, (1 << x0) | (1 << x1) | (1 << lr));
 - [ ] Set arguments with the `mov` instruction using `emit_mov` helper.
 - [ ] Emit function call to the C function with `emit_safe_fcall`.
 - [ ] Pop `x0`, `x1`, and `lr` from the stack with `emit_pop` helper.
+
+> [!WARNING]
+> Do not forget to pop previously saved registers!
+
+
+## RISC-V:
+
+The whole pushing process looks as follows:
+
+```c
+emit_push(ctx, (1 << a0) | (1 << a1) | (1 << lr));
+```
+
+To restore registers the `emit_pop` is used:
+
+```c
+emit_pop(ctx, (1 << a0) | (1 << a1) | (1 << lr));
+```
+
+### Setting Arguments
+
+Before calling the function, arguments have to be set. It was already explained that the function required for this exercise takes its arguments in `a0` and `a1`, so operands of `MULW` have to be moved into those registers. To do that, the `emit_mov` is used:
+
+```c
+void emit_mov(mambo_context *ctx, enum reg rd, enum reg rn);
+```
+
+The function takes MAMBO context, as well as, the index of the destination and source register.
+
+The operands of the `MULW` instruction were already decoded by `riscv_mulw_decode_fields` and placed in `rs1` and `rs2` variables - assuming the exact code from this document has been used. Hence, setting the arguments can be as simple as:
+
+```c
+emit_mov(ctx, a0, rs1);
+emit_mov(ctx, a1, rs2);
+```
+
+However, this does not always work.
+
+> [!CAUTION]
+> Moving registers to arguments can lead to to errors in certain circumstances.
+> 
+> In the following example:
+> 
+> ```c
+> emit_mov(ctx, a0, rs1);
+> emit_mov(ctx, a1, rs2);
+> ```
+>
+> Remembering that `rs1` is a variable corresponding to one of the registers, if it equals `a0` then it will be overwritten by the previously emitted `mv` instruction above; before it is moved to `a1`.
+
+The obvious solution is to check for indices of registers and handle such corner case. However, a simple trick does exist. Since `lr` has been already preserved, but not yet utilised, it can be used to temporarily hold the value of `a0` in the case it gets overwritten. For example:
+
+```c
+emit_mov(ctx, lr, rs2);
+emit_mov(ctx, a0, rs1);
+emit_mov(ctx, a1, lr);
+```
+
+### Emitting Function Calls
+
+The final step is to emit the actual function call. MAMBO has two main functions to do that `emit_fcall` and `emit_safe_fcall`:
+
+```c
+void emit_fcall(mambo_context *ctx, void *function_ptr);
+int emit_safe_fcall(mambo_context *ctx, void *function_ptr, int argno);
+```
+
+The first function simply generates branch and link (`JAL`) instruction and preserves no state, whereas `emit_safe_fcall` preserves state of the applications, so it can call any arbitrary functions, at the cost of a higher performance overhead. This tutorial focuses on the latter as it is simpler to use.
+
+For example:
+
+```c
+emit_safe_fcall(ctx, foo, 2);
+```
+
+> [!WARNING]
+> The `emit_fcall` helper does not preserve the applications state, so any registers that are used by the instrumentation, have to be saved manually. The `emit_safe_fcall` preserves the state, but does not preserve the link register (`lr`).
+
+Putting it all together:
+
+```c
+emit_push(ctx, (1 << a0) | (1 << a1) | (1 << lr));
+emit_mov(ctx, lr, rs2);
+emit_mov(ctx, a0, rs1);
+emit_mov(ctx, a1, lr);
+emit_safe_fcall(ctx, foo, 2);
+emit_pop(ctx, (1 << a0) | (1 << a1) | (1 << lr));
+```
+
+### Tasks
+
+- [ ] Push `a0`, `a1`, and `lr` on the stack with `emit_push` helper.
+- [ ] Set arguments with the `mv` instruction using `emit_mov` helper.
+- [ ] Emit function call to the C function with `emit_safe_fcall`.
+- [ ] Pop `a0`, `a1`, and `lr` from the stack with `emit_pop` helper.
 
 > [!WARNING]
 > Do not forget to pop previously saved registers!

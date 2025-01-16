@@ -112,7 +112,7 @@ void tutorial_print_mul(int64_t rn, int64_t rm) {
 
 int tutorial_pre_inst_cb(mambo_context* ctx) {
   void* source_addr = mambo_get_source_addr(ctx);
-
+#ifdef __aarch64__
   a64_instruction instruction = a64_decode(source_addr);
 
   if(instruction == A64_DATA_PROC_REG3) {
@@ -127,6 +127,21 @@ int tutorial_pre_inst_cb(mambo_context* ctx) {
       emit_pop(ctx, (1 << x0) | (1 << x1) | (1 << lr)); 
     }
   }
+
+#elif __riscv
+  riscv_instruction instruction = riscv_decode(source_addr);
+
+  if (instruction == RISCV_MULW) {
+    unsigned int rd, rs1, rs2;
+    riscv_mulw_decode_fields(source_addr, &rd, &rs1, &rs2);
+    emit_push(ctx, (1 << a0) | (1 << a1) | (1 << lr));
+    emit_mov(ctx, lr, rs2);
+    emit_mov(ctx, a0, rs1);
+    emit_mov(ctx, a1, lr);
+    emit_safe_fcall(ctx, tutorial_print_mul, 2);
+    emit_pop(ctx, (1 << a0) | (1 << a1) | (1 << lr));
+  }
+#endif
 }
 
 __attribute__((constructor))
