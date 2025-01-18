@@ -26,7 +26,7 @@ From outside they behave exactly as standard memory management routines, however
 
 ### MAMBO Hash Map
 
-MAMBO provides a simply and light-weight hash map implementation for storing data within the plugin. It support three main operations:
+MAMBO provides a simple and light-weight hash map implementation for storing data within the plugin. It support three main operations:
 
 ```c
 int mambo_ht_init(mambo_ht_t *ht, size_t initial_size, int index_shift, int fill_factor, bool allow_resize);

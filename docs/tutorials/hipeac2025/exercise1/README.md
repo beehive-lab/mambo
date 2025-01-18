@@ -75,7 +75,7 @@ The `mambo_register_pre_basic_block_cb` event runs just before scanning a single
 int mambo_register_pre_basic_block_cb(mambo_context *ctx, mambo_callback cb);
 ```
 
-The `mambo_callback` is simply a pointer to a function with the following signature:
+The `mambo_callback` is simply a pointer to a function with the following signature which will be called when an event occurs:
 
 ```c
 int (*mambo_callback)(mambo_context *ctx);
@@ -93,7 +93,7 @@ int mambo_register_post_basic_block_cb(mambo_context *ctx, mambo_callback cb);
 ```
 
 >[!TIP]
-> This callback can be used to backpatch instrumentation in the basic block based on information not available earlier (e.g. basic block size).
+> This callback can be used to backpatch instrumentation in the basic block based on information that is not available until the whole basic block has been scanned (e.g. basic block size).
 
 > [!NOTE]
 > It is important to note that these callbacks enable analysis at **scan time**.

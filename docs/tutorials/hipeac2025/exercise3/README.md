@@ -54,7 +54,7 @@ Replaces the incorrect:
 
 ## Step 2: Evaluation
 
-Now, the `test` binary can be run with the modified plugin. Notice the output of the modified version of the plugin. The previously incorrect basic blocks count should display correct values.
+Now, the `test` binary can be run with the modified plugin. Notice the output of the modified version of the plugin. The previously incorrect basic blocks count should display correct values. Note that you will see a large number of basic blocks because this includes basic blocks from pre-main and post-main execution such as libc.
 
 ## Next Steps 👏
 

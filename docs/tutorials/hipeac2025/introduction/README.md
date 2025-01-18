@@ -23,7 +23,7 @@ make
 
 ## Step 2: Build MAMBO with the plugin
 
-Copy line 13: `PLUGINS+=plugins/tutorial.c` of the makefile from `$MAMBO_ROOT/tutorials/hipeac2025/introduction/mambo` to the makefile in your MAMBO repository. This includes the new plugin into the build process.
+Copy line 13: `PLUGINS+=plugins/tutorial.c` of the makefile from `$MAMBO_ROOT/docs/tutorials/hipeac2025/introduction/mambo` to the makefile in your MAMBO repository. This includes the new plugin into the build process.
 
 Then, copy the initial plugin template into `$MAMBO_ROOT/plugins/tutorial.c`:
 

@@ -24,7 +24,7 @@ The second steps describes MAMBO facilities for decoding individual instructions
 
 ### PIE
 
-MAMBO uses [PIE](https://github.com/beehive-lab/pie) (MAMBO custom instruction encoder/decoder generator) to generate functions for instruction decoding and encoding. Those are fairly low-level utilities, that closely follow conventions of the [ARM Architecture Reference Manual](https://developer.arm.com/documentation/ddi0487/ja/) and [RISC-V Specification](https://drive.google.com/file/d/1uviu1nH-tScFfgrovvFCrj7Omv8tFtkp/view). For ARM64, certain instructions are aggregated under the same basic type, and further decoding of specific fields may be required to identify the specific instruction. A good example of this concept is the MOV instruction, which moves a value from one register to another. This is decoded by MAMBO as an ADD instruction, since in the ARMv8 ISA, MOV Xd, Xn is simply an alias for the true operation in the hardware which adds the contents of the zero register to the value in register Xn and places the result in register Xd (ADD Xd, Xn, Xzr).
+MAMBO uses PIE (MAMBO custom instruction encoder/decoder generator, found in `$MAMBO_ROOT/pie`) to generate functions for instruction decoding and encoding. Those are fairly low-level utilities, that closely follow conventions of the [ARM Architecture Reference Manual](https://developer.arm.com/documentation/ddi0487/ja/) and [RISC-V Specification](https://drive.google.com/file/d/1uviu1nH-tScFfgrovvFCrj7Omv8tFtkp/view). For ARM64, certain instructions are aggregated under the same basic type, and further decoding of specific fields may be required to identify the specific instruction. A good example of this concept is the MOV instruction, which moves a value from one register to another. This is decoded by MAMBO as an ADD instruction, since in the ARMv8 ISA, MOV Xd, Xn is simply an alias for the true operation in the hardware which adds the contents of the zero register to the value in register Xn and places the result in register Xd (ADD Xd, Xn, Xzr).
 For RISC-V, each instruction is encoded seperately meaning that the desired instruction can be decoded directly.
 
 > [!TIP]
@@ -59,7 +59,7 @@ Where `source_addr` was set by the `mambo_get_source_addr` function.
 > PIE instruction types do not directly map to the ARM assembly instructions, but they map to instructions types defined in the ARM Architecture Reference Manual. More user friendly disassembly could be achieved with tool such as [Capstone](https://www.capstone-engine.org/).
 
 ## ARM64:
-In this exercise, we look for the `A64_DATA_PROC_REG3` (data processing on 3 registers) instruction type that includes the `MUL` instruction (see [ARM Architecture Reference Manual](https://developer.arm.com/documentation/ddi0487/ja/) for more details). For example:
+In this exercise, we look for the `A64_DATA_PROC_REG3` (data processing on 3 registers) instruction type that includes the `MUL` instruction because instructions are grouped by instruction type (see [ARM Architecture Reference Manual](https://developer.arm.com/documentation/ddi0487/ja/) for more details). For example:
 
 ```c
 a64_instruction instruction = a64_decode(source_addr);
@@ -186,7 +186,7 @@ For the purpose of this exercise, it is enough to know that the first 8 integer 
 
 ### Tasks
 
-- [ ] Write a C function that prints current operands of the instruction.
+- [ ] Write a C function that prints current operands of the instruction, by implementing the `foo` function described.
 
 ## Step 4: Emitting Function Calls
 
@@ -234,13 +234,13 @@ emit_pop(ctx, (1 << x0) | (1 << x1) | (1 << lr));
 
 ### Setting Arguments
 
-Before calling the function, arguments have to be set. It was already explained that the function required for this exercise takes its arguments in `x0` and `x1`, so operands of `MUL` have to be moved into those registers. To do that, the `emit_mov` is used:
+Before calling the function, arguments have to be set. The foo() function which prints the operands, is passed its arguments in registers `x0` and `x1` (as per the ARM calling convention), so operands of `MUL` have to be moved into those registers. To do that, the `emit_mov` is used:
 
 ```c
 void emit_mov(mambo_context *ctx, enum reg rd, enum reg rn);
 ```
 
-The function takes MAMBO context, as well as, the index of the destination and source register.
+The function takes MAMBO context, as well as, the index of the destination `rn` and source register `rm`.
 
 The operands of the `MUL` instruction were already decoded by `a64_data_proc_reg3_decode_fields` and placed in `rm` and `rn` variables - assuming the exact code from this document has been used. Hence, setting the arguments can be as simple as:
 
@@ -454,6 +454,4 @@ Since some of the C standard library (libc) functions use `MUL` there is more ou
 
 ## Next Steps 👏
 
-This is the last exercise, so please feel free to extend the plugin with any other ideas, ask us any questions or have a look at the [Appendix](../appendix/README.md) that discusses debugging MAMBO and its plugins with GDB.
-
-#### ✏️ Please help us improve the MAMBO tutorial by following the [link](https://forms.office.com/e/ZtDJSEgWhH).
+This is the last exercise, so please feel free to extend the plugin with any other ideas such as only printing `MUL`/`MULW` instructions in a particular function. You can also ask us any questions, or have a look at the [Appendix](../appendix/README.md) that discusses debugging MAMBO and its plugins with GDB.

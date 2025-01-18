@@ -16,6 +16,26 @@
 > [!NOTE]
 > MAMBO can be also run natively, without Docker, on Armv8 Linux machines. Speak to us if you wish to do so and have any problems.
 
+Complete exercises in the following order:
+
+## Introduction
+Follow the [link](introduction/README.md) to start with the Introduction.
+
+## Exercise 1 - Callbacks and scan-time code analysis
+Follow the [link](exercise1/README.md) to start Exercise 1.
+
+## Exercise 2 - Extending Scan-time Analysis
+ Follow the [link](exercise2/README.md) to start Exercise 2.
+
+## Exercise 3 - Run-time Instrumentation
+ Follow the [link](exercise3/README.md) to start Exercise 3.
+
+## Exercise 4 - Advanced Instrumentation
+ Follow the [link](exercise4/README.md) to start Exercise 4.
+
+## Appendix
+ Follow the [link](appendix/README.md) to start the additional exercises.
+
 > [!NOTE]
 > After completing Exercise 1 you can either continue with your current code or start from the code template provided for you in subsequent exercises.
 
@@ -59,20 +79,3 @@
 
 ```
 
-## Introduction
-Follow the [link](introduction/README.md) to start with the Introduction.
-
-## Exercise 1 - Callbacks and scan-time code analysis
-Follow the [link](exercise1/README.md) to start Exercise 1.
-
-## Exercise 2 - Extending Scan-time Analysis
- Follow the [link](exercise2/README.md) to start Exercise 2.
-
-## Exercise 3 - Run-time Instrumentation
- Follow the [link](exercise3/README.md) to start Exercise 3.
-
-## Exercise 4 - Advanced Instrumentation
- Follow the [link](exercise4/README.md) to start Exercise 4.
-
-## Appendix
- Follow the [link](appendix/README.md) to start the additional exercises.
