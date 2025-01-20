@@ -2,9 +2,9 @@
 
 This exercise will go through how a program like our `simple_program` is executed using MAMBO, step-by-step. It's not _necessary_ content for the rest of the tutorial, but it'll certainly help you fully grasp MAMBO if you want to contribute the project.
 
-This exercise will obfuscate for the sake of simplicity much of how MAMBO works, most notably with optimisations regarding branches.
+This exercise will obfuscate for the sake of simplicity much of how MAMBO works, most notably branch optimisations.
 
-Feel free to come back to this exercise later and go straight to [Exercise 2](../exercise2/README.md) if you want to get to the programming, this exercise is just reading material. If not, let's continue.
+Feel free to come back to this exercise later and go straight to [Exercise 3 (TODO)](../README.md) if you want to get to the programming, this exercise is just reading material. If not, let's continue.
 
 ---
 
@@ -19,12 +19,12 @@ An abstract layout of MAMBO's architecture is shown below, with MAMBO wrapped in
 
 A **very** abstract layout. For this exercise we will be going through this architecture, uncovering each component as a compiled binary like `simple_program`  is executed through MAMBO.
 
-Before we start, it's important to point out that the architecture diagram shows the kernel as a seperate entity, as both  MAMBO and the target program are entirely within **userspace** and not **kernelspace**, which brings some considerations for later in the exercise.
+Before we start, it's important to point out that the architecture diagram shows the kernel as a separate entity, as both  MAMBO and the target program are entirely within **userspace** and not **kernelspace**, which brings some considerations for later in the exercise.
 
 
 ### ELF File
 
-The first component that we uncover is the input for MAMBO: a compiled ELF Binary. Since MAMBO is a *dynamic* modification tool, it is also compatible with JIT Compiled languages such as Java.
+The first component that we uncover is the input for MAMBO: a compiled ELF Binary. Since MAMBO is a *dynamic* modification framework, it is also compatible with JIT Compiled languages such as Java.
 
 <div align="center" >
 <img src="images/ELF-File.png" alt="ELF File" style="width:60%;">
@@ -44,7 +44,7 @@ The first stage for the compiled ELF binary in MAMBO is the ELF Loader where the
 </div>
 <br>
 
-For simplicity, portability, and full control over execution, DBM Tools often **load target programs within their own address space**. This cannot be done with `ld`, shown on the LHS of the diagram below, so we must implement a userspace loader which for MAMBO is `libelf`:
+For simplicity, portability, and full control over execution, DBM Frameworks often **load target programs within their own address space**. This cannot be done with `ld`, shown on the LHS of the diagram below, so we must implement a userspace loader which for MAMBO is `libelf`. Not to be confused with the Linux [libelf](https://archlinux.org/packages/core/x86_64/libelf/).
 
 <div align="center" >
 <img src="images/Memory-Allocation.png" alt="Virtual Address Memory Allocation" style="width:60%;">
@@ -66,7 +66,7 @@ With the target program loaded into memory, the next stage is for the program's 
 
 Starting at the entry point for the program, an instruction set architecture (ISA) specific scanner will read the program in units called **basic blocks**, single entry and single branch exit blocks of code. Basic blocks end with branch instructions to other lines of code, as once a branching instruction is reached, the scanner halts and the basic block is formed.
 
-As each line is scanned, it is sent to the decoder to be parsed. The operation of each instruction is required by MAMBO as many instructions have to be modified due to the program running wihtin MAMBO, and not natively. These instructions include:
+As each line is scanned, it is sent to the decoder to be parsed. The operation of each instruction is required by MAMBO as many instructions have to be modified due to the program running within MAMBO, and not natively. These instructions include:
 - Branching Instructions
 - Program Counter relative instructions
 - System register access
@@ -78,7 +78,7 @@ If modifications are required to due to one or more of the reasons listed above,
 <img src="images/basic-block.png" alt="Basic Block" style="width:30%;">
 </div>
 
-The image above shows a basic block being scanned in. In this example, the scanner has started at Line 13: `STR X3, [X5]`. Since this isn't a branch instuction, the scanner continues. Line 14 is an `ADD` instruction, so the scanner continues again. 
+The image above shows a basic block being scanned in. In this example, the scanner has started at Line 13: `STR X3, [X5]`. Since this isn't a branch instruction, the scanner continues. Line 14 is an `ADD` instruction, so the scanner continues again. 
 
 Whilst Line 15 isn't a branching statement, it is a syscall and as previously stated syscalls fall into the category of instructions that have to be modified before they can be executed in MAMBO. 
 
@@ -112,7 +112,7 @@ Both of these issues are handled by the dispatcher.
 
 The dispatcher can be thought of as the overseer of the MAMBO process. It is responsible for facilitating the execution of the target program within MAMBO by directing the program flow through a lookup table (LUT), managing context switches (Context Switcher), and implementing optimisations.
 
-It's easiest to explain the code cache and disptacher by going through the process of a basic block being scanned and executed.
+It's easiest to explain the code cache and dispatcher by going through the process of a basic block being scanned and executed.
 
 ---
 
@@ -165,13 +165,7 @@ The syscall instruction on Line 15 from the previous example is replaced with in
 
 ## Optimisations
 
-The previous sections neglect to mention what distinguishes MAMBO from other DBMs: the variety of optimisations that can be implemented.
-
-Most optimisations are to do with the main source of overhead in DBM tools: indirect branches. Description of optimisations are out of the scope of this tutorial, so a handful of them are outlined below:
-
-- **Inline hash lookups** are instrumented at the end of code blocks
-- **Hot Paths** between basic blocks are identified and directly linked 
-- **Traces** (Superblocks) are created when basic blocks are joined by unconditional branches
+The previous sections neglect to mention what distinguishes MAMBO from other DBMs for RISC architectures: the variety of optimisations that can be implemented. Most optimisations are to do with the main source of overhead in DBMs: indirect branches. Description of optimisations are, however, out of the scope of this tutorial.
 
 ## Plugins
 
@@ -189,7 +183,4 @@ Through an event driven API, plugins are able to dynamically modify the code to 
 In the next section, we will demonstrate how to build a plugin in MAMBO to instrument code into our `basic_program`.
 
 [Next Section :arrow_right:](../exercise3/README.md)
-
-
-
 

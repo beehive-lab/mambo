@@ -43,7 +43,6 @@ Giving the output as :arrow_down_small:
 ```shell
 2^16 = 65536
 ```
----
 
 So as expected, not very exciting. Why don't we use MAMBO to make things more interesting? 
 
@@ -53,7 +52,7 @@ First we'll have to build the MAMBO program with the makefile in the root direct
 make -C $MAMBO_ROOT
 ```
 
-Dynamic Binary Modification (DBM) tools like MAMBO take compiled program binary like `simple_program` as an argument, then runs the program through process that is described in detail in the next section. 
+Dynamic Binary Modification (DBM) frameworks like MAMBO take compiled program binary like `simple_program` as an argument, then runs the program through process that is described in detail in the next section. 
 
 The executable for MAMBO is named `dbm` and is located in the root directory. To run MAMBO, let's pass it `simple_program` as an argument as see what happens:
 
@@ -71,7 +70,7 @@ Giving us the following output :arrow_down_small:
 The output is almost identical, except now we have a status message coming from MAMBO. In reality, quite a lot has just happened.
 
 >[!TIP]
->It's actually quite important that executing `simple_program` normally and then through MAMBO looks the same. This is a concept in DBM tools called _transparency_. More on that later.
+>It's actually quite important that executing `simple_program` normally and then through MAMBO looks the same. This is a concept in DBM called _transparency_. More on that later.
 
 ## 1.2: Dynamic Binary Modification
 
@@ -85,7 +84,7 @@ We've mentioned Dynamic Binary Modification a few times already, so let's finall
 >
 > **Modification:** The altering of a program
 
-So altogether, a DBM _Tool_ is a program that can alter natively compiled user-space binary during runtime, with no source code required. We could take `simple_program` and pass it through to MAMBO as we did before, but instead of simply executing it, we could perform all sorts of modifications on it. Examples of these include:
+So altogether, a DBM _Framework_ is a program that can alter natively compiled user-space binary during runtime, with no source code required. We could take `simple_program` and pass it through to MAMBO as we did before, but instead of simply executing it, we could perform all sorts of modifications on it. Examples of these include:
 
 > **Instrumentation:** Inserting code into the binary
 >
@@ -95,16 +94,16 @@ So altogether, a DBM _Tool_ is a program that can alter natively compiled user-s
 >
 > **Debugging:** Detecting memory faults within a program
 
-MAMBO isn't by any means the first DBM Tool to exist. [Pin](https://www.intel.com/content/www/us/en/developer/articles/tool/pin-a-dynamic-binary-instrumentation-tool.html), [Qemu](https://www.qemu.org), and [DynamoRIO](https://dynamorio.org) are all examples of DBM-based tools. So if other options are avaliable, what is the purpose of MAMBO?
+MAMBO isn't by any means the first DBM framework to exist. [Pin](https://www.intel.com/content/www/us/en/developer/articles/tool/pin-a-dynamic-binary-instrumentation-tool.html), [Qemu](https://www.qemu.org), and [DynamoRIO](https://dynamorio.org) are all examples of DBM frameworks. So if other options are available, what is the purpose of MAMBO?
 
 ### Why MAMBO?
 
-MAMBO was created as part of Cosmin Gorgovan's EPSRC-funded PhD in the School of Computer Science at the University of Manchester, with a handful of properties that distinguishes it from other DBMs:
+MAMBO was created as part of Cosmin Gorgovan's EPSRC-funded PhD in the Department of Computer Science at the University of Manchester, with a number of students contributing to the framework since its inception. A handful of properties that distinguishes MAMBO from other DBMs:
 
 - Optimisations for ARM 32/64-bit, and RISC-V 64-bit
-  - The only avaliable DBM optimised for RISC-V
+  - The only available DBM optimised for RISC-V
 - Low Overhead
-  - Demonstrably low overhead compared to other DBM Tools on benchmark tests
+  - Demonstrably low overhead compared to other DBM Frameworks on benchmark tests
 - Low Complexity Codebase
   - Only ~20,000 lines of code
 - Simple Plugin API
@@ -112,8 +111,7 @@ MAMBO was created as part of Cosmin Gorgovan's EPSRC-funded PhD in the School of
 
 The plugin API is what gives MAMBO its functionality for modifications, as described above. When we ran MAMBO earlier, we neglected to give it any plugins to do anything interesting with, like memory checking, tracing, or branch analysis.
 
----
-
 We will get into plugins in a later exercise, but for now, it's time to explain what exactly happened when we ran `$MAMBO_ROOT/dbm $START_GUIDE/simple_program`.
 
 [Next Section :arrow_right:](../exercise2/README.md)
+

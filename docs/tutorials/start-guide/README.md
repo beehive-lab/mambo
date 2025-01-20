@@ -2,7 +2,7 @@
 
 Welcome to the start guide for MAMBO!
 
-This tutorial introduces MAMBO and the fundamental concepts of Dynamic Binary Modification Tools.
+This tutorial introduces MAMBO and the fundamental concepts of Dynamic Binary Modification frameworks.
 
 ### Exercises
 
@@ -16,13 +16,13 @@ This tutorial introduces MAMBO and the fundamental concepts of Dynamic Binary Mo
     - MAMBO Explained
     - Optimisations
     - Plugins
-3. [**Building a Simple Plugin**](exercise3/README.md)
-    - Introduction to MAMBO Plugins
-    - Context for building a Plugin
-    - Writing the simple plugin
+3. *Building a Simple Plugin (TODO)*
+    - *Introduction to MAMBO plugins (TODO)*
+    - *Context for building a plugin (TODO)*
+    - *Writing the simple plugin (TODO)*
     - *Instrumenting into the basic block (TODO)*
 4. *Building an Advanced Plugin (TODO)* 
-    - *Building an advanced plugin for a simple program*
+    - *Building an advanced plugin for a simple program (TODO)*
 
 ### Getting Started
 
