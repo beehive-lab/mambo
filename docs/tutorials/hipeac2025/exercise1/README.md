@@ -16,7 +16,7 @@ DBM frameworks work by scanning the code of the application and then passing it 
 Before continuing the initial code for this exercise has to be copied to `$MAMBO_ROOT/plugins`:
 
 ```shell
-cp $MAMBO_ROOT/docs/tutorials/hipeac2024/exercise1/code/tutorial.c $MAMBO_ROOT/plugins/
+cp $MAMBO_ROOT/docs/tutorials/hipeac2025/exercise1/code/tutorial.c $MAMBO_ROOT/plugins/
 ```
 
 Now have a look at the copied code. All its parts are explained below.
